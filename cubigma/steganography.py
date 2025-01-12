@@ -38,6 +38,20 @@ def _embed_square(start_x: int, start_y: int, chunk: str, square_size: int, pixe
     return pixels
 
 
+def get_image_size(filepath: str) -> tuple[int, int]:
+    """
+    Get the dimensions of a PNG image.
+
+    Args:
+        filepath (str): Path to the PNG image.
+
+    Returns:
+        tuple[int, int]: A tuple containing the width and height of the image.
+    """
+    with Image.open(filepath) as img:
+        return img.size  # Returns (width, height)
+
+
 def embed_chunks(encrypted_chunks: list[str], original_image_filepath: str) -> None:
     """
     Given four corners of a rectangular cuboid, find the other four corners.

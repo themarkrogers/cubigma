@@ -8,7 +8,7 @@ import random
 
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
-from cubigma.steganography import embed_chunks, get_chunks_from_image
+from cubigma.steganography import embed_chunks, get_chunks_from_image, get_image_size
 from cubigma.utils import read_config, LENGTH_OF_QUARTET, NOISE_SYMBOL, prepare_cuboid_with_key_phrase
 
 config = read_config()
@@ -19,34 +19,92 @@ NUM_BLOCKS = config["NUM_BLOCKS"]
 NUM_SQUARES = 5
 
 
-def smallest_sum_of_five_squares_greater_than_or_equal_to(number: int) -> int:
+def _fits_in_rectangle(squares: list[int], width: int, height: int) -> bool:
+    """Check if squares can fit into a rectangle of given width and height without overlapping."""
+    sorted_squares = sorted(squares, reverse=True)  # Sort descending for better packing
+    rectangle = [(0, 0, width, height)]  # Available space as rectangles
+
+    for square in sorted_squares:
+        side = int(square ** 0.5)  # Get the side length of the square
+        placed = False
+
+        for i, (x1, y1, x2, y2) in enumerate(rectangle):
+            if side <= (x2 - x1) and side <= (y2 - y1):  # Check if square fits
+                # Place the square and update available space
+                new_rectangles = [
+                    (x1 + side, y1, x2, y2),  # Right
+                    (x1, y1 + side, x2, y2),  # Top
+                    (x1, y1, x1 + side, y1 + side)  # Used space
+                ]
+                rectangle.pop(i)
+                rectangle.extend(new_rectangles)
+                placed = True
+                break
+
+        if not placed:
+            return False
+
+    return True
+
+
+def find_five_random_squares_that_fit(message_length: int, image_width: int, image_height: int) -> None | tuple[int, int, int, int, int]:
     """
-    Find the smallest sum of any 5 square numbers, each a multiple of 4, greater than or equal to the given number.
+    Finds five integers (a, b, c, d, e) such that:
+        - a^2 + b^2 + c^2 + d^2 + e^2 >= X
+        - Their areas (a^2, b^2, c^2, d^2, e^2) can fit into a rectangle of size J x K without overlapping
+        - a != b != c != d != e
+        - If multiple solutions exist, one solution from the smallest third of total area is returned.
 
     Args:
-        number (int): The target number.
+        message_length (int): The minimum sum of squares.
+        image_width (int): Width of the rectangle.
+        image_height (int): Height of the rectangle.
 
     Returns:
-        int: The smallest sum of 5 squares meeting the criteria.
+        None | tuple[int, int, int, int, int]: A tuple of 5 integers (a, b, c, d, e), or None if no solution is found.
     """
-    # Generate a list of squares that are multiples of 4
-    squares = []
-    n = 3  # Do not consider 1, 2, or 4; we need >4, length of order number quartet added later
-    while True:
-        square = math.pow(n, 2)
-        if square % LENGTH_OF_QUARTET == 0:  # Ensure the square is a multiple of 4
-            squares.append(square)
-        if len(squares) >= 1:
-            break
-        n += 1
 
-    # Generate combinations of 5 squares
-    smallest_sum = float("inf")
-    for combination in combinations_with_replacement(squares, NUM_SQUARES):
-        total = sum(combination)
-        if total >= number:
-            smallest_sum = min(smallest_sum, total)
-    return smallest_sum
+    solutions = []
+    while len(solutions) < 1000:  # Generate multiple candidate solutions
+        a, b, c, d, e = random.sample(range(1, min(image_width, image_height) + 1), 5)
+        squares = [a**2, b**2, c**2, d**2, e**2]
+        if sum(squares) >= message_length and _fits_in_rectangle(squares, image_width, image_height):
+            solutions.append((a, b, c, d, e))
+    if not solutions:
+        return None
+
+    # Sort solutions by total area and pick one randomly from the smallest third
+    solutions.sort(key=lambda nums: sum(x**2 for x in nums))
+    smallest_third = solutions[:len(solutions) // 3]
+    return random.choice(smallest_third)
+
+
+def split_message_according_to_numbers(square_lengths: list[int], message: str) -> list[str]:
+    """
+    Splits a message into parts based on the proportional lengths defined by square_lengths.
+
+    Args:
+        square_lengths (List[int]): List of integers representing lengths.
+        message (str): The message to split.
+
+    Returns:
+        List[str]: A list of message parts split proportionally to square_lengths.
+    """
+    sum_of_lengths = sum(square_lengths)
+    ratios_of_cuts = [i / float(sum_of_lengths) for i in square_lengths]
+    message_length = len(message)
+    message_parts = []
+
+    start_index = 0
+    for ratio in ratios_of_cuts:
+        part_length = round(ratio * message_length)
+        end_index = start_index + part_length
+        message_parts.append(message[start_index:end_index])
+        start_index = end_index
+
+    length_of_message_parts = sum(message_parts)
+    assert message_length == length_of_message_parts, "This function didn't work as expected"
+    return message_parts
 
 
 def encrypt_message_into_image(key_phrase: str, clear_text_message: str, original_image_filepath: str) -> None:
@@ -65,30 +123,19 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
     cubigma.reformat_characters()
     prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     sanitized_string = prep_string_for_encrypting(clear_text_message)
-    string_length = len(sanitized_string)
-    one_fifth = math.ceil(string_length / float(NUM_SQUARES))
 
-    start_idx1 = 0 * one_fifth
-    idx_1_2 = 1 * one_fifth
-    idx_2_3 = 2 * one_fifth
-    idx_3_4 = 3 * one_fifth
-    idx_4_5 = 4 * one_fifth
-    chunk1 = sanitized_string[start_idx1:idx_1_2]
-    chunk2 = sanitized_string[idx_1_2:idx_2_3]
-    chunk3 = sanitized_string[idx_2_3:idx_3_4]
-    chunk4 = sanitized_string[idx_3_4:idx_4_5]
-    chunk5 = sanitized_string[idx_4_5:]
+    image_width, image_height = get_image_size(original_image_filepath)
+    chunk_sizes = list(find_five_random_squares_that_fit(len(sanitized_string), image_width, image_height))
+    chunks = split_message_according_to_numbers(chunk_sizes, sanitized_string)
 
-    padded_length = smallest_sum_of_five_squares_greater_than_or_equal_to(len(sanitized_string))
+    # # "- LENGTH_OF_QUARTET" is to leave room for the prefixed order number
+    # padded_chunk_length = (int(padded_length / NUM_SQUARES) - LENGTH_OF_QUARTET)
 
-    # "- LENGTH_OF_QUARTET" is to leave room for the prefixed order number
-    padded_chunk_length = (int(padded_length / NUM_SQUARES) - LENGTH_OF_QUARTET)
-
-    padded_chunk1 = cubigma.pad_chunk(chunk1, padded_chunk_length, 1)
-    padded_chunk2 = cubigma.pad_chunk(chunk2, padded_chunk_length, 2)
-    padded_chunk3 = cubigma.pad_chunk(chunk3, padded_chunk_length, 3)
-    padded_chunk4 = cubigma.pad_chunk(chunk4, padded_chunk_length, 4)
-    padded_chunk5 = cubigma.pad_chunk(chunk5, padded_chunk_length, 5)
+    padded_chunk1 = cubigma.pad_chunk(chunks[0], chunk_sizes[0] - LENGTH_OF_QUARTET, 1)
+    padded_chunk2 = cubigma.pad_chunk(chunks[1], chunk_sizes[1] - LENGTH_OF_QUARTET, 2)
+    padded_chunk3 = cubigma.pad_chunk(chunks[2], chunk_sizes[2] - LENGTH_OF_QUARTET, 3)
+    padded_chunk4 = cubigma.pad_chunk(chunks[3], chunk_sizes[3] - LENGTH_OF_QUARTET, 4)
+    padded_chunk5 = cubigma.pad_chunk(chunks[4], chunk_sizes[4] - LENGTH_OF_QUARTET, 5)
 
     # Then encrypt each chunk
     encrypted_chunk1 = cubigma.encode_string(padded_chunk1)
