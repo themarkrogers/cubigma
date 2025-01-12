@@ -23,7 +23,7 @@ def _fits_in_rectangle(squares: list[int], width: int, height: int) -> bool:
     rectangle = [(0, 0, width, height)]  # Available space as rectangles
 
     for square in sorted_squares:
-        side = int(square ** 0.5)  # Get the side length of the square
+        side = int(square**0.5)  # Get the side length of the square
         placed = False
 
         for i, (x1, y1, x2, y2) in enumerate(rectangle):
@@ -32,7 +32,7 @@ def _fits_in_rectangle(squares: list[int], width: int, height: int) -> bool:
                 new_rectangles = [
                     (x1 + side, y1, x2, y2),  # Right
                     (x1, y1 + side, x2, y2),  # Top
-                    (x1, y1, x1 + side, y1 + side)  # Used space
+                    (x1, y1, x1 + side, y1 + side),  # Used space
                 ]
                 rectangle.pop(i)
                 rectangle.extend(new_rectangles)
@@ -45,7 +45,9 @@ def _fits_in_rectangle(squares: list[int], width: int, height: int) -> bool:
     return True
 
 
-def find_five_random_squares_that_fit(message_length: int, image_width: int, image_height: int) -> None | tuple[int, int, int, int, int]:
+def find_five_random_squares_that_fit(
+    message_length: int, image_width: int, image_height: int
+) -> None | tuple[int, int, int, int, int]:
     """
     Finds five integers (a, b, c, d, e) such that:
         - a^2 + b^2 + c^2 + d^2 + e^2 >= X
@@ -62,7 +64,7 @@ def find_five_random_squares_that_fit(message_length: int, image_width: int, ima
         None | tuple[int, int, int, int, int]: A tuple of 5 integers (a, b, c, d, e), or None if no solution is found.
     """
 
-    solutions = []
+    solutions: list[tuple[int, int, int, int, int]] = []
     while len(solutions) < 1000:  # Generate multiple candidate solutions
         a, b, c, d, e = random.sample(range(1, min(image_width, image_height) + 1), 5)
         squares = [a**2, b**2, c**2, d**2, e**2]
@@ -73,7 +75,7 @@ def find_five_random_squares_that_fit(message_length: int, image_width: int, ima
 
     # Sort solutions by total area and pick one randomly from the smallest third
     solutions.sort(key=lambda nums: sum(x**2 for x in nums))
-    smallest_third = solutions[:len(solutions) // 3]
+    smallest_third = solutions[: len(solutions) // 3]
     return random.choice(smallest_third)
 
 
@@ -91,7 +93,7 @@ def split_message_according_to_numbers(square_lengths: list[int], message: str) 
     sum_of_lengths = sum(square_lengths)
     ratios_of_cuts = [i / float(sum_of_lengths) for i in square_lengths]
     message_length = len(message)
-    message_parts = []
+    message_parts: list[str] = []
 
     start_index = 0
     for ratio in ratios_of_cuts:
@@ -100,7 +102,7 @@ def split_message_according_to_numbers(square_lengths: list[int], message: str) 
         message_parts.append(message[start_index:end_index])
         start_index = end_index
 
-    length_of_message_parts = sum(message_parts)
+    length_of_message_parts = sum([len(i) for i in message_parts])
     assert message_length == length_of_message_parts, "This function didn't work as expected"
     return message_parts
 
@@ -119,11 +121,13 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
     """
     cubigma = Cubigma("cuboid.txt")
     cubigma.prepare_machine(key_phrase)
-    # prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     sanitized_string = prep_string_for_encrypting(clear_text_message)
 
     image_width, image_height = get_image_size(original_image_filepath)
-    chunk_sizes = list(find_five_random_squares_that_fit(len(sanitized_string), image_width, image_height))
+    raw_chunk_sizes = find_five_random_squares_that_fit(len(sanitized_string), image_width, image_height)
+    if raw_chunk_sizes is None:
+        raise ValueError("No solutions found to embed provided message in provided image. Better luck next time.")
+    chunk_sizes = list(raw_chunk_sizes)
     chunks = split_message_according_to_numbers(chunk_sizes, sanitized_string)
 
     # # "- LENGTH_OF_QUARTET" is to leave room for the prefixed order number

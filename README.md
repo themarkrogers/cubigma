@@ -47,3 +47,14 @@ Encrypting:
 ASCII frequency:
 * ASCII: https://opendata.stackexchange.com/a/19792
 * Emoji: https://home.unicode.org/emoji/emoji-frequency/
+
+# Maintenance
+
+## Linting
+
+```
+black .
+mypy .
+flake8 .
+pylint .
+```

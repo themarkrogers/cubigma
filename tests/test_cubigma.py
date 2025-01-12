@@ -1,3 +1,5 @@
+# pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
+
 from unittest.mock import patch, mock_open
 import unittest
 
@@ -72,6 +74,9 @@ class TestReadCharactersFile(unittest.TestCase):
         # Assert
         expected_symbols = list(reversed(symbols))
         self.assertEqual(result, expected_symbols)
+
+
+# pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
 
 if __name__ == "__main__":

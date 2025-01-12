@@ -6,3 +6,5 @@ pipdeptree==2.24.0
 pylint==3.3.3
 regex==2024.11.6
 setuptools==75.8.0
+types-regex==2024.11.6.20241221
+types-setuptools==75.8.0.20250110

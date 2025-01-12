@@ -7,10 +7,21 @@ import math
 import random
 
 from cubigma.utils import (
-    LENGTH_OF_QUARTET, NOISE_SYMBOL, generate_reflector, generate_rotors, get_opposite_corners,
-    get_prefix_order_number_quartet, index_to_quartet, pad_chunk_with_rand_pad_symbols, parse_arguments,
-    prep_string_for_encrypting, prepare_cuboid_with_key_phrase, quartet_to_index, sanitize, strengthen_key,
-    user_perceived_length
+    LENGTH_OF_QUARTET,
+    NOISE_SYMBOL,
+    generate_reflector,
+    generate_rotors,
+    get_opposite_corners,
+    get_prefix_order_number_quartet,
+    index_to_quartet,
+    pad_chunk_with_rand_pad_symbols,
+    parse_arguments,
+    prep_string_for_encrypting,
+    prepare_cuboid_with_key_phrase,
+    quartet_to_index,
+    sanitize,
+    strengthen_key,
+    user_perceived_length,
 )
 
 NUM_BLOCKS = 7  # X
@@ -24,6 +35,7 @@ NUM_UNIQUE_QUARTETS = math.comb(NUM_TOTAL_SYMBOLS, LENGTH_OF_QUARTET)
 class Cubigma:
     characters_filepath: str
     cuboid_filepath: str
+    symbols: list[str]
     playfair_cuboid: list[list[list[str]]]
     rotors: list[list[list[list[str]]]]
     reflector: dict[int, int]
@@ -57,8 +69,13 @@ class Cubigma:
             for cur_char in cur_quartet:
                 orig_indices.append(indices_by_char[cur_char])
             encrypted_indices = get_opposite_corners(
-                orig_indices[0], orig_indices[1], orig_indices[2], orig_indices[3],
-                NUM_BLOCKS, LINES_PER_BLOCK, SYMBOLS_PER_LINE
+                orig_indices[0],
+                orig_indices[1],
+                orig_indices[2],
+                orig_indices[3],
+                NUM_BLOCKS,
+                LINES_PER_BLOCK,
+                SYMBOLS_PER_LINE,
             )
             encrypted_char_1 = self._get_chars_for_coordinates(encrypted_indices[0])
             encrypted_char_2 = self._get_chars_for_coordinates(encrypted_indices[1])
@@ -69,9 +86,13 @@ class Cubigma:
         return cur_quartet
 
     def _run_quartet_through_reflector(self, char_quartet) -> str:
-        quartet_index = quartet_to_index(char_quartet, NUM_UNIQUE_QUARTETS)
+        if not self.is_machine_prepared:
+            raise ValueError(
+                "Machine is not prepared yet! Call prepare_machine(key_phrase) before running quartet through reflector"
+            )
+        quartet_index = quartet_to_index(char_quartet, self.symbols)
         reflected_index = self.reflector[quartet_index]  # Reflect the index
-        reflected_quartet = index_to_quartet(reflected_index, NUM_UNIQUE_QUARTETS)
+        reflected_quartet = index_to_quartet(reflected_index, self.symbols)
         return reflected_quartet
 
     def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
@@ -106,7 +127,7 @@ class Cubigma:
                 f"Not enough symbols are prepared. {num_symbols_prepared} symbols prepared. "
                 + f"Requested a cuboid with {symbols_to_load} symbols. "
             )
-        symbols = []
+        symbols: list[str] = []
         with open(self.characters_filepath, "r", encoding="utf-8") as file:
             for line in file.readlines():
                 len_before = len(symbols)
@@ -151,7 +172,13 @@ class Cubigma:
                     current_frame = []
         self.playfair_cuboid = playfair_cuboid
 
-    def _write_cuboid_file(self, symbols: list[str], num_blocks: int = NUM_BLOCKS, lines_per_block: int = LINES_PER_BLOCK, symbols_per_line: int = SYMBOLS_PER_LINE) -> None:
+    def _write_cuboid_file(
+        self,
+        symbols: list[str],
+        num_blocks: int = NUM_BLOCKS,
+        lines_per_block: int = LINES_PER_BLOCK,
+        symbols_per_line: int = SYMBOLS_PER_LINE,
+    ) -> None:
         symbols_per_block = symbols_per_line * lines_per_block
         output_lines = []
         for block in range(num_blocks):
@@ -244,7 +271,9 @@ class Cubigma:
             str: Encrypted string
         """
         if not self.is_machine_prepared:
-            raise ValueError("Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting")
+            raise ValueError(
+                "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
+            )
         sanitized_string = prep_string_for_encrypting(clear_text_message)
         encrypted_message = self.encode_string(sanitized_string)
         return encrypted_message
@@ -271,9 +300,18 @@ class Cubigma:
         result = prefix_order_number_quartet + padded_chunk
         return result
 
-    def prepare_machine(self, key_phrase: str, cuboid_height: int = NUM_BLOCKS, cuboid_length: int = LINES_PER_BLOCK, cuboid_width: int = SYMBOLS_PER_LINE) -> None:
+    def prepare_machine(
+        self,
+        key_phrase: str,
+        cuboid_height: int = NUM_BLOCKS,
+        cuboid_length: int = LINES_PER_BLOCK,
+        cuboid_width: int = SYMBOLS_PER_LINE,
+    ) -> None:
         # Set up user-configurable parameters (like the plug board)
-        self._write_cuboid_file(self._read_characters_file(), num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width)
+        self.symbols = self._read_characters_file()
+        self._write_cuboid_file(
+            self.symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width
+        )
         self._read_cuboid_from_disk()
         self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
 
@@ -296,14 +334,12 @@ def main() -> None:
     """
     cubigma = Cubigma("characters.txt", "cuboid.txt")
 
-
-    #ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
+    # ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
     # the encrypted message AND THE CLEARTEXT SALT to Bob.
     # Maybe:
     # Don't confuse the users with the notion of a salt
     # Encrypting: The salt is always 16-bytes long, and always prepended to the encrypted message
     # Steganography: Account for an extra 16-bits when calculating the sum_of_squares
-
 
     # key_phrase = "Rumpelstiltskin"
     # clear_text_message = "This is cool!"

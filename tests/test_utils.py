@@ -1,56 +1,43 @@
+# pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
+
 from unittest.mock import patch
 import json
+import os
 import unittest
 
 from cubigma.utils import (
-    get_prefix_order_number_quartet, index_to_quartet, pad_chunk_with_rand_pad_symbols, quartet_to_index, read_config,
-    remove_duplicate_letters, sanitize, split_to_human_readable_symbols, user_perceived_length
+    get_prefix_order_number_quartet,
+    index_to_quartet,
+    pad_chunk_with_rand_pad_symbols,
+    quartet_to_index,
+    read_config,
+    remove_duplicate_letters,
+    sanitize,
+    split_to_human_readable_symbols,
+    strengthen_key,
+    user_perceived_length,
 )
-from cubigma.utils import _cascade_gap, _find_symbol, _split_key_into_parts
+from cubigma.utils import _cascade_gap, _find_symbol, _split_key_into_parts  # noqa
 
 LENGTH_OF_QUARTET = 4
 
-
 # Testing Private Functions
+
 
 class TestCascadeGap(unittest.TestCase):
     def setUp(self):
         self.playfair_cuboid = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '0']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
         ]
 
     def test_cascade_gap_forward_front(self):
         # Test cascading forward
         expected_cuboid = [
-            [
-                ['A', 'B'],
-                ['C', 'D', 'E'],
-                ['F', 'G', 'H']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '0']
-            ]
+            [["A", "B"], ["C", "D", "E"], ["F", "G", "H"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
         ]
         letter_i = self.playfair_cuboid[0][2].pop(2)
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 2, direction="to-front")
@@ -58,21 +45,9 @@ class TestCascadeGap(unittest.TestCase):
 
     def test_cascade_gap_forward_middle(self):
         expected_cuboid = [
-            [
-                ['A', 'B'],
-                ['C', 'D', 'E'],
-                ['F', 'G', 'H']
-            ],
-            [
-                ['I', 'J', 'K'],
-                ['L', 'M', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '0']
-            ]
+            [["A", "B"], ["C", "D", "E"], ["F", "G", "H"]],
+            [["I", "J", "K"], ["L", "M", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
         ]
         letter_n = self.playfair_cuboid[1][1].pop(1)
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-front")
@@ -80,21 +55,9 @@ class TestCascadeGap(unittest.TestCase):
 
     def test_cascade_gap_forward_back(self):
         expected_cuboid = [
-            [
-                ['A', 'B'],
-                ['C', 'D', 'E'],
-                ['F', 'G', 'H']
-            ],
-            [
-                ['I', 'J', 'K'],
-                ['L', 'M', 'N'],
-                ['O', 'P', 'Q']
-            ],
-            [
-                ['R', 'S', 'T'],
-                ['U', 'V', 'W'],
-                ['X', 'Y', 'Z']
-            ]
+            [["A", "B"], ["C", "D", "E"], ["F", "G", "H"]],
+            [["I", "J", "K"], ["L", "M", "N"], ["O", "P", "Q"]],
+            [["R", "S", "T"], ["U", "V", "W"], ["X", "Y", "Z"]],
         ]
         letter_zero = self.playfair_cuboid[2][2].pop(2)
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 2, direction="to-front")
@@ -102,21 +65,9 @@ class TestCascadeGap(unittest.TestCase):
 
     def test_cascade_gap_reverse_back(self):
         expected_cuboid = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['T', 'U', 'V'],
-                ['W', 'X', 'Y'],
-                ['Z', '0']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
         ]
         letter_s = self.playfair_cuboid[2][0].pop(0)
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 0, direction="to-back")
@@ -124,21 +75,9 @@ class TestCascadeGap(unittest.TestCase):
 
     def test_cascade_gap_reverse_middle(self):
         expected_cuboid = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'O', 'P'],
-                ['Q', 'R', 'S']
-            ],
-            [
-                ['T', 'U', 'V'],
-                ['W', 'X', 'Y'],
-                ['Z', '0']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "O", "P"], ["Q", "R", "S"]],
+            [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
         ]
         letter_n = self.playfair_cuboid[1][1].pop(1)
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-back")
@@ -146,21 +85,9 @@ class TestCascadeGap(unittest.TestCase):
 
     def test_cascade_gap_reverse_front(self):
         expected_cuboid = [
-            [
-                ['B', 'C', 'D'],
-                ['E', 'F', 'G'],
-                ['H', 'I', 'J']
-            ],
-            [
-                ['K', 'L', 'M'],
-                ['N', 'O', 'P'],
-                ['Q', 'R', 'S']
-            ],
-            [
-                ['T', 'U', 'V'],
-                ['W', 'X', 'Y'],
-                ['Z', '0']
-            ]
+            [["B", "C", "D"], ["E", "F", "G"], ["H", "I", "J"]],
+            [["K", "L", "M"], ["N", "O", "P"], ["Q", "R", "S"]],
+            [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
         ]
         letter_a = self.playfair_cuboid[0][0].pop(0)
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-back")
@@ -171,46 +98,36 @@ class TestCascadeGap(unittest.TestCase):
         with self.assertRaises(ValueError):
             _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-the-left")
 
+
 class TestFindSymbol(unittest.TestCase):
     def setUp(self):
         # Example 3x3x3 playfair cuboid
         self.playfair_cuboid = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '0']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
         ]
 
     def test_find_symbol_valid(self):
         # Test cases for valid symbols
-        self.assertEqual(_find_symbol('A', self.playfair_cuboid), (0, 0, 0))
-        self.assertEqual(_find_symbol('E', self.playfair_cuboid), (0, 1, 1))
-        self.assertEqual(_find_symbol('R', self.playfair_cuboid), (1, 2, 2))
-        self.assertEqual(_find_symbol('Z', self.playfair_cuboid), (2, 2, 1))
+        self.assertEqual(_find_symbol("A", self.playfair_cuboid), (0, 0, 0))
+        self.assertEqual(_find_symbol("E", self.playfair_cuboid), (0, 1, 1))
+        self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
+        self.assertEqual(_find_symbol("Z", self.playfair_cuboid), (2, 2, 1))
 
     def test_find_symbol_not_found(self):
         # Test for a symbol that is not in the cuboid
         with self.assertRaises(ValueError) as context:
-            _find_symbol('1', self.playfair_cuboid)
+            _find_symbol("1", self.playfair_cuboid)
         self.assertEqual(str(context.exception), "Symbol '1' not found in playfair_cuboid.")
 
     def test_find_symbol_edge_cases(self):
         # Test for edge cases like last element
-        self.assertEqual(_find_symbol('0', self.playfair_cuboid), (2, 2, 2))
-        self.assertEqual(_find_symbol('Z', self.playfair_cuboid), (2, 2, 1))
-        self.assertEqual(_find_symbol('X', self.playfair_cuboid), (2, 1, 2))
-        self.assertEqual(_find_symbol('R', self.playfair_cuboid), (1, 2, 2))
+        self.assertEqual(_find_symbol("0", self.playfair_cuboid), (2, 2, 2))
+        self.assertEqual(_find_symbol("Z", self.playfair_cuboid), (2, 2, 1))
+        self.assertEqual(_find_symbol("X", self.playfair_cuboid), (2, 1, 2))
+        self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
+
 
 class TestSplitKeyIntoParts(unittest.TestCase):
     def test_even_division(self):
@@ -248,7 +165,9 @@ class TestSplitKeyIntoParts(unittest.TestCase):
         with self.assertRaises(ValueError):
             _split_key_into_parts("ABCD", -3)
 
+
 # Testing Public Functions
+
 
 class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
     def test_valid_order_number(self):
@@ -289,27 +208,96 @@ class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
 
 class TestIndexToQuartet(unittest.TestCase):
     def setUp(self):
-        self.symbols = ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "a", "s", "d", "f", "g", "h", "j", "k", "l", "z", "x", "c", "v", "b", "n", "m", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A", "S", "D", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", " ", ".", "🏖️", "🏵️", "🌮", "🖐️"]
+        self.symbols = [
+            "q",
+            "w",
+            "e",
+            "r",
+            "t",
+            "y",
+            "u",
+            "i",
+            "o",
+            "p",
+            "a",
+            "s",
+            "d",
+            "f",
+            "g",
+            "h",
+            "j",
+            "k",
+            "l",
+            "z",
+            "x",
+            "c",
+            "v",
+            "b",
+            "n",
+            "m",
+            "Q",
+            "W",
+            "E",
+            "R",
+            "T",
+            "Y",
+            "U",
+            "I",
+            "O",
+            "P",
+            "A",
+            "S",
+            "D",
+            "F",
+            "G",
+            "H",
+            "J",
+            "K",
+            "L",
+            "Z",
+            "X",
+            "C",
+            "V",
+            "B",
+            "N",
+            "M",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "0",
+            " ",
+            ".",
+            "🏖️",
+            "🏵️",
+            "🌮",
+            "🖐️",
+        ]
 
     def test_valid_numbers(self):
         self.assertEqual("dung", index_to_quartet(3802574, self.symbols))
         self.assertEqual("Dung", index_to_quartet(11977806, self.symbols))
         self.assertEqual("🏖️🏵️🌮🖐️", index_to_quartet(20428763, self.symbols))
         self.assertEqual("1234", index_to_quartet(16599263, self.symbols))
-        self.assertEqual(index_to_quartet(0, self.symbols), 'qqqq')
-        self.assertEqual(index_to_quartet(1, self.symbols), 'qqqw')
-        self.assertEqual(index_to_quartet(2, self.symbols), 'qqqe')
-        self.assertEqual(index_to_quartet(3, self.symbols), 'qqqr')
-        self.assertEqual(index_to_quartet(4, self.symbols), 'qqqt')
-        self.assertEqual(index_to_quartet(8, self.symbols), 'qqqo')
-        self.assertEqual(index_to_quartet(16, self.symbols), 'qqqj')
-        self.assertEqual(index_to_quartet(32, self.symbols), 'qqqU')
-        self.assertEqual(index_to_quartet(85, self.symbols), 'qqwk')
+        self.assertEqual(index_to_quartet(0, self.symbols), "qqqq")
+        self.assertEqual(index_to_quartet(1, self.symbols), "qqqw")
+        self.assertEqual(index_to_quartet(2, self.symbols), "qqqe")
+        self.assertEqual(index_to_quartet(3, self.symbols), "qqqr")
+        self.assertEqual(index_to_quartet(4, self.symbols), "qqqt")
+        self.assertEqual(index_to_quartet(8, self.symbols), "qqqo")
+        self.assertEqual(index_to_quartet(16, self.symbols), "qqqj")
+        self.assertEqual(index_to_quartet(32, self.symbols), "qqqU")
+        self.assertEqual(index_to_quartet(85, self.symbols), "qqwk")
 
     def test_edge_cases(self):
         # Test edge cases like the maximum index and rollover
-        max_index = (len(self.symbols)**4) - 1
-        self.assertEqual(index_to_quartet(max_index, self.symbols), '🖐️🖐️🖐️🖐️')
+        max_index = (len(self.symbols) ** 4) - 1
+        self.assertEqual(index_to_quartet(max_index, self.symbols), "🖐️🖐️🖐️🖐️")
 
     def test_invalid_symbols(self):
         # Test cases with invalid or empty symbols list
@@ -317,11 +305,11 @@ class TestIndexToQuartet(unittest.TestCase):
             index_to_quartet(0, [])
 
         with self.assertRaises(ValueError):
-            index_to_quartet(0, ['q'])  # Not enough symbols to form a quartet
+            index_to_quartet(0, ["q"])  # Not enough symbols to form a quartet
 
     def test_symbols_with_special_characters(self):
         # Test symbols with special characters
-        special_symbols = ['@', '#', '$', '%']
+        special_symbols = ["@", "#", "$", "%"]
         self.assertEqual(index_to_quartet(42, special_symbols), "@$$$")
 
 
@@ -358,7 +346,76 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
 
 class TestQuartetToIndex(unittest.TestCase):
     def setUp(self):
-        self.symbols = ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "a", "s", "d", "f", "g", "h", "j", "k", "l", "z", "x", "c", "v", "b", "n", "m", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A", "S", "D", "F", "G", "H", "J", "K", "L", "Z", "X", "C", "V", "B", "N", "M", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", " ", ".", "🏖️", "🏵️", "🌮", "🖐️"]
+        self.symbols = [
+            "q",
+            "w",
+            "e",
+            "r",
+            "t",
+            "y",
+            "u",
+            "i",
+            "o",
+            "p",
+            "a",
+            "s",
+            "d",
+            "f",
+            "g",
+            "h",
+            "j",
+            "k",
+            "l",
+            "z",
+            "x",
+            "c",
+            "v",
+            "b",
+            "n",
+            "m",
+            "Q",
+            "W",
+            "E",
+            "R",
+            "T",
+            "Y",
+            "U",
+            "I",
+            "O",
+            "P",
+            "A",
+            "S",
+            "D",
+            "F",
+            "G",
+            "H",
+            "J",
+            "K",
+            "L",
+            "Z",
+            "X",
+            "C",
+            "V",
+            "B",
+            "N",
+            "M",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "0",
+            " ",
+            ".",
+            "🏖️",
+            "🏵️",
+            "🌮",
+            "🖐️",
+        ]
 
     def test_valid_quartet(self):
         """Test normal usage with valid inputs."""
@@ -400,18 +457,14 @@ class TestQuartetToIndex(unittest.TestCase):
 class TestReadConfig(unittest.TestCase):
     def setUp(self):
         # Sample valid configuration data
-        self.valid_config = {
-            "key1": "value1",
-            "key2": 42,
-            "key3": [1, 2, 3]
-        }
+        self.valid_config = {"key1": "value1", "key2": 42, "key3": [1, 2, 3]}
 
     @patch("cubigma.utils.Path")
     @patch("cubigma.utils.json.load")
     def test_read_valid_config(self, mock_load, mock_path):
         # Arrange
         mock_path.return_value.is_file.return_value = True
-        mock_load.return_value = {'key1': 'value1', 'key2': 42, 'key3': [1, 2, 3]}
+        mock_load.return_value = {"key1": "value1", "key2": 42, "key3": [1, 2, 3]}
 
         # Act
         config = read_config("mock_config.json")
@@ -539,22 +592,13 @@ class TestSplitToHumanReadableSymbols(unittest.TestCase):
 
     def test_valid_input(self):
         """Test valid input with exactly 4 human-discernible symbols."""
-        self.assertEqual(
-            split_to_human_readable_symbols("áb̂c̃d̄"),
-            ["á", "b̂", "c̃", "d̄"]
-        )
+        self.assertEqual(split_to_human_readable_symbols("áb̂c̃d̄"), ["á", "b̂", "c̃", "d̄"])
 
-        self.assertEqual(
-            split_to_human_readable_symbols("😊é́👍🏽🎉"),
-            ["😊", "é́", "👍🏽", "🎉"]
-        )
+        self.assertEqual(split_to_human_readable_symbols("😊é́👍🏽🎉"), ["😊", "é́", "👍🏽", "🎉"])
 
     def test_mixed_grapheme_clusters(self):
         """Test input with mixed grapheme clusters (combining marks and emojis)."""
-        self.assertEqual(
-            split_to_human_readable_symbols("👩‍❤️‍💋‍👨á😊👍🏽"),
-            ["👩‍❤️‍💋‍👨", "á", "😊", "👍🏽"]
-        )
+        self.assertEqual(split_to_human_readable_symbols("👩‍❤️‍💋‍👨á😊👍🏽"), ["👩‍❤️‍💋‍👨", "á", "😊", "👍🏽"])
 
     def test_invalid_input_length(self):
         """Test input with invalid user-perceived lengths."""
@@ -575,17 +619,84 @@ class TestSplitToHumanReadableSymbols(unittest.TestCase):
     def test_non_string_input(self):
         """Test non-string input, which should raise a TypeError."""
         with self.assertRaises(TypeError):
-            split_to_human_readable_symbols(None)
+            split_to_human_readable_symbols(None)  # noqa
 
         with self.assertRaises(TypeError):
-            split_to_human_readable_symbols(1234)
+            split_to_human_readable_symbols(1234)  # noqa
 
     def test_valid_combining_characters(self):
         """Test valid input with combining characters to form graphemes."""
-        self.assertEqual(
-            split_to_human_readable_symbols("éôũī"),
-            ["é", "ô", "ũ", "ī"]
-        )
+        self.assertEqual(split_to_human_readable_symbols("éôũī"), ["é", "ô", "ũ", "ī"])
+
+
+class TestStrengthenKey(unittest.TestCase):
+
+    def test_key_generation_with_salt(self):
+        """Test that strengthen_key generates a key when a salt is provided."""
+        key_phrase = "test-key"
+        salt = os.urandom(16)
+        key, returned_salt = strengthen_key(key_phrase, salt=salt)
+
+        self.assertIsInstance(key, bytes)
+        self.assertIsInstance(returned_salt, bytes)
+        self.assertEqual(len(returned_salt), 16)
+        self.assertEqual(returned_salt, salt)
+
+    def test_key_generation_without_salt(self):
+        """Test that strengthen_key generates a key and random salt when no salt is provided."""
+        key_phrase = "test-key"
+        key, salt = strengthen_key(key_phrase)
+
+        self.assertIsInstance(key, bytes)
+        self.assertIsInstance(salt, bytes)
+        self.assertEqual(len(salt), 16)
+
+    def test_key_derivation_is_consistent(self):
+        """Test that the same key phrase and salt produce the same key."""
+        key_phrase = "test-key"
+        salt = os.urandom(16)
+        key1, _ = strengthen_key(key_phrase, salt=salt)
+        key2, _ = strengthen_key(key_phrase, salt=salt)
+
+        self.assertEqual(key1, key2)
+
+    def test_different_salts_produce_different_keys(self):
+        """Test that different salts produce different keys."""
+        key_phrase = "test-key"
+        salt1 = os.urandom(16)
+        salt2 = os.urandom(16)
+        key1, _ = strengthen_key(key_phrase, salt=salt1)
+        key2, _ = strengthen_key(key_phrase, salt=salt2)
+
+        self.assertNotEqual(key1, key2)
+
+    def test_key_length_parameter(self):
+        """Test that the derived key length matches the specified key_length."""
+        key_phrase = "test-key"
+        key_length = 64
+        key, _ = strengthen_key(key_phrase, key_length=key_length)
+
+        self.assertEqual(len(key), key_length)
+
+    def test_invalid_key_phrase_type(self):
+        """Test that passing a non-string key phrase raises a TypeError."""
+        with self.assertRaises(AttributeError):
+            strengthen_key(12345)  # noqa
+
+    def test_invalid_salt_type(self):
+        """Test that passing a non-bytes salt raises a TypeError."""
+        with self.assertRaises(TypeError):
+            strengthen_key("test-key", salt="invalid-salt")  # noqa
+
+    def test_invalid_iterations_value(self):
+        """Test that invalid iteration counts raise a ValueError."""
+        with self.assertRaises(ValueError):
+            strengthen_key("test-key", iterations=-1)
+
+    def test_invalid_key_length(self):
+        """Test that invalid key lengths raise a ValueError."""
+        with self.assertRaises(ValueError):
+            strengthen_key("test-key", key_length=0)
 
 
 class TestUserPerceivedLength(unittest.TestCase):
@@ -611,6 +722,9 @@ class TestUserPerceivedLength(unittest.TestCase):
         self.assertEqual(user_perceived_length("hello🙂"), 6)
         self.assertEqual(user_perceived_length("🙂á"), 2)
         self.assertEqual(user_perceived_length("🙂👩‍❤️‍💋‍👨"), 2)
+
+
+# pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
 
 if __name__ == "__main__":

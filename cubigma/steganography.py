@@ -72,7 +72,7 @@ def embed_chunks(encrypted_chunks: list[str], original_image_filepath: str) -> N
         raise ValueError("The original_image_filepath must point to a PNG file.")
 
     # Open the original image
-    original_image = Image.open(original_image_filepath)
+    original_image: Image.Image = Image.open(original_image_filepath)
     if original_image.mode != "RGB":
         original_image = original_image.convert("RGB")
 
@@ -156,7 +156,7 @@ def get_chunks_from_image(stego_image_filepath: str) -> list[str]:
     if not stego_image_filepath.lower().endswith(".png"):
         raise ValueError("The stego_image_filepath must point to a PNG file.")
 
-    stego_image = Image.open(stego_image_filepath)
+    stego_image: Image.Image = Image.open(stego_image_filepath)
     if stego_image.mode != "RGB":
         stego_image = stego_image.convert("RGB")
 

@@ -1,7 +1,7 @@
 """ Useful shared utilities for the cubigma project. """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 import argparse
 import json
 import hashlib
@@ -12,35 +12,6 @@ import regex
 
 LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
-
-
-def strengthen_key(key_phrase: str, salt: bytes = None, iterations: int = 100_000, key_length: int = 32) -> tuple[bytes, bytes]:
-    """
-    Strengthen a user-provided key using Argon2 key derivation.
-
-    Args:
-        key_phrase (str): The weak key phrase provided by the user.
-        salt (bytes): Optional salt. If None, generates a random 16-byte salt.
-        iterations (int): Number of iterations for PBKDF2 (default is 100,000).
-        key_length (int): The desired length of the derived key in bytes (default is 32 bytes for 256-bit key).
-
-    Returns:
-        bytes: A securely derived key & the salt used
-    """
-    # Use a secure random salt if not provided
-    if salt is None:
-        salt = os.urandom(16)
-
-    # Derive the key
-    key_phrase_bytes = key_phrase.encode('utf-8')
-    key = hashlib.pbkdf2_hmac(
-        'sha256',
-        key_phrase_bytes,
-        salt,
-        iterations,
-        dklen=key_length  # Derived key length
-    )
-    return key, salt
 
 
 def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dict[int, int]:
@@ -73,21 +44,17 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
 
 
 def _insert_symbol(
-    playfair_cuboid: list[list[list[str]]],
-    target_frame: int,
-    target_row: int,
-    target_col: int,
-    symbol_to_move: str
+    playfair_cuboid: list[list[list[str]]], target_frame: int, target_row: int, target_col: int, symbol_to_move: str
 ):
     """Inserts the symbol into the specified position in the playfair cuboid."""
-    playfair_cuboid[target_frame][target_row].insert(target_col, symbol_to_move)
+    pass
 
 
 def _move_letter_to_position(
     symbol_to_move: str,
     playfair_cuboid: list[list[list[str]]],
     target_position: tuple[int, int, int],
-    direction: str = "to-front"
+    direction: str = "to-front",
 ) -> list[list[list[str]]]:
     """
     Generalized function to move a letter to a specific position in the playfair cuboid.
@@ -103,9 +70,9 @@ def _move_letter_to_position(
     """
     frame_idx, row_idx, col_idx = _find_symbol(symbol_to_move, playfair_cuboid)
     playfair_cuboid[frame_idx][row_idx].pop(col_idx)  # result of pop == symbol_to_move
-    _cascade_gap(playfair_cuboid, frame_idx, row_idx, col_idx, direction=direction)
+    _cascade_gap(playfair_cuboid, frame_idx, row_idx, direction=direction)
     target_x, target_y, target_z = target_position
-    _insert_symbol(playfair_cuboid, target_x, target_y, target_z, symbol_to_move)
+    playfair_cuboid[target_x][target_y].insert(target_z, symbol_to_move)
     return playfair_cuboid
 
 
@@ -157,7 +124,9 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
     return playfair_cuboid
 
 
-def generate_rotors(sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3) -> list[list[list[list[str]]]]:
+def generate_rotors(
+    sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3
+) -> list[list[list[list[str]]]]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
 
@@ -179,7 +148,7 @@ def generate_rotors(sanitized_key_phrase: str, prepared_playfair_cuboid: list[li
         raw_rotors.append(raw_rotor)
 
     key_parts = _split_key_into_parts(sanitized_key_phrase, num_rotors=num_rotors)
-    finished_rotors = []
+    finished_rotors: list[list[list[list[str]]]] = []
     for rotor_num, key_part in enumerate(key_parts):
         cur_rotor = raw_rotors[rotor_num]
         for symbol in key_part:
@@ -193,7 +162,9 @@ def get_opposite_corners(
     point_two: tuple[int, int, int],
     point_three: tuple[int, int, int],
     point_four: tuple[int, int, int],
-        num_blocks: int, lines_per_block: int, symbols_per_line: int
+    num_blocks: int,
+    lines_per_block: int,
+    symbols_per_line: int,
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
     Given four corners of a rectangular cuboid, find the other four corners.
@@ -246,8 +217,6 @@ def get_opposite_corners(
     # ToDo: Maybe, instead of encoding quartets, we use a queue of 4 characters, so that the last char has been encoded
     #  4 times
 
-
-
     return point_five, point_six, point_seven, point_eight
 
 
@@ -272,7 +241,7 @@ def parse_arguments() -> tuple[str, str, str]:
             mode = input("Invalid choice. Please enter 'encrypt', 'decrypt', or 'both': ").strip().lower()
 
         key_phrase = input("Enter your key phrase: ").strip()
-        if mode in ("encrypt" , "both"):
+        if mode in ("encrypt", "both"):
             message = input("Enter your plaintext message: ").strip()
         else:
             message = input("Enter your encrypted message: ").strip()
@@ -321,10 +290,7 @@ def prep_string_for_encrypting(orig_message: str) -> str:
 
 
 def _cascade_gap(
-    playfair_cuboid: list[list[list[str]]],
-    start_frame: int,
-    start_row: int,
-    direction: str = "to-front"
+    playfair_cuboid: list[list[list[str]]], start_frame: int, start_row: int, direction: str = "to-front"
 ) -> list[list[list[str]]]:
     """
     Cascades the gap caused by removing a symbol, shifting elements to fill the gap.
@@ -339,6 +305,7 @@ def _cascade_gap(
         list[list[list[str]]]: Modified 3D cuboid
     """
     char_to_move = ""
+    range_blocks: range | Iterator[int]
     if direction == "to-front":
         range_blocks = range(0, start_frame + 1)  # Push chars from the front into the hole
     elif direction == "to-back":
@@ -349,6 +316,7 @@ def _cascade_gap(
     for frame_idx in range_blocks:
         cur_frame = playfair_cuboid[frame_idx].copy()
 
+        range_rows: range | Iterator[int]
         if direction == "to-front":
             if frame_idx == start_frame:
                 row_limit = start_row + 1
@@ -361,7 +329,7 @@ def _cascade_gap(
                 row_limit = start_row
             else:
                 row_limit = 0
-            range_rows =  reversed(range(row_limit, max_rows_in_frame))
+            range_rows = reversed(range(row_limit, max_rows_in_frame))
         for row_idx in range_rows:
             cur_row = cur_frame[row_idx]
             if char_to_move:
@@ -485,12 +453,7 @@ def quartet_to_index(quartet: str, symbols: list[str]) -> int:
     if user_perceived_length(quartet) != LENGTH_OF_QUARTET:
         raise ValueError("Quartet must be exactly 4 characters long.")
     indices = [symbols.index(char) for char in split_to_human_readable_symbols(quartet)]
-    result = (
-            indices[0] * (num_symbols ** 3) +
-            indices[1] * (num_symbols ** 2) +
-            indices[2] * num_symbols +
-            indices[3]
-    )
+    result = indices[0] * (num_symbols**3) + indices[1] * (num_symbols**2) + indices[2] * num_symbols + indices[3]
     return result
 
 
@@ -542,6 +505,31 @@ def split_to_human_readable_symbols(s: str) -> list[str]:
     if len(graphemes) != 4:
         raise ValueError("The input string must have a user-perceived length of 4.")
     return graphemes
+
+
+def strengthen_key(
+    key_phrase: str, salt: None | bytes = None, iterations: int = 100_000, key_length: int = 32
+) -> tuple[bytes, bytes]:
+    """
+    Strengthen a user-provided key using Argon2 key derivation.
+
+    Args:
+        key_phrase (str): The weak key phrase provided by the user.
+        salt (bytes): Optional salt. If None, generates a random 16-byte salt.
+        iterations (int): Number of iterations for PBKDF2 (default is 100,000).
+        key_length (int): The desired length of the derived key in bytes (default is 32 bytes for 256-bit key).
+
+    Returns:
+        bytes: A securely derived key & the salt used
+    """
+    # Use a secure random salt if not provided
+    if salt is None:
+        salt = os.urandom(16)
+
+    # Derive the key
+    key_phrase_bytes = key_phrase.encode("utf-8")
+    key = hashlib.pbkdf2_hmac("sha256", key_phrase_bytes, salt, iterations, dklen=key_length)  # Derived key length
+    return key, salt
 
 
 def user_perceived_length(s: str) -> int:
