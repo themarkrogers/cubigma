@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any
 import argparse
 import json
+import hashlib
+import os
 import random
 
 import regex
@@ -12,12 +14,41 @@ LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
 
 
-def generate_reflector(key_phrase: str, num_quartets: int = -1) -> dict:
+def strengthen_key(key_phrase: str, salt: bytes = None, iterations: int = 100_000, key_length: int = 32) -> tuple[bytes, bytes]:
+    """
+    Strengthen a user-provided key using Argon2 key derivation.
+
+    Args:
+        key_phrase (str): The weak key phrase provided by the user.
+        salt (bytes): Optional salt. If None, generates a random 16-byte salt.
+        iterations (int): Number of iterations for PBKDF2 (default is 100,000).
+        key_length (int): The desired length of the derived key in bytes (default is 32 bytes for 256-bit key).
+
+    Returns:
+        bytes: A securely derived key & the salt used
+    """
+    # Use a secure random salt if not provided
+    if salt is None:
+        salt = os.urandom(16)
+
+    # Derive the key
+    key_phrase_bytes = key_phrase.encode('utf-8')
+    key = hashlib.pbkdf2_hmac(
+        'sha256',
+        key_phrase_bytes,
+        salt,
+        iterations,
+        dklen=key_length  # Derived key length
+    )
+    return key, salt
+
+
+def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dict[int, int]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
 
     Args:
-        key_phrase (str): The encryption key used to seed the random generator.
+        sanitized_key_phrase (str): The encryption key used to seed the random generator.
         num_quartets (int): The total number of unique quartets.
 
     Returns:
@@ -27,7 +58,7 @@ def generate_reflector(key_phrase: str, num_quartets: int = -1) -> dict:
     quartets = list(range(num_quartets))
 
     # Seed the random generator with the key
-    random.seed(key_phrase)
+    random.seed(sanitized_key_phrase)
 
     # Shuffle the quartets
     random.shuffle(quartets)
@@ -41,7 +72,7 @@ def generate_reflector(key_phrase: str, num_quartets: int = -1) -> dict:
     return reflector
 
 
-def _move_letter_to_front(symbol_to_promote: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
     """
     Promote a given symbol within a 3D array of characters (playfair_cuboid) by removing it from its
     current position and pushing it to the first position in the first row, while cascading other
@@ -61,8 +92,8 @@ def _move_letter_to_front(symbol_to_promote: str, playfair_cuboid: list[list[lis
     row_index = -1
     for frame_index, frame in enumerate(playfair_cuboid):
         for row_index, row in enumerate(frame):
-            if symbol_to_promote in row:
-                col_index = row.index(symbol_to_promote)
+            if symbol_to_move in row:
+                col_index = row.index(symbol_to_move)
                 row.pop(col_index)  # Remove the symbol from its current position
                 frame[row_index] = row
                 playfair_cuboid[frame_index] = frame
@@ -72,11 +103,11 @@ def _move_letter_to_front(symbol_to_promote: str, playfair_cuboid: list[list[lis
             break
 
     if not found:
-        raise ValueError(f"Symbol '{symbol_to_promote}' not found in playfair_cuboid.")
+        raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
 
     num_blocks = len(playfair_cuboid)
     lines_per_block = len(playfair_cuboid[0])
-    symbols_per_line = len(playfair_cuboid[0][0])
+    # symbols_per_line = len(playfair_cuboid[0][0])
 
     # Cascade the "hole" to the front
     char_to_move = ""
@@ -111,7 +142,7 @@ def _move_letter_to_front(symbol_to_promote: str, playfair_cuboid: list[list[lis
     # Add symbol to front
     first_frame = playfair_cuboid[0]
     first_row = first_frame[0]
-    new_first_row = [symbol_to_promote] + first_row
+    new_first_row = [symbol_to_move] + first_row
     new_first_frame = first_frame
     new_first_frame[0] = new_first_row
     playfair_cuboid[0] = new_first_frame
@@ -124,9 +155,10 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
 
     Args:
         key_phrase (str): Key phrase to use for encrypting/decrypting
+        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before the full key phrase has been pulled to the front
 
     Returns:
-        None
+        list[list[list[str]]]: The playfair cuboid with full key phrase has been pulled to the front
     """
     assert len(key_phrase) >= 3, "Key phrase must be at least 3 characters long"
     sanitized_key_phrase = remove_duplicate_letters(key_phrase)
@@ -231,23 +263,25 @@ def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[
     return playfair_cuboid
 
 
-def _split_key_into_thirds(sanitized_key_phrase: str) -> tuple[str, str, str]:
-    key_third_length = len(sanitized_key_phrase) // 3
-    idx_1 = key_third_length * 1
-    idx_2 = key_third_length * 2
-    key_third_1 = sanitized_key_phrase[0:idx_1]
-    key_third_2 = sanitized_key_phrase[idx_1:idx_2]
-    key_third_3 = sanitized_key_phrase[idx_2:]
-    return key_third_1, key_third_2, key_third_3
+def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
+    key_third_length = len(sanitized_key_phrase) // num_rotors
+    key_parts = []
+    for i in range(num_rotors):
+        idx_start = key_third_length * i
+        idx_end = key_third_length * (i + 1)
+        key_part = sanitized_key_phrase[idx_start:idx_end]
+        key_parts.append(key_part)
+    return key_parts
 
 
-def generate_rotors(sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]]) -> list[list[list[list[str]]]]:
+def generate_rotors(sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3) -> list[list[list[list[str]]]]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
 
     Args:
         sanitized_key_phrase (str): The encryption key used to seed the random generator.
-        prepared_playfair_cuboid (list[list[list[str]]): The playfair cuboid with the full key phrase pulled to the front
+        prepared_playfair_cuboid (list[list[list[str]]]): The playfair cuboid with the full key phrase pulled to the front
+        num_rotors (int): Number of "rotors" to use
 
     Returns:
         list[list[list[list[str]]]]: A list of three "rotors", where each "rotor" is a 3-dimensional cuboid representing
@@ -256,16 +290,16 @@ def generate_rotors(sanitized_key_phrase: str, prepared_playfair_cuboid: list[li
     # Seed the random generator with the key
     random.seed(sanitized_key_phrase)
 
-    rotor_1 = prepared_playfair_cuboid.copy()
-    rotor_2 = prepared_playfair_cuboid.copy()
-    rotor_3 = prepared_playfair_cuboid.copy()
-    raw_rotors = [rotor_1, rotor_2, rotor_3]
+    raw_rotors = []
+    for i in range(num_rotors):
+        raw_rotor = prepared_playfair_cuboid.copy()
+        raw_rotors.append(raw_rotor)
 
-    key_thirds = _split_key_into_thirds(sanitized_key_phrase)
+    key_parts = _split_key_into_parts(sanitized_key_phrase, num_rotors=num_rotors)
     finished_rotors = []
-    for rotor_num, key_third in enumerate(key_thirds):
+    for rotor_num, key_part in enumerate(key_parts):
         cur_rotor = raw_rotors[rotor_num]
-        for symbol in key_third:
+        for symbol in key_part:
             cur_rotor = _move_letter_to_center(symbol, cur_rotor)
         finished_rotors[rotor_num] = cur_rotor
     return finished_rotors

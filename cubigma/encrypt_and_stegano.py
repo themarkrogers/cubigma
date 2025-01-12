@@ -9,7 +9,7 @@ import random
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
 from cubigma.steganography import embed_chunks, get_chunks_from_image
-from cubigma.utils import read_config, LENGTH_OF_QUARTET, NOISE_SYMBOL
+from cubigma.utils import read_config, LENGTH_OF_QUARTET, NOISE_SYMBOL, prepare_cuboid_with_key_phrase
 
 config = read_config()
 SYMBOLS_PER_LINE = config["SYMBOLS_PER_LINE"]
@@ -62,7 +62,8 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
         None
     """
     cubigma = Cubigma("cuboid.txt")
-    cubigma.prepare_cuboid_with_key_phrase(key_phrase)
+    cubigma.reformat_characters()
+    prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     sanitized_string = prep_string_for_encrypting(clear_text_message)
     string_length = len(sanitized_string)
     one_fifth = math.ceil(string_length / float(NUM_SQUARES))
@@ -114,7 +115,8 @@ def decrypt_message_from_image(key_phrase: str, stego_image_filepath: str) -> st
         Decrypted message
     """
     cubigma = Cubigma("cuboid.txt")
-    cubigma.prepare_cuboid_with_key_phrase(key_phrase)
+    cubigma.reformat_characters()
+    prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
     for chunk in chunks:

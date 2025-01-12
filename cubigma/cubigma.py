@@ -6,10 +6,11 @@ This is Step 2 (the main step) in The Cubigma encryption algorithm.
 import math
 import random
 
-from cubigma.utils import user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
-from cubigma.utils import get_opposite_corners, get_prefix_order_number_quartet, pad_chunk_with_rand_pad_symbols
-from cubigma.utils import remove_duplicate_letters, prep_string_for_encrypting, sanitize, parse_arguments, prepare_cuboid_with_key_phrase
-# from utils import user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
+from cubigma.utils import (
+    user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL, get_opposite_corners, get_prefix_order_number_quartet,
+    pad_chunk_with_rand_pad_symbols, prep_string_for_encrypting, sanitize, parse_arguments,
+    prepare_cuboid_with_key_phrase, generate_rotors, generate_reflector, strengthen_key
+)
 
 NUM_BLOCKS = 7  # X
 LINES_PER_BLOCK = 7  # Y
@@ -25,7 +26,7 @@ NUM_UNIQUE_QUARTETS = math.comb(NUM_TOTAL_SYMBOLS, LENGTH_OF_QUARTET)
 # Reflector (different scrambler, pairwise)
 #   * Back through the 3 rotors, differently
 # Plugboard (user configurable, swaps pairs of letters)
-# Lampboard (output)
+# Lamp board (output)
 
 
 
@@ -33,11 +34,10 @@ class Cubigma:
     characters_filepath: str
     cuboid_filepath: str
     playfair_cuboid: list[list[list[str]]]
-    playfair_cuboid: list[list[list[str]]]
-    playfair_cuboid: list[list[list[str]]]
-    playfair_cuboid: list[list[list[str]]]
+    rotors: list[list[list[list[str]]]]
+    reflector: dict[int, int]
 
-    def __init__(self, characters_filepath: str, cuboid_filepath: str):
+    def __init__(self, characters_filepath: str = "characters.txt", cuboid_filepath: str = "cuboid.txt"):
         self.characters_filepath = characters_filepath
         self.cuboid_filepath = cuboid_filepath
 
@@ -140,15 +140,15 @@ class Cubigma:
                     current_frame = []
         self.playfair_cuboid = playfair_cuboid
 
-    def _write_cuboid_file(self, symbols: list[str]) -> None:
-        symbols_per_block = SYMBOLS_PER_LINE * LINES_PER_BLOCK
+    def _write_cuboid_file(self, symbols: list[str], num_blocks: int = NUM_BLOCKS, lines_per_block: int = LINES_PER_BLOCK, symbols_per_line: int = SYMBOLS_PER_LINE) -> None:
+        symbols_per_block = symbols_per_line * lines_per_block
         output_lines = []
-        for block in range(NUM_BLOCKS):
-            for row in range(LINES_PER_BLOCK):
-                start_idx = block * symbols_per_block + row * SYMBOLS_PER_LINE
-                end_idx = block * symbols_per_block + (row + 1) * SYMBOLS_PER_LINE
+        for block in range(num_blocks):
+            for row in range(lines_per_block):
+                start_idx = block * symbols_per_block + row * symbols_per_line
+                end_idx = block * symbols_per_block + (row + 1) * symbols_per_line
                 line = "".join(symbols[start_idx:end_idx])
-                if user_perceived_length(line) != SYMBOLS_PER_LINE:
+                if user_perceived_length(line) != symbols_per_line:
                     raise ValueError("Something has failed")
                 sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
                 output_lines.append(sanitized_line)
@@ -182,7 +182,7 @@ class Cubigma:
             str: Decrypted string
         """
         self._read_cuboid_from_disk()
-        prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
 
         # Remove all quartets with the TOTAL_NOISE characters
         decrypted_message = ""
@@ -225,7 +225,7 @@ class Cubigma:
             str: Encrypted string
         """
         self._read_cuboid_from_disk()
-        prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
         sanitized_string = prep_string_for_encrypting(clear_text_message)
         encrypted_message = self.encode_string(sanitized_string)
         return encrypted_message
@@ -252,7 +252,7 @@ class Cubigma:
         result = prefix_order_number_quartet + padded_chunk
         return result
 
-    def reformat_characters(self) -> None:
+    def reformat_characters(self, cuboid_height: int = NUM_BLOCKS, cuboid_length: int = LINES_PER_BLOCK, cuboid_width: int = SYMBOLS_PER_LINE) -> None:
         """
         Convert characters.txt into cuboid.txt based on the three constants defined in config.json.
         This is Step 1 in The Cubigma encryption algorithm.
@@ -261,8 +261,22 @@ class Cubigma:
             None
         """
         symbols = self._read_characters_file()
-        self._write_cuboid_file(symbols)
+        self._write_cuboid_file(symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width)
         print(f"File successfully shuffled and written to: {self.cuboid_filepath}")
+
+    def prepare_machine(self, key_phrase: str, cuboid_height: int, cuboid_length: int, cuboid_width: int) -> None:
+        # Set up user-configurable parameters (like the plug board)
+        self.reformat_characters(cuboid_height, cuboid_length, cuboid_width)
+        self._read_cuboid_from_disk()
+        self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+
+        # Set up the rotors and the reflector
+        key_phrase_bytes, salt_used = strengthen_key(key_phrase)
+        sanitized_key_phrase = key_phrase_bytes.decode("utf-8")
+        rotors = generate_rotors(sanitized_key_phrase, self.playfair_cuboid)
+        reflector = generate_reflector(sanitized_key_phrase, NUM_UNIQUE_QUARTETS)
+        self.rotors = rotors
+        self.reflector = reflector
 
 
 def main() -> None:
@@ -286,6 +300,7 @@ def main() -> None:
     # key_phrase = "Rumpelstiltskin"
     # clear_text_message = "This is cool!"
     key_phrase, mode, message = parse_arguments()
+
     if mode == "encrypt":
         clear_text_message = message
         print(f"{clear_text_message=}")
