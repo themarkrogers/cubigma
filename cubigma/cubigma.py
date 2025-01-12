@@ -9,7 +9,7 @@ import random
 from cubigma.utils import (
     user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL, get_opposite_corners, get_prefix_order_number_quartet,
     pad_chunk_with_rand_pad_symbols, prep_string_for_encrypting, sanitize, parse_arguments,
-    prepare_cuboid_with_key_phrase, generate_rotors, generate_reflector, strengthen_key
+    prepare_cuboid_with_key_phrase, generate_rotors, generate_reflector, strengthen_key, quartet_to_index, index_to_quartet
 )
 
 NUM_BLOCKS = 7  # X
@@ -36,37 +36,57 @@ class Cubigma:
     playfair_cuboid: list[list[list[str]]]
     rotors: list[list[list[list[str]]]]
     reflector: dict[int, int]
+    is_machine_prepared: bool = False
 
     def __init__(self, characters_filepath: str = "characters.txt", cuboid_filepath: str = "cuboid.txt"):
         self.characters_filepath = characters_filepath
         self.cuboid_filepath = cuboid_filepath
+        self.is_machine_prepared = False
 
     def _get_chars_for_coordinates(self, coordinate: tuple[int, int, int]) -> str:
         x, y, z = coordinate
         return self.playfair_cuboid[x][y][z]
 
-    def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
+    def _run_quartet_through_rotors(self, char_quartet: str, rotors: list[list[list[list[str]]]]) -> str:
         indices_by_char = {}
-        for frame_idx, cur_frame in enumerate(self.playfair_cuboid):
-            for row_idx, cur_line in enumerate(cur_frame):
-                if any(char in cur_line for char in char_quartet):
-                    if char_quartet[0] in cur_line:
-                        indices_by_char[char_quartet[0]] = (frame_idx, row_idx, cur_line.index(char_quartet[0]))
-                    if char_quartet[1] in cur_line:
-                        indices_by_char[char_quartet[1]] = (frame_idx, row_idx, cur_line.index(char_quartet[1]))
-                    if char_quartet[2] in cur_line:
-                        indices_by_char[char_quartet[2]] = (frame_idx, row_idx, cur_line.index(char_quartet[2]))
-                    if char_quartet[3] in cur_line:
-                        indices_by_char[char_quartet[3]] = (frame_idx, row_idx, cur_line.index(char_quartet[3]))
-        orig_indices = []
-        for cur_char in char_quartet:
-            orig_indices.append(indices_by_char[cur_char])
-        encrypted_indices = get_opposite_corners(orig_indices[0], orig_indices[1], orig_indices[2], orig_indices[3], NUM_BLOCKS, LINES_PER_BLOCK, SYMBOLS_PER_LINE)
-        encrypted_char_one = self._get_chars_for_coordinates(encrypted_indices[0])
-        encrypted_char_two = self._get_chars_for_coordinates(encrypted_indices[1])
-        encrypted_char_three = self._get_chars_for_coordinates(encrypted_indices[2])
-        encrypted_char_four = self._get_chars_for_coordinates(encrypted_indices[3])
-        encrypted_quartet = "".join([encrypted_char_one, encrypted_char_two, encrypted_char_three, encrypted_char_four])
+        cur_quartet = char_quartet
+        for rotor in rotors:
+            for frame_idx, cur_frame in enumerate(rotor):
+                for row_idx, cur_line in enumerate(cur_frame):
+                    if any(char in cur_line for char in cur_quartet):
+                        if cur_quartet[0] in cur_line:
+                            indices_by_char[cur_quartet[0]] = (frame_idx, row_idx, cur_line.index(cur_quartet[0]))
+                        if cur_quartet[1] in cur_line:
+                            indices_by_char[cur_quartet[1]] = (frame_idx, row_idx, cur_line.index(cur_quartet[1]))
+                        if cur_quartet[2] in cur_line:
+                            indices_by_char[cur_quartet[2]] = (frame_idx, row_idx, cur_line.index(cur_quartet[2]))
+                        if cur_quartet[3] in cur_line:
+                            indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
+            orig_indices = []
+            for cur_char in cur_quartet:
+                orig_indices.append(indices_by_char[cur_char])
+            encrypted_indices = get_opposite_corners(
+                orig_indices[0], orig_indices[1], orig_indices[2], orig_indices[3],
+                NUM_BLOCKS, LINES_PER_BLOCK, SYMBOLS_PER_LINE
+            )
+            encrypted_char_1 = self._get_chars_for_coordinates(encrypted_indices[0])
+            encrypted_char_2 = self._get_chars_for_coordinates(encrypted_indices[1])
+            encrypted_char_3 = self._get_chars_for_coordinates(encrypted_indices[2])
+            encrypted_char_4 = self._get_chars_for_coordinates(encrypted_indices[3])
+            encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
+            cur_quartet = encrypted_quartet
+        return cur_quartet
+
+    def _run_quartet_through_reflector(self, char_quartet) -> str:
+        quartet_index = quartet_to_index(char_quartet, NUM_UNIQUE_QUARTETS)
+        reflected_index = self.reflector[quartet_index]  # Reflect the index
+        reflected_quartet = index_to_quartet(reflected_index, NUM_UNIQUE_QUARTETS)
+        return reflected_quartet
+
+    def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
+        partially_encrypted_quartet_1 = self._run_quartet_through_rotors(char_quartet, self.rotors)
+        partially_encrypted_quartet_2 = self._run_quartet_through_reflector(partially_encrypted_quartet_1)
+        encrypted_quartet = self._run_quartet_through_rotors(partially_encrypted_quartet_2, list(reversed(self.rotors)))
         return encrypted_quartet
 
     def _get_random_noise_chunk(self) -> str:
@@ -166,23 +186,28 @@ class Cubigma:
         Returns:
             str: Decrypted string
         """
+        if not self.is_machine_prepared:
+            raise ValueError(
+                "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
+            )
         raw_decrypted_message = self.encode_string(encrypted_message)
         decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
         return decrypted_message
 
-    def decrypt_message(self, key_phrase: str, encrypted_message: str) -> str:
+    def decrypt_message(self, encrypted_message: str) -> str:
         """
         Decrypt the message using the playfair cuboid
 
         Args:
-            key_phrase (str): Key phrase used to decrypt the message
             encrypted_message (str): Encrypted message
 
         Returns:
             str: Decrypted string
         """
-        self._read_cuboid_from_disk()
-        self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        if not self.is_machine_prepared:
+            raise ValueError(
+                "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
+            )
 
         # Remove all quartets with the TOTAL_NOISE characters
         decrypted_message = ""
@@ -204,6 +229,10 @@ class Cubigma:
         Returns:
             str: Encrypted string
         """
+        if not self.is_machine_prepared:
+            raise ValueError(
+                "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
+            )
         assert len(sanitized_message) % LENGTH_OF_QUARTET == 0, "Message is not properly sanitized!"
         encrypted_message = ""
         for i in range(0, len(sanitized_message), LENGTH_OF_QUARTET):
@@ -213,19 +242,18 @@ class Cubigma:
             encrypted_message += encrypted_chunk
         return encrypted_message
 
-    def encrypt_message(self, key_phrase: str, clear_text_message: str) -> str:
+    def encrypt_message(self, clear_text_message: str) -> str:
         """
         Decrypt the message using the playfair cuboid
 
         Args:
-            key_phrase (str): Key phrase used to encrypt the message
             clear_text_message (str): Message to encrypt
 
         Returns:
             str: Encrypted string
         """
-        self._read_cuboid_from_disk()
-        self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        if not self.is_machine_prepared:
+            raise ValueError("Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting")
         sanitized_string = prep_string_for_encrypting(clear_text_message)
         encrypted_message = self.encode_string(sanitized_string)
         return encrypted_message
@@ -252,21 +280,9 @@ class Cubigma:
         result = prefix_order_number_quartet + padded_chunk
         return result
 
-    def reformat_characters(self, cuboid_height: int = NUM_BLOCKS, cuboid_length: int = LINES_PER_BLOCK, cuboid_width: int = SYMBOLS_PER_LINE) -> None:
-        """
-        Convert characters.txt into cuboid.txt based on the three constants defined in config.json.
-        This is Step 1 in The Cubigma encryption algorithm.
-
-        Returns:
-            None
-        """
-        symbols = self._read_characters_file()
-        self._write_cuboid_file(symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width)
-        print(f"File successfully shuffled and written to: {self.cuboid_filepath}")
-
-    def prepare_machine(self, key_phrase: str, cuboid_height: int, cuboid_length: int, cuboid_width: int) -> None:
+    def prepare_machine(self, key_phrase: str, cuboid_height: int = NUM_BLOCKS, cuboid_length: int = LINES_PER_BLOCK, cuboid_width: int = SYMBOLS_PER_LINE) -> None:
         # Set up user-configurable parameters (like the plug board)
-        self.reformat_characters(cuboid_height, cuboid_length, cuboid_width)
+        self._write_cuboid_file(self._read_characters_file(), num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width)
         self._read_cuboid_from_disk()
         self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
 
@@ -277,6 +293,7 @@ class Cubigma:
         reflector = generate_reflector(sanitized_key_phrase, NUM_UNIQUE_QUARTETS)
         self.rotors = rotors
         self.reflector = reflector
+        self.is_machine_prepared = True
 
 
 def main() -> None:
@@ -287,7 +304,7 @@ def main() -> None:
         None
     """
     cubigma = Cubigma("characters.txt", "cuboid.txt")
-    cubigma.reformat_characters()
+
 
     #ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
     # the encrypted message AND THE CLEARTEXT SALT to Bob.
@@ -300,6 +317,7 @@ def main() -> None:
     # key_phrase = "Rumpelstiltskin"
     # clear_text_message = "This is cool!"
     key_phrase, mode, message = parse_arguments()
+    cubigma.prepare_machine(key_phrase)
 
     if mode == "encrypt":
         clear_text_message = message

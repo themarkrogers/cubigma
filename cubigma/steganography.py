@@ -63,6 +63,10 @@ def embed_chunks(encrypted_chunks: list[str], original_image_filepath: str) -> N
     Returns:
         None
     """
+
+    # ToDo: Instead of always embedded at hte corners and center, surround each square with a boundary, and stick it
+    #   anywhere in the image. This allows us to use more than 5 squares, if the image will fit them.
+
     # Assert that the original_image_filepath is a PNG file
     if not original_image_filepath.lower().endswith(".png"):
         raise ValueError("The original_image_filepath must point to a PNG file.")

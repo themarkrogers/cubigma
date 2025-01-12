@@ -11,6 +11,14 @@ Additionally, this algorithm takes inspiration from the Enigma machine and uses 
 
 However, unlike an Enigma machine, this algorithm does allow a letter to occasionally be encoded as itself.
 
+| Component          | Enigma                                       | Cubigma                                        |
+|--------------------|----------------------------------------------|------------------------------------------------|
+| Rotors             | Physical rotors with electrical connections  | Software-based rotating Playfair cuboids       |
+| Reflector          | Symmetrical pairwise mapping                 | Custom pairwise map of quartets                |
+| Plugboard          | Swappable pairs of letters                   | Configurable cuboid dimensions (less flexible) |
+| Key Configuration  | Rotor settings + plugboard settings          | Key phrase + cuboid dimensions                 |
+| Stepping           | Predictable rotor stepping                   | Predictable corner rotation                    |
+
 # How to Use
 
 Requirements:

@@ -2,8 +2,6 @@
 This file combines the encryption in cubigma.py and the steganography in steganography.py into one handy file.
 """
 
-from itertools import combinations_with_replacement
-import math
 import random
 
 from cubigma.cubigma import prep_string_for_encrypting
@@ -120,8 +118,8 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
         None
     """
     cubigma = Cubigma("cuboid.txt")
-    cubigma.reformat_characters()
-    prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
+    cubigma.prepare_machine(key_phrase)
+    # prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     sanitized_string = prep_string_for_encrypting(clear_text_message)
 
     image_width, image_height = get_image_size(original_image_filepath)
@@ -162,8 +160,8 @@ def decrypt_message_from_image(key_phrase: str, stego_image_filepath: str) -> st
         Decrypted message
     """
     cubigma = Cubigma("cuboid.txt")
-    cubigma.reformat_characters()
-    prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
+    cubigma.prepare_machine(key_phrase)
+    # prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
     for chunk in chunks:

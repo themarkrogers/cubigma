@@ -43,6 +43,41 @@ def strengthen_key(key_phrase: str, salt: bytes = None, iterations: int = 100_00
     return key, salt
 
 
+def quartet_to_index(quartet: str, num_symbols: int) -> int:
+    """
+    Maps a quartet (4-tuple) of symbols to a unique index.
+
+    Args:
+        quartet (tuple): A quartet of 4 symbols (e.g., (A, B, C, D)).
+        num_symbols (int): Total number of symbols in the cuboid.
+
+    Returns:
+        int: Unique index for the quartet.
+    """
+    a, b, c, d = quartet
+    result = a * (num_symbols**3) + b * (num_symbols**2) + c * num_symbols + d
+    return result
+
+
+def index_to_quartet(index: int, num_symbols: int) -> str:
+    """
+    Maps a unique index back to a quartet (4-tuple) of symbols.
+
+    Args:
+        index (int): Unique index for the quartet.
+        num_symbols (int): Total number of symbols in the cuboid.
+
+    Returns:
+        tuple: A quartet of 4 symbols.
+    """
+    a = index // (num_symbols**3)
+    b = (index % (num_symbols**3)) // (num_symbols**2)
+    c = (index % (num_symbols**2)) // num_symbols
+    d = index % num_symbols
+    quartet = "".join([a, b, c, d])
+    return quartet
+
+
 def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dict[int, int]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
