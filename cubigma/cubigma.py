@@ -3,142 +3,86 @@ This file is used to encrypt and decrypt messages using the prepared cuboid.txt 
 This is Step 2 (the main step) in The Cubigma encryption algorithm.
 """
 
-import argparse
+import math
 import random
 
 from cubigma.utils import user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
+from cubigma.utils import get_opposite_corners, get_prefix_order_number_quartet, pad_chunk_with_rand_pad_symbols
+from cubigma.utils import remove_duplicate_letters, prep_string_for_encrypting, sanitize, parse_arguments, prepare_cuboid_with_key_phrase
 # from utils import user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
 
 NUM_BLOCKS = 7  # X
 LINES_PER_BLOCK = 7  # Y
 SYMBOLS_PER_LINE = 7  # Z
 
-# ToDo: This increases the complexity derived from the key
-#   * Maybe: Rotate the slices in a manner based on the key
-#   * Maybe: Change which corner of the cuboid is chosen
-#   * Maybe: both?
-# Split the key phrase into rough thirds. Come up with a logic that converts the string into an algorithm for rotation.
-# Three parts of the key phrase, three axes of rotation. So, we need an algorithm that Takes the key third and the text
-# being encoded/decoded and deterministically chooses which "slice" of the prism to rotate, and which way.
-# Maybe: Combine these three elements: The sum of ord() of the key phrase, of the decoded string, and of the encoded
-# quartet. This will yield the same three numbers both encoding/decoding (e.g. val = (clear ^ key) - encrypted). With
-# this number, we determine which slice (e.g. val % key third % SIZE_OF_AXIS). We always turn it the same way (e.g.
-# val % key third % 2). As long as we encode and decode in the same order, we'll be modifying the same starting cuboid
-# in the same ways, allowing us to always get the correct opposite corners for decoding.
+NUM_TOTAL_SYMBOLS = NUM_BLOCKS * LINES_PER_BLOCK * SYMBOLS_PER_LINE
+NUM_UNIQUE_QUARTETS = math.comb(NUM_TOTAL_SYMBOLS, LENGTH_OF_QUARTET)
 
-# ToDo: See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
+# Keyboard (input)
+# Input wheel
+# 3 Rotors (clever scramblers)
+#   * Moved after each encoding
+# Reflector (different scrambler, pairwise)
+#   * Back through the 3 rotors, differently
+# Plugboard (user configurable, swaps pairs of letters)
+# Lampboard (output)
 
-
-def _get_opposite_corners(
-    point_one: tuple[int, int, int],
-    point_two: tuple[int, int, int],
-    point_three: tuple[int, int, int],
-    point_four: tuple[int, int, int],
-) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
-    """
-    Given four corners of a rectangular cuboid, find the other four corners.
-
-    Args:
-        point_one: A tuple representing the first point (x, y, z).
-        point_two: A tuple representing the second point (x, y, z).
-        point_three: A tuple representing the third point (x, y, z).
-        point_four: A tuple representing the fourth point (x, y, z).
-
-    Returns:
-        A tuple of four tuples, each representing the coordinates of the remaining corners.
-    """
-    # Check for unique points
-    points = {point_one, point_two, point_three, point_four}
-    if len(points) != LENGTH_OF_QUARTET:
-        raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cuboid.")
-
-    x1, y1, z1 = point_one
-    x2, y2, z2 = point_two
-    x3, y3, z3 = point_three
-    x4, y4, z4 = point_four
-
-    max_frame_idx = NUM_BLOCKS - 1
-    max_row_idx = LINES_PER_BLOCK - 1
-    max_col_idx = SYMBOLS_PER_LINE - 1
-
-    point_five = (max_frame_idx - x1, max_row_idx - y1, max_col_idx - z1)
-    point_six = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
-    point_seven = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
-    point_eight = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
-
-    return point_five, point_six, point_seven, point_eight
-
-
-def _get_prefix_order_number_quartet(order_number: int) -> str:
-    order_number_str = str(order_number)
-    assert len(order_number_str) == 1, "Invalid order number"
-    pad_symbols = ["", "", "", order_number_str]
-    random.shuffle(pad_symbols)
-    return "".join(pad_symbols)
-
-
-def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
-    pad_symbols = ["", "", ""]
-    max_pad_idx = len(pad_symbols) - 1
-    while len(chunk) < LENGTH_OF_QUARTET:
-        new_random_number = random.randint(0, max_pad_idx)
-        random_pad_symbol = pad_symbols[new_random_number]
-        if random_pad_symbol not in chunk:
-            chunk += random_pad_symbol
-    return chunk
-
-
-def _remove_duplicate_letters(orig: str) -> str:
-    unique_letters = []
-    for letter in orig:
-        if letter not in unique_letters:
-            unique_letters.append(letter)
-    return "".join(list(unique_letters))
-
-
-def prep_string_for_encrypting(orig_message: str) -> str:
-    """
-    Pad the string with random pad symbols until its length is a multiple of 4
-
-    Args:
-        orig_message (str): String to be prepared for encryption
-
-    Returns:
-        str: String prepared for encryption
-    """
-    sanitized_string = ""
-    cur_chunk = ""
-    chunk_idx = 0
-    for orig_char in orig_message:
-        if chunk_idx >= LENGTH_OF_QUARTET:
-            sanitized_string += cur_chunk
-            cur_chunk = ""
-            chunk_idx = 0
-        if orig_char in cur_chunk:
-            cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
-            sanitized_string += cur_chunk
-            cur_chunk = ""
-            chunk_idx = 0
-        cur_chunk += orig_char
-        chunk_idx += 1
-    sanitized_string += cur_chunk
-    return sanitized_string
-
-
-def _sanitize(raw_input: str) -> str:
-    if raw_input.startswith("\\"):
-        return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
-    return raw_input.replace("\n", "")
 
 
 class Cubigma:
     characters_filepath: str
     cuboid_filepath: str
     playfair_cuboid: list[list[list[str]]]
+    playfair_cuboid: list[list[list[str]]]
+    playfair_cuboid: list[list[list[str]]]
+    playfair_cuboid: list[list[list[str]]]
 
     def __init__(self, characters_filepath: str, cuboid_filepath: str):
         self.characters_filepath = characters_filepath
         self.cuboid_filepath = cuboid_filepath
+
+    def _get_chars_for_coordinates(self, coordinate: tuple[int, int, int]) -> str:
+        x, y, z = coordinate
+        return self.playfair_cuboid[x][y][z]
+
+    def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
+        indices_by_char = {}
+        for frame_idx, cur_frame in enumerate(self.playfair_cuboid):
+            for row_idx, cur_line in enumerate(cur_frame):
+                if any(char in cur_line for char in char_quartet):
+                    if char_quartet[0] in cur_line:
+                        indices_by_char[char_quartet[0]] = (frame_idx, row_idx, cur_line.index(char_quartet[0]))
+                    if char_quartet[1] in cur_line:
+                        indices_by_char[char_quartet[1]] = (frame_idx, row_idx, cur_line.index(char_quartet[1]))
+                    if char_quartet[2] in cur_line:
+                        indices_by_char[char_quartet[2]] = (frame_idx, row_idx, cur_line.index(char_quartet[2]))
+                    if char_quartet[3] in cur_line:
+                        indices_by_char[char_quartet[3]] = (frame_idx, row_idx, cur_line.index(char_quartet[3]))
+        orig_indices = []
+        for cur_char in char_quartet:
+            orig_indices.append(indices_by_char[cur_char])
+        encrypted_indices = get_opposite_corners(orig_indices[0], orig_indices[1], orig_indices[2], orig_indices[3], NUM_BLOCKS, LINES_PER_BLOCK, SYMBOLS_PER_LINE)
+        encrypted_char_one = self._get_chars_for_coordinates(encrypted_indices[0])
+        encrypted_char_two = self._get_chars_for_coordinates(encrypted_indices[1])
+        encrypted_char_three = self._get_chars_for_coordinates(encrypted_indices[2])
+        encrypted_char_four = self._get_chars_for_coordinates(encrypted_indices[3])
+        encrypted_quartet = "".join([encrypted_char_one, encrypted_char_two, encrypted_char_three, encrypted_char_four])
+        return encrypted_quartet
+
+    def _get_random_noise_chunk(self) -> str:
+        noise_quartet_symbols = [NOISE_SYMBOL]
+        while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
+            coordinate = (
+                random.randint(0, NUM_BLOCKS - 1),
+                random.randint(0, LINES_PER_BLOCK - 1),
+                random.randint(0, SYMBOLS_PER_LINE - 1),
+            )
+            x, y, z = coordinate
+            found_symbol = self.playfair_cuboid[x][y][z]
+            if found_symbol not in noise_quartet_symbols:
+                noise_quartet_symbols.append(found_symbol)
+        random.shuffle(noise_quartet_symbols)
+        return "".join(noise_quartet_symbols)
 
     def _read_characters_file(self) -> list[str]:
         with open(self.characters_filepath, "r", encoding="utf-8") as line_count_file:
@@ -155,7 +99,7 @@ class Cubigma:
         with open(self.characters_filepath, "r", encoding="utf-8") as file:
             for line in file.readlines():
                 len_before = len(symbols)
-                found_symbol = _sanitize(line)
+                found_symbol = sanitize(line)
                 symbols.append(found_symbol)
                 len_after = len(symbols)
                 if len_before == len_after:
@@ -174,38 +118,6 @@ class Cubigma:
         # Reverse, so the least common symbols are first; this helps entropy when loading the key phrase
         symbols = list(reversed(symbols))
         return symbols
-
-    def _write_cuboid_file(self, symbols: list[str]) -> None:
-        symbols_per_block = SYMBOLS_PER_LINE * LINES_PER_BLOCK
-        output_lines = []
-        for block in range(NUM_BLOCKS):
-            for row in range(LINES_PER_BLOCK):
-                start_idx = block * symbols_per_block + row * SYMBOLS_PER_LINE
-                end_idx = block * symbols_per_block + (row + 1) * SYMBOLS_PER_LINE
-                line = "".join(symbols[start_idx:end_idx])
-                if user_perceived_length(line) != SYMBOLS_PER_LINE:
-                    raise ValueError("Something has failed")
-                sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
-                output_lines.append(sanitized_line)
-            output_lines.append("")  # Add an empty line between blocks
-        with open(self.cuboid_filepath, "w", encoding="utf-8") as file:
-            file.write("\n".join(output_lines))
-
-    def reformat_characters(self) -> None:
-        """
-        Convert characters.txt into cuboid.txt based on the three constants defined in config.json.
-        This is Step 1 in The Cubigma encryption algorithm.
-
-        Args:
-            input_characters_file (str): Path to the input characters.txt file.
-            output_cuboid_file (str): Path to the output cuboid.txt file.
-
-        Returns:
-            None
-        """
-        symbols = self._read_characters_file()
-        self._write_cuboid_file(symbols)
-        print(f"File successfully shuffled and written to: {self.cuboid_filepath}")
 
     def _read_cuboid_from_disk(self) -> None:
         playfair_cuboid = []
@@ -228,120 +140,59 @@ class Cubigma:
                     current_frame = []
         self.playfair_cuboid = playfair_cuboid
 
-    def _promote_letter(self, symbol_to_promote: str) -> None:
+    def _write_cuboid_file(self, symbols: list[str]) -> None:
+        symbols_per_block = SYMBOLS_PER_LINE * LINES_PER_BLOCK
+        output_lines = []
+        for block in range(NUM_BLOCKS):
+            for row in range(LINES_PER_BLOCK):
+                start_idx = block * symbols_per_block + row * SYMBOLS_PER_LINE
+                end_idx = block * symbols_per_block + (row + 1) * SYMBOLS_PER_LINE
+                line = "".join(symbols[start_idx:end_idx])
+                if user_perceived_length(line) != SYMBOLS_PER_LINE:
+                    raise ValueError("Something has failed")
+                sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
+                output_lines.append(sanitized_line)
+            output_lines.append("")  # Add an empty line between blocks
+        with open(self.cuboid_filepath, "w", encoding="utf-8") as file:
+            file.write("\n".join(output_lines))
+
+    def decode_string(self, encrypted_message: str) -> str:
         """
-        Promote a given symbol within a 3D array of characters (playfair_cuboid) by removing it from its
-        current position and pushing it to the first position in the first row, while cascading other
-        elements down to fill the resulting gaps.
+        Decrypt the message using the playfair cuboid
 
         Args:
-            symbol_to_promote (str): The ASCII character to promote to the top-left.
+            encrypted_message (str): Encrypted message
 
         Returns:
-            None
+            str: Decrypted string
         """
-        assert self.playfair_cuboid, "Playfair cuboid not prepared yet!"
-        # Find the location of the symbol_to_promote
-        found = False
-        frame_index = -1
-        row_index = -1
-        for frame_index, frame in enumerate(self.cuboid_filepath):
-            for row_index, row in enumerate(frame):
-                if symbol_to_promote in row:
-                    col_index = row.index(symbol_to_promote)
-                    row.pop(col_index)  # Remove the symbol from its current position
-                    frame[row_index] = row
-                    self.cuboid_filepath[frame_index] = frame
-                    found = True
-                    break
-            if found:
-                break
+        raw_decrypted_message = self.encode_string(encrypted_message)
+        decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
+        return decrypted_message
 
-        if not found:
-            raise ValueError(f"Symbol '{symbol_to_promote}' not found in playfair_cuboid.")
-
-        # Cascade the "hole" to the front
-        char_to_move = ""
-        did_finish_moving_chars = False
-        for frame_idx in range(0, NUM_BLOCKS):
-            cur_frame = self.cuboid_filepath[frame_idx]
-            for row_idx in range(0, LINES_PER_BLOCK):
-                cur_row = cur_frame[row_idx]
-                if frame_idx == frame_index and row_idx == row_index:
-                    # Add the char onto this row
-                    if char_to_move:
-                        new_row = [char_to_move] + cur_row
-                    else:
-                        new_row = cur_row
-                    new_frame = cur_frame
-                    new_frame[row_idx] = new_row
-                    self.cuboid_filepath[frame_idx] = new_frame
-                    did_finish_moving_chars = True
-                    break
-                # Push the chars off the end of this row
-                if char_to_move:
-                    new_row = [char_to_move] + cur_row[0:-1]
-                else:
-                    new_row = cur_row[0:-1]
-                char_to_move = cur_row[-1]
-                new_frame = cur_frame
-                new_frame[row_idx] = new_row
-                self.cuboid_filepath[frame_idx] = new_frame
-            if did_finish_moving_chars:
-                break
-
-        # Add symbol to front
-        first_frame = self.cuboid_filepath[0]
-        first_row = first_frame[0]
-        new_first_row = [symbol_to_promote] + first_row
-        new_first_frame = first_frame
-        new_first_frame[0] = new_first_row
-        self.cuboid_filepath[0] = new_first_frame
-
-    def prepare_cuboid_with_key_phrase(self, key_phrase: str) -> None:
+    def decrypt_message(self, key_phrase: str, encrypted_message: str) -> str:
         """
-        Read the cuboid from disk and reorder it according to the key phrase provided
+        Decrypt the message using the playfair cuboid
 
         Args:
-            key_phrase (str): Key phrase to use for encrypting/decrypting
+            key_phrase (str): Key phrase used to decrypt the message
+            encrypted_message (str): Encrypted message
 
         Returns:
-            None
+            str: Decrypted string
         """
-        assert len(key_phrase) >= 3, "Key phrase must be at least 3 characters long"
         self._read_cuboid_from_disk()
-        sanitized_key_phrase = _remove_duplicate_letters(key_phrase)
-        reversed_key = list(reversed(sanitized_key_phrase))
-        for key_letter in reversed_key:
-            self._promote_letter(key_letter)
+        prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
 
-    def _get_chars_for_coordinates(self, coordinate: tuple[int, int, int]) -> str:
-        x, y, z = coordinate
-        return self.playfair_cuboid[x][y][z]
-
-    def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
-        indices_by_char = {}
-        for frame_idx, cur_frame in enumerate(self.playfair_cuboid):
-            for row_idx, cur_line in enumerate(cur_frame):
-                if any(char in cur_line for char in char_quartet):
-                    if char_quartet[0] in cur_line:
-                        indices_by_char[char_quartet[0]] = (frame_idx, row_idx, cur_line.index(char_quartet[0]))
-                    if char_quartet[1] in cur_line:
-                        indices_by_char[char_quartet[1]] = (frame_idx, row_idx, cur_line.index(char_quartet[1]))
-                    if char_quartet[2] in cur_line:
-                        indices_by_char[char_quartet[2]] = (frame_idx, row_idx, cur_line.index(char_quartet[2]))
-                    if char_quartet[3] in cur_line:
-                        indices_by_char[char_quartet[3]] = (frame_idx, row_idx, cur_line.index(char_quartet[3]))
-        orig_indices = []
-        for cur_char in char_quartet:
-            orig_indices.append(indices_by_char[cur_char])
-        encrypted_indices = _get_opposite_corners(orig_indices[0], orig_indices[1], orig_indices[2], orig_indices[3])
-        encrypted_char_one = self._get_chars_for_coordinates(encrypted_indices[0])
-        encrypted_char_two = self._get_chars_for_coordinates(encrypted_indices[1])
-        encrypted_char_three = self._get_chars_for_coordinates(encrypted_indices[2])
-        encrypted_char_four = self._get_chars_for_coordinates(encrypted_indices[3])
-        encrypted_quartet = "".join([encrypted_char_one, encrypted_char_two, encrypted_char_three, encrypted_char_four])
-        return encrypted_quartet
+        # Remove all quartets with the TOTAL_NOISE characters
+        decrypted_message = ""
+        for i in range(0, len(encrypted_message), LENGTH_OF_QUARTET):
+            end_idx = i + LENGTH_OF_QUARTET
+            encrypted_chunk = encrypted_message[i:end_idx]
+            decrypted_chunk = self.decode_string(encrypted_chunk)
+            if NOISE_SYMBOL not in decrypted_chunk:
+                decrypted_message += decrypted_chunk
+        return decrypted_message
 
     def encode_string(self, sanitized_message: str) -> str:
         """
@@ -362,34 +213,22 @@ class Cubigma:
             encrypted_message += encrypted_chunk
         return encrypted_message
 
-    def decode_string(self, encrypted_message: str) -> str:
+    def encrypt_message(self, key_phrase: str, clear_text_message: str) -> str:
         """
         Decrypt the message using the playfair cuboid
 
         Args:
-            encrypted_message (str): Encrypted message
+            key_phrase (str): Key phrase used to encrypt the message
+            clear_text_message (str): Message to encrypt
 
         Returns:
-            str: Decrypted string
+            str: Encrypted string
         """
-        raw_decrypted_message = self.encode_string(encrypted_message)
-        decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
-        return decrypted_message
-
-    def _get_random_noise_chunk(self) -> str:
-        noise_quartet_symbols = [NOISE_SYMBOL]
-        while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
-            coordinate = (
-                random.randint(0, NUM_BLOCKS - 1),
-                random.randint(0, LINES_PER_BLOCK - 1),
-                random.randint(0, SYMBOLS_PER_LINE - 1),
-            )
-            x, y, z = coordinate
-            found_symbol = self.playfair_cuboid[x][y][z]
-            if found_symbol not in noise_quartet_symbols:
-                noise_quartet_symbols.append(found_symbol)
-        random.shuffle(noise_quartet_symbols)
-        return "".join(noise_quartet_symbols)
+        self._read_cuboid_from_disk()
+        prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        sanitized_string = prep_string_for_encrypting(clear_text_message)
+        encrypted_message = self.encode_string(sanitized_string)
+        return encrypted_message
 
     def pad_chunk(self, chunk: str, padded_chunk_length: int, chunk_order_number: int) -> str:
         """
@@ -406,88 +245,24 @@ class Cubigma:
         padded_chunk = chunk
         while len(padded_chunk) < padded_chunk_length:
             if len(padded_chunk) % LENGTH_OF_QUARTET != 0:
-                padded_chunk = _pad_chunk_with_rand_pad_symbols(padded_chunk)
+                padded_chunk = pad_chunk_with_rand_pad_symbols(padded_chunk)
             random_noise_chunk = self._get_random_noise_chunk()
             padded_chunk += random_noise_chunk
-        prefix_order_number_quartet = _get_prefix_order_number_quartet(chunk_order_number)
+        prefix_order_number_quartet = get_prefix_order_number_quartet(chunk_order_number)
         result = prefix_order_number_quartet + padded_chunk
         return result
 
-    def encrypt_message(self, key_phrase: str, clear_text_message: str) -> str:
+    def reformat_characters(self) -> None:
         """
-        Decrypt the message using the playfair cuboid
-
-        Args:
-            key_phrase (str): Key phrase used to encrypt the message
-            clear_text_message (str): Message to encrypt
+        Convert characters.txt into cuboid.txt based on the three constants defined in config.json.
+        This is Step 1 in The Cubigma encryption algorithm.
 
         Returns:
-            str: Encrypted string
+            None
         """
-        self.prepare_cuboid_with_key_phrase(key_phrase)
-        sanitized_string = prep_string_for_encrypting(clear_text_message)
-        encrypted_message = self.encode_string(sanitized_string)
-        return encrypted_message
-
-    def decrypt_message(self, key_phrase: str, encrypted_message: str) -> str:
-        """
-        Decrypt the message using the playfair cuboid
-
-        Args:
-            key_phrase (str): Key phrase used to decrypt the message
-            encrypted_message (str): Encrypted message
-
-        Returns:
-            str: Decrypted string
-        """
-        self.prepare_cuboid_with_key_phrase(key_phrase)
-
-        # Remove all quartets with the TOTAL_NOISE characters
-        decrypted_message = ""
-        for i in range(0, len(encrypted_message), LENGTH_OF_QUARTET):
-            end_idx = i + LENGTH_OF_QUARTET
-            encrypted_chunk = encrypted_message[i:end_idx]
-            decrypted_chunk = self.decode_string(encrypted_chunk)
-            if NOISE_SYMBOL not in decrypted_chunk:
-                decrypted_message += decrypted_chunk
-        return decrypted_message
-
-
-def _parse_arguments() -> tuple[str, str, str]:
-    """
-    Parses runtime arguments or prompts the user for input interactively.
-
-    Returns:
-        tuple[str, str, str]: A tuple containing key_phrase, mode ('encrypt' or 'decrypt'), and the message.
-    """
-    parser = argparse.ArgumentParser(description="Encrypt or decrypt a message using a key phrase.")
-    parser.add_argument("key_phrase", type=str, help="The key phrase for encryption/decryption.")
-    parser.add_argument("--clear_text_message", type=str, help="The plaintext message to encrypt.")
-    parser.add_argument("--encrypted_message", type=str, help="The encrypted message to decrypt.")
-
-    args = parser.parse_args()
-
-    if not args.clear_text_message and not args.encrypted_message:
-        print("No runtime arguments provided. Switching to interactive mode.")
-        mode = input("Are you encrypting or decrypting? (encrypt/decrypt/both): ").strip().lower()
-        while mode not in {"encrypt", "decrypt", "both"}:
-            mode = input("Invalid choice. Please enter 'encrypt', 'decrypt', or 'both': ").strip().lower()
-
-        key_phrase = input("Enter your key phrase: ").strip()
-        if mode in ("encrypt" , "both"):
-            message = input("Enter your plaintext message: ").strip()
-        else:
-            message = input("Enter your encrypted message: ").strip()
-
-        return key_phrase, mode, message
-
-    if args.clear_text_message and args.encrypted_message:
-        parser.error("Provide only one of --clear_text_message or --encrypted_message, not both.")
-
-    key_phrase = args.key_phrase
-    if args.clear_text_message:
-        return key_phrase, "encrypt", args.clear_text_message
-    return key_phrase, "decrypt", args.encrypted_message
+        symbols = self._read_characters_file()
+        self._write_cuboid_file(symbols)
+        print(f"File successfully shuffled and written to: {self.cuboid_filepath}")
 
 
 def main() -> None:
@@ -500,9 +275,17 @@ def main() -> None:
     cubigma = Cubigma("characters.txt", "cuboid.txt")
     cubigma.reformat_characters()
 
+    #ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
+    # the encrypted message AND THE CLEARTEXT SALT to Bob.
+    # Maybe:
+    # Don't confuse the users with the notion of a salt
+    # Encrypting: The salt is always 16-bytes long, and always prepended to the encrypted message
+    # Steganography: Account for an extra 16-bits when calculating the sum_of_squares
+
+
     # key_phrase = "Rumpelstiltskin"
     # clear_text_message = "This is cool!"
-    key_phrase, mode, message = _parse_arguments()
+    key_phrase, mode, message = parse_arguments()
     if mode == "encrypt":
         clear_text_message = message
         print(f"{clear_text_message=}")
