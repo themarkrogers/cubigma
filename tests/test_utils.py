@@ -4,14 +4,213 @@ import unittest
 
 from cubigma.utils import (
     get_prefix_order_number_quartet, index_to_quartet, pad_chunk_with_rand_pad_symbols, quartet_to_index, read_config,
-    remove_duplicate_letters, sanitize, user_perceived_length
+    remove_duplicate_letters, sanitize, split_to_human_readable_symbols, user_perceived_length
 )
-from cubigma.utils import _split_key_into_parts
+from cubigma.utils import _cascade_gap, _find_symbol, _split_key_into_parts
 
 LENGTH_OF_QUARTET = 4
 
 
 # Testing Private Functions
+
+class TestCascadeGap(unittest.TestCase):
+    def setUp(self):
+        self.playfair_cuboid = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '0']
+            ]
+        ]
+
+    def test_cascade_gap_forward_front(self):
+        # Test cascading forward
+        expected_cuboid = [
+            [
+                ['A', 'B'],
+                ['C', 'D', 'E'],
+                ['F', 'G', 'H']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '0']
+            ]
+        ]
+        letter_i = self.playfair_cuboid[0][2].pop(2)
+        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 2, direction="to-front")
+        self.assertEqual(expected_cuboid, resultant_cuboid)
+
+    def test_cascade_gap_forward_middle(self):
+        expected_cuboid = [
+            [
+                ['A', 'B'],
+                ['C', 'D', 'E'],
+                ['F', 'G', 'H']
+            ],
+            [
+                ['I', 'J', 'K'],
+                ['L', 'M', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '0']
+            ]
+        ]
+        letter_n = self.playfair_cuboid[1][1].pop(1)
+        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-front")
+        self.assertEqual(expected_cuboid, resultant_cuboid)
+
+    def test_cascade_gap_forward_back(self):
+        expected_cuboid = [
+            [
+                ['A', 'B'],
+                ['C', 'D', 'E'],
+                ['F', 'G', 'H']
+            ],
+            [
+                ['I', 'J', 'K'],
+                ['L', 'M', 'N'],
+                ['O', 'P', 'Q']
+            ],
+            [
+                ['R', 'S', 'T'],
+                ['U', 'V', 'W'],
+                ['X', 'Y', 'Z']
+            ]
+        ]
+        letter_zero = self.playfair_cuboid[2][2].pop(2)
+        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 2, direction="to-front")
+        self.assertEqual(expected_cuboid, resultant_cuboid)
+
+    def test_cascade_gap_reverse_back(self):
+        expected_cuboid = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['T', 'U', 'V'],
+                ['W', 'X', 'Y'],
+                ['Z', '0']
+            ]
+        ]
+        letter_s = self.playfair_cuboid[2][0].pop(0)
+        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 0, direction="to-back")
+        self.assertEqual(expected_cuboid, resultant_cuboid)
+
+    def test_cascade_gap_reverse_middle(self):
+        expected_cuboid = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'O', 'P'],
+                ['Q', 'R', 'S']
+            ],
+            [
+                ['T', 'U', 'V'],
+                ['W', 'X', 'Y'],
+                ['Z', '0']
+            ]
+        ]
+        letter_n = self.playfair_cuboid[1][1].pop(1)
+        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-back")
+        self.assertEqual(expected_cuboid, resultant_cuboid)
+
+    def test_cascade_gap_reverse_front(self):
+        expected_cuboid = [
+            [
+                ['B', 'C', 'D'],
+                ['E', 'F', 'G'],
+                ['H', 'I', 'J']
+            ],
+            [
+                ['K', 'L', 'M'],
+                ['N', 'O', 'P'],
+                ['Q', 'R', 'S']
+            ],
+            [
+                ['T', 'U', 'V'],
+                ['W', 'X', 'Y'],
+                ['Z', '0']
+            ]
+        ]
+        letter_a = self.playfair_cuboid[0][0].pop(0)
+        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-back")
+        self.assertEqual(expected_cuboid, resultant_cuboid)
+
+    def test_invalid_direction(self):
+        # Test invalid direction
+        with self.assertRaises(ValueError):
+            _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-the-left")
+
+class TestFindSymbol(unittest.TestCase):
+    def setUp(self):
+        # Example 3x3x3 playfair cuboid
+        self.playfair_cuboid = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '0']
+            ]
+        ]
+
+    def test_find_symbol_valid(self):
+        # Test cases for valid symbols
+        self.assertEqual(_find_symbol('A', self.playfair_cuboid), (0, 0, 0))
+        self.assertEqual(_find_symbol('E', self.playfair_cuboid), (0, 1, 1))
+        self.assertEqual(_find_symbol('R', self.playfair_cuboid), (1, 2, 2))
+        self.assertEqual(_find_symbol('Z', self.playfair_cuboid), (2, 2, 1))
+
+    def test_find_symbol_not_found(self):
+        # Test for a symbol that is not in the cuboid
+        with self.assertRaises(ValueError) as context:
+            _find_symbol('1', self.playfair_cuboid)
+        self.assertEqual(str(context.exception), "Symbol '1' not found in playfair_cuboid.")
+
+    def test_find_symbol_edge_cases(self):
+        # Test for edge cases like last element
+        self.assertEqual(_find_symbol('0', self.playfair_cuboid), (2, 2, 2))
+        self.assertEqual(_find_symbol('Z', self.playfair_cuboid), (2, 2, 1))
+        self.assertEqual(_find_symbol('X', self.playfair_cuboid), (2, 1, 2))
+        self.assertEqual(_find_symbol('R', self.playfair_cuboid), (1, 2, 2))
 
 class TestSplitKeyIntoParts(unittest.TestCase):
     def test_even_division(self):
@@ -334,6 +533,59 @@ class TestSanitizeFunction(unittest.TestCase):
 
         # Act & Assert
         self.assertEqual(sanitize(input_str), expected_output, "Failed to handle string with only backslashes.")
+
+
+class TestSplitToHumanReadableSymbols(unittest.TestCase):
+
+    def test_valid_input(self):
+        """Test valid input with exactly 4 human-discernible symbols."""
+        self.assertEqual(
+            split_to_human_readable_symbols("áb̂c̃d̄"),
+            ["á", "b̂", "c̃", "d̄"]
+        )
+
+        self.assertEqual(
+            split_to_human_readable_symbols("😊é́👍🏽🎉"),
+            ["😊", "é́", "👍🏽", "🎉"]
+        )
+
+    def test_mixed_grapheme_clusters(self):
+        """Test input with mixed grapheme clusters (combining marks and emojis)."""
+        self.assertEqual(
+            split_to_human_readable_symbols("👩‍❤️‍💋‍👨á😊👍🏽"),
+            ["👩‍❤️‍💋‍👨", "á", "😊", "👍🏽"]
+        )
+
+    def test_invalid_input_length(self):
+        """Test input with invalid user-perceived lengths."""
+        with self.assertRaises(ValueError):
+            split_to_human_readable_symbols("abc")  # 3 graphemes
+
+        with self.assertRaises(ValueError):
+            split_to_human_readable_symbols("abcde")  # 5 graphemes
+
+        with self.assertRaises(ValueError):
+            split_to_human_readable_symbols("áb̂c̃d̄e")  # 5 graphemes
+
+    def test_empty_string(self):
+        """Test an empty string input, which should raise an error."""
+        with self.assertRaises(ValueError):
+            split_to_human_readable_symbols("")
+
+    def test_non_string_input(self):
+        """Test non-string input, which should raise a TypeError."""
+        with self.assertRaises(TypeError):
+            split_to_human_readable_symbols(None)
+
+        with self.assertRaises(TypeError):
+            split_to_human_readable_symbols(1234)
+
+    def test_valid_combining_characters(self):
+        """Test valid input with combining characters to form graphemes."""
+        self.assertEqual(
+            split_to_human_readable_symbols("éôũī"),
+            ["é", "ô", "ũ", "ī"]
+        )
 
 
 class TestUserPerceivedLength(unittest.TestCase):

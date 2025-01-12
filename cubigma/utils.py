@@ -72,59 +72,6 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
     return reflector
 
 
-def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
-    """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
-    for frame_idx, frame in enumerate(playfair_cuboid):
-        for row_idx, row in enumerate(frame):
-            if symbol_to_move in row:
-                col_idx = row.index(symbol_to_move)
-                return frame_idx, row_idx, col_idx
-    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
-
-
-def _cascade_gap(
-    playfair_cuboid: list[list[list[str]]],
-    start_frame: int,
-    start_row: int,
-    direction: str = "forward"
-) -> str:
-    """
-    Cascades the gap caused by removing a symbol, shifting elements to fill the gap.
-
-    Args:
-        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
-        start_frame (int): The frame where the gap starts.
-        start_row (int): The row within the frame where the gap starts.
-        direction (str): The direction to cascade ('forward' or 'reverse').
-
-    Returns:
-        str: The last element displaced during cascading.
-    """
-    num_blocks = len(playfair_cuboid)
-    lines_per_block = len(playfair_cuboid[0])
-
-    char_to_move = ""
-    range_blocks = range(start_frame, num_blocks) if direction == "forward" else reversed(range(0, start_frame + 1))
-
-    for frame_idx in range_blocks:
-        cur_frame = playfair_cuboid[frame_idx]
-        range_rows = (
-            range(start_row, lines_per_block)
-            if direction == "forward"
-            else reversed(range(0, start_row + 1))
-        )
-        for row_idx in range_rows:
-            cur_row = cur_frame[row_idx]
-            if char_to_move:
-                new_row = [char_to_move] + cur_row[:-1] if direction == "forward" else cur_row[1:] + [char_to_move]
-            else:
-                new_row = cur_row[:-1] if direction == "forward" else cur_row[1:]
-            char_to_move = cur_row[-1] if direction == "forward" else cur_row[0]
-            cur_frame[row_idx] = new_row
-        playfair_cuboid[frame_idx] = cur_frame
-    return char_to_move
-
-
 def _insert_symbol(
     playfair_cuboid: list[list[list[str]]],
     target_frame: int,
@@ -139,7 +86,8 @@ def _insert_symbol(
 def _move_letter_to_position(
     symbol_to_move: str,
     playfair_cuboid: list[list[list[str]]],
-    target_position: tuple[int, int, int]
+    target_position: tuple[int, int, int],
+    direction: str = "to-front"
 ) -> list[list[list[str]]]:
     """
     Generalized function to move a letter to a specific position in the playfair cuboid.
@@ -148,13 +96,14 @@ def _move_letter_to_position(
         symbol_to_move (str): The ASCII character to move.
         playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
         target_position (tuple[int, int, int]): The target frame, row, and column to move the symbol to.
+        direction (str): The direction to cascade ('to-front' or 'to-back').
 
     Returns:
         list[list[list[str]]]: The modified playfair cuboid.
     """
     frame_idx, row_idx, col_idx = _find_symbol(symbol_to_move, playfair_cuboid)
-    playfair_cuboid[frame_idx][row_idx].pop(col_idx)
-    _cascade_gap(playfair_cuboid, frame_idx, row_idx)
+    playfair_cuboid[frame_idx][row_idx].pop(col_idx)  # result of pop == symbol_to_move
+    _cascade_gap(playfair_cuboid, frame_idx, row_idx, col_idx, direction=direction)
     target_x, target_y, target_z = target_position
     _insert_symbol(playfair_cuboid, target_x, target_y, target_z, symbol_to_move)
     return playfair_cuboid
@@ -368,25 +317,93 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     return sanitized_string
 
 
-def split_to_human_readable_symbols(s: str) -> list[str]:
+# The below functions are under test
+
+
+def _cascade_gap(
+    playfair_cuboid: list[list[list[str]]],
+    start_frame: int,
+    start_row: int,
+    direction: str = "to-front"
+) -> list[list[list[str]]]:
     """
-    Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
+    Cascades the gap caused by removing a symbol, shifting elements to fill the gap.
 
     Args:
-        s (str): The input string, guaranteed to have a user_perceived_length of 4.
+        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
+        start_frame (int): The frame where the gap starts.
+        start_row (int): The row within the frame where the gap starts.
+        direction (str): The direction to cascade ('to-front' or 'to-back').
 
     Returns:
-        list[str]: A list of 4 human-readable symbols, each as a separate string.
+        list[list[list[str]]]: Modified 3D cuboid
     """
-    # Match grapheme clusters (human-discernible symbols)
-    graphemes = regex.findall(r"\X", s)
-    # Ensure the string has exactly 4 human-discernible symbols
-    if len(graphemes) != 4:
-        raise ValueError("The input string must have a user-perceived length of 4.")
-    return graphemes
+    char_to_move = ""
+    if direction == "to-front":
+        range_blocks = range(0, start_frame + 1)  # Push chars from the front into the hole
+    elif direction == "to-back":
+        range_blocks = reversed(range(start_frame, len(playfair_cuboid)))  # Push chars the back into the hole
+    else:
+        raise ValueError("direction can only be either 'to-front' or 'to-back'")
+    new_cuboid = playfair_cuboid.copy()
+    for frame_idx in range_blocks:
+        cur_frame = playfair_cuboid[frame_idx].copy()
+
+        if direction == "to-front":
+            if frame_idx == start_frame:
+                row_limit = start_row + 1
+            else:
+                row_limit = len(playfair_cuboid[frame_idx])
+            range_rows = range(0, row_limit)
+        else:
+            max_rows_in_frame = len(playfair_cuboid[frame_idx])
+            if frame_idx == start_frame:
+                row_limit = start_row
+            else:
+                row_limit = 0
+            range_rows =  reversed(range(row_limit, max_rows_in_frame))
+        for row_idx in range_rows:
+            cur_row = cur_frame[row_idx]
+            if char_to_move:
+                if direction == "to-front":
+                    # Put last popped char at the start of this line, since we're pushing to the back
+                    new_row = [char_to_move] + cur_row[:-1]
+                else:
+                    # Put last popped char at the end of this line, since we're pushing to the front
+                    new_row = cur_row[1:] + [char_to_move]
+            else:
+                if direction == "to-front":
+                    # Drop the last char, since we're pushing the hole to the back
+                    new_row = cur_row[:-1]
+                else:
+                    # Drop the first char, since we're pushing the hole to the front
+                    new_row = cur_row[1:]
+            if direction == "to-front":
+                # Grab the last char, since it just got dropped
+                char_to_move = cur_row[-1]
+            else:
+                # Grab the first char, since it just got dropped
+                char_to_move = cur_row[0]
+            if frame_idx == start_frame and row_idx == start_row:
+                if direction == "to-front":
+                    # Drop the last char, since we're pushing the hole to the back
+                    new_row = new_row + [char_to_move]
+                else:
+                    # Drop the first char, since we're pushing the hole to the front
+                    new_row = [char_to_move] + new_row
+            cur_frame[row_idx] = new_row
+        new_cuboid[frame_idx] = cur_frame
+    return new_cuboid
 
 
-# The below functions are under test
+def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
+    """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
+    for frame_idx, frame in enumerate(playfair_cuboid):
+        for row_idx, row in enumerate(frame):
+            if symbol_to_move in row:
+                col_idx = row.index(symbol_to_move)
+                return frame_idx, row_idx, col_idx
+    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
 
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
@@ -421,7 +438,6 @@ def index_to_quartet(index: int, symbols: list[str]) -> str:
 
     Args:
         index (int): The index to convert.
-        num_symbols (int): The total number of unique symbols available.
         symbols (str): A string containing the unique symbols.
 
     Returns:
@@ -460,7 +476,6 @@ def quartet_to_index(quartet: str, symbols: list[str]) -> int:
 
     Args:
         quartet (str): The quartet to convert.
-        num_symbols (int): The total number of unique symbols available.
         symbols (str): A string containing the unique symbols.
 
     Returns:
@@ -509,6 +524,24 @@ def sanitize(raw_input: str) -> str:
     if raw_input.startswith("\\"):
         return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
     return raw_input.replace("\n", "")
+
+
+def split_to_human_readable_symbols(s: str) -> list[str]:
+    """
+    Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
+
+    Args:
+        s (str): The input string, guaranteed to have a user_perceived_length of 4.
+
+    Returns:
+        list[str]: A list of 4 human-readable symbols, each as a separate string.
+    """
+    # Match grapheme clusters (human-discernible symbols)
+    graphemes = regex.findall(r"\X", s)
+    # Ensure the string has exactly 4 human-discernible symbols
+    if len(graphemes) != 4:
+        raise ValueError("The input string must have a user-perceived length of 4.")
+    return graphemes
 
 
 def user_perceived_length(s: str) -> int:
