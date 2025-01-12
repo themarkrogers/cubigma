@@ -1,3 +1,10 @@
+*.pyc
+*~
+*.iml
 .idea
+.ipynb_checkpoints
+.cache
+__pycache__
+venv
 
-cuboid.txt
+cubigma/cuboid.txt

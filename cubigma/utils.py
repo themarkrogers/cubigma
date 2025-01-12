@@ -26,7 +26,6 @@ def user_perceived_length(s: str) -> int:
     return len(graphemes)
 
 
-
 def read_config(config_file: str = "config.json") -> dict[str, Any]:
     """
     Reads and parses the configuration from the specified JSON file.
