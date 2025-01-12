@@ -322,19 +322,19 @@ def main() -> None:
     if mode == "encrypt":
         clear_text_message = message
         print(f"{clear_text_message=}")
-        encrypted_message = cubigma.encrypt_message(key_phrase, message)
+        encrypted_message = cubigma.encrypt_message(message)
         print(f"{encrypted_message=}")
     elif mode == "decrypt":
         encrypted_message = message
         print(f"{encrypted_message=}")
-        decrypted_message = cubigma.decrypt_message(key_phrase, message)
+        decrypted_message = cubigma.decrypt_message(message)
         print(f"{decrypted_message=}")
     else:  # mode == "both":
         clear_text_message = message
         print(f"{clear_text_message=}")
-        encrypted_message = cubigma.encrypt_message(key_phrase, clear_text_message)
+        encrypted_message = cubigma.encrypt_message(clear_text_message)
         print(f"{encrypted_message=}")
-        decrypted_message = cubigma.decrypt_message(key_phrase, encrypted_message)
+        decrypted_message = cubigma.decrypt_message(encrypted_message)
         print(f"{decrypted_message=}")
 
 

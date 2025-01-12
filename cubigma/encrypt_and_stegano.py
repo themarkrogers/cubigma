@@ -7,7 +7,7 @@ import random
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
 from cubigma.steganography import embed_chunks, get_chunks_from_image, get_image_size
-from cubigma.utils import read_config, LENGTH_OF_QUARTET, NOISE_SYMBOL, prepare_cuboid_with_key_phrase
+from cubigma.utils import read_config, LENGTH_OF_QUARTET
 
 config = read_config()
 SYMBOLS_PER_LINE = config["SYMBOLS_PER_LINE"]
@@ -177,14 +177,7 @@ def decrypt_message_from_image(key_phrase: str, stego_image_filepath: str) -> st
         cur_chunk = chunk_by_order_number[i]
         encrypted_noisy_message += cur_chunk[LENGTH_OF_QUARTET:]
 
-    # Remove all quartets with the TOTAL_NOISE characters
-    decrypted_message = ""
-    for i in range(0, len(encrypted_noisy_message), LENGTH_OF_QUARTET):
-        end_idx = i + LENGTH_OF_QUARTET
-        encrypted_chunk = encrypted_noisy_message[i:end_idx]
-        decrypted_chunk = cubigma.decode_string(encrypted_chunk)
-        if NOISE_SYMBOL not in decrypted_chunk:
-            decrypted_message += decrypted_chunk
+    decrypted_message = cubigma.decrypt_message(encrypted_noisy_message)
     return decrypted_message
 
 

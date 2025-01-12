@@ -107,81 +107,106 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
     return reflector
 
 
-def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
+    """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
+    for frame_idx, frame in enumerate(playfair_cuboid):
+        for row_idx, row in enumerate(frame):
+            if symbol_to_move in row:
+                col_idx = row.index(symbol_to_move)
+                return frame_idx, row_idx, col_idx
+    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
+
+
+def _cascade_gap(
+    playfair_cuboid: list[list[list[str]]],
+    start_frame: int,
+    start_row: int,
+    direction: str = "forward"
+) -> str:
     """
-    Promote a given symbol within a 3D array of characters (playfair_cuboid) by removing it from its
-    current position and pushing it to the first position in the first row, while cascading other
-    elements down to fill the resulting gaps.
+    Cascades the gap caused by removing a symbol, shifting elements to fill the gap.
 
     Args:
-        symbol_to_move (str): The ASCII character to promote to the top-left.
-        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before moving the requested symbol to the front
+        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
+        start_frame (int): The frame where the gap starts.
+        start_row (int): The row within the frame where the gap starts.
+        direction (str): The direction to cascade ('forward' or 'reverse').
 
     Returns:
-        list[list[list[str]]]: The modified playfair cuboid, after moving the symbol requested to the front
+        str: The last element displaced during cascading.
     """
-    assert playfair_cuboid, "Playfair cuboid not prepared yet!"
-    # Find the location of the symbol_to_promote
-    found = False
-    frame_index = -1
-    row_index = -1
-    for frame_index, frame in enumerate(playfair_cuboid):
-        for row_index, row in enumerate(frame):
-            if symbol_to_move in row:
-                col_index = row.index(symbol_to_move)
-                row.pop(col_index)  # Remove the symbol from its current position
-                frame[row_index] = row
-                playfair_cuboid[frame_index] = frame
-                found = True
-                break
-        if found:
-            break
-
-    if not found:
-        raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
-
     num_blocks = len(playfair_cuboid)
     lines_per_block = len(playfair_cuboid[0])
-    # symbols_per_line = len(playfair_cuboid[0][0])
 
-    # Cascade the "hole" to the front
     char_to_move = ""
-    did_finish_moving_chars = False
-    for frame_idx in range(0, num_blocks):
-        cur_frame = playfair_cuboid[frame_idx]
-        for row_idx in range(0, lines_per_block):
-            cur_row = cur_frame[row_idx]
-            if frame_idx == frame_index and row_idx == row_index:
-                # Add the char onto this row
-                if char_to_move:
-                    new_row = [char_to_move] + cur_row
-                else:
-                    new_row = cur_row
-                new_frame = cur_frame
-                new_frame[row_idx] = new_row
-                playfair_cuboid[frame_idx] = new_frame
-                did_finish_moving_chars = True
-                break
-            # Push the chars off the end of this row
-            if char_to_move:
-                new_row = [char_to_move] + cur_row[0:-1]
-            else:
-                new_row = cur_row[0:-1]
-            char_to_move = cur_row[-1]
-            new_frame = cur_frame
-            new_frame[row_idx] = new_row
-            playfair_cuboid[frame_idx] = new_frame
-        if did_finish_moving_chars:
-            break
+    range_blocks = range(start_frame, num_blocks) if direction == "forward" else reversed(range(0, start_frame + 1))
 
-    # Add symbol to front
-    first_frame = playfair_cuboid[0]
-    first_row = first_frame[0]
-    new_first_row = [symbol_to_move] + first_row
-    new_first_frame = first_frame
-    new_first_frame[0] = new_first_row
-    playfair_cuboid[0] = new_first_frame
+    for frame_idx in range_blocks:
+        cur_frame = playfair_cuboid[frame_idx]
+        range_rows = (
+            range(start_row, lines_per_block)
+            if direction == "forward"
+            else reversed(range(0, start_row + 1))
+        )
+        for row_idx in range_rows:
+            cur_row = cur_frame[row_idx]
+            if char_to_move:
+                new_row = [char_to_move] + cur_row[:-1] if direction == "forward" else cur_row[1:] + [char_to_move]
+            else:
+                new_row = cur_row[:-1] if direction == "forward" else cur_row[1:]
+            char_to_move = cur_row[-1] if direction == "forward" else cur_row[0]
+            cur_frame[row_idx] = new_row
+        playfair_cuboid[frame_idx] = cur_frame
+    return char_to_move
+
+
+def _insert_symbol(
+    playfair_cuboid: list[list[list[str]]],
+    target_frame: int,
+    target_row: int,
+    target_col: int,
+    symbol_to_move: str
+):
+    """Inserts the symbol into the specified position in the playfair cuboid."""
+    playfair_cuboid[target_frame][target_row].insert(target_col, symbol_to_move)
+
+
+def _move_letter_to_position(
+    symbol_to_move: str,
+    playfair_cuboid: list[list[list[str]]],
+    target_position: tuple[int, int, int]
+) -> list[list[list[str]]]:
+    """
+    Generalized function to move a letter to a specific position in the playfair cuboid.
+
+    Args:
+        symbol_to_move (str): The ASCII character to move.
+        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
+        target_position (tuple[int, int, int]): The target frame, row, and column to move the symbol to.
+
+    Returns:
+        list[list[list[str]]]: The modified playfair cuboid.
+    """
+    frame_idx, row_idx, col_idx = _find_symbol(symbol_to_move, playfair_cuboid)
+    playfair_cuboid[frame_idx][row_idx].pop(col_idx)
+    _cascade_gap(playfair_cuboid, frame_idx, row_idx)
+    target_x, target_y, target_z = target_position
+    _insert_symbol(playfair_cuboid, target_x, target_y, target_z, symbol_to_move)
     return playfair_cuboid
+
+
+def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the front of the playfair cuboid."""
+    return _move_letter_to_position(symbol_to_move, playfair_cuboid, (0, 0, 0))
+
+
+def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the center of the playfair cuboid."""
+    num_blocks = len(playfair_cuboid)
+    lines_per_block = len(playfair_cuboid[0])
+    symbols_per_line = len(playfair_cuboid[0][0])
+    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
+    return _move_letter_to_position(symbol_to_move, playfair_cuboid, center_position)
 
 
 def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
@@ -216,87 +241,6 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
 
     # ToDo: See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
     return playfair_cuboid
-
-
-def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """
-    Move a given symbol within a 3D array of characters (playfair_cuboid) by removing it from its
-    current position and pushing it to the center of the cuboid, while cascading other elements up to fill the resulting
-    gaps.
-
-    Args:
-        symbol_to_move (str): The ASCII character to promote to the top-left.
-        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before moving the requested symbol to the center
-
-    Returns:
-        list[list[list[str]]]: The modified playfair cuboid, after moving the symbol requested to the center
-    """
-    # Find the location of the symbol_to_promote
-    found = False
-    frame_index = -1
-    row_index = -1
-    for frame_index, frame in enumerate(playfair_cuboid):
-        for row_index, row in enumerate(frame):
-            if symbol_to_move in row:
-                col_index = row.index(symbol_to_move)
-                row.pop(col_index)  # Remove the symbol from its current position
-                frame[row_index] = row
-                playfair_cuboid[frame_index] = frame
-                found = True
-                break
-        if found:
-            break
-
-    if not found:
-        raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
-
-    num_blocks = len(playfair_cuboid)
-    lines_per_block = len(playfair_cuboid[0])
-    symbols_per_line = len(playfair_cuboid[0][0])
-
-    center_x = num_blocks // 2
-    center_y = lines_per_block // 2
-    center_z = symbols_per_line // 2
-
-    # Cascade the "hole" to the center
-    char_to_move = ""
-    did_finish_moving_chars = False
-    for frame_idx in reversed(range(0, center_x)):
-        cur_frame = playfair_cuboid[frame_idx]
-        for row_idx in reversed(range(0, center_y)):
-            cur_row = cur_frame[row_idx]
-            if frame_idx == frame_index and row_idx == row_index:
-                # Add the char onto this row
-                if char_to_move:
-                    cur_row.insert(center_z, char_to_move)
-                new_row = cur_row
-                new_frame = cur_frame
-                new_frame[row_idx] = new_row
-                playfair_cuboid[frame_idx] = new_frame
-                did_finish_moving_chars = True
-                break
-            # Push the chars off the end of this row
-            if char_to_move:
-                new_row = cur_row[1:] + [char_to_move]
-            else:
-                new_row = cur_row[1:]
-            char_to_move = cur_row[0]
-            new_frame = cur_frame
-            new_frame[row_idx] = new_row
-            playfair_cuboid[frame_idx] = new_frame
-        if did_finish_moving_chars:
-            break
-
-    # Add symbol to center
-    center_frame = playfair_cuboid[center_x]
-    center_row = center_frame[center_y]
-    center_row.insert(center_z, symbol_to_move)
-    new_center_row = center_row
-    new_center_frame = center_frame
-    new_center_frame[center_y] = new_center_row
-    playfair_cuboid[center_x] = new_center_frame
-    return playfair_cuboid
-
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
     key_third_length = len(sanitized_key_phrase) // num_rotors
