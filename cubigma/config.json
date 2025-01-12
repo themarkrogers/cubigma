@@ -1,5 +1,6 @@
 {
   "SYMBOLS_PER_LINE": 7,
   "LINES_PER_BLOCK": 7,
-  "NUM_BLOCKS": 7
+  "NUM_BLOCKS": 7,
+  "NUM_OF_ROTORS": 3
 }

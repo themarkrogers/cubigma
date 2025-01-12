@@ -7,17 +7,21 @@ cipher. Instead of a 2-dimensional square of 25 letters to encode pairs of lette
 rectangular cuboid of X * Y * Z symbols to encode quartets of symbols. 
 
 Additionally, this algorithm takes inspiration from the Enigma machine and uses the provided key phrase to rotate 
-"slices" of the rectangular cuboid of symbols after encoding each quartet (think of making 1 rotation to a Rubik's cube). 
+"slices" of the rectangular cuboid of symbols after encoding each quartet (think of making 1 rotation to a Rubik's 
+cube). 
 
 However, unlike an Enigma machine, this algorithm does allow a letter to occasionally be encoded as itself.
 
-| Component          | Enigma                                       | Cubigma                                        |
-|--------------------|----------------------------------------------|------------------------------------------------|
-| Rotors             | Physical rotors with electrical connections  | Software-based rotating Playfair cuboids       |
-| Reflector          | Symmetrical pairwise mapping                 | Custom pairwise map of quartets                |
-| Plugboard          | Swappable pairs of letters                   | Configurable cuboid dimensions (less flexible) |
-| Key Configuration  | Rotor settings + plugboard settings          | Key phrase + cuboid dimensions                 |
-| Stepping           | Predictable rotor stepping                   | Predictable corner rotation                    |
+| Component         | Enigma                                      | Cubigma                                           |
+|-------------------|---------------------------------------------|---------------------------------------------------|
+| Input             | Keyboard                                    | Runtime argument, user input, or method param     |
+| Rotors            | Physical rotors with electrical connections | Software-based rotating Playfair cuboids          |
+| Stepping          | Predictable rotor stepping                  | Predictable corner rotation                       |
+| Reflector         | Symmetrical pairwise mapping of letters     | Symmetrical pairwise map of quartets              |
+| Plugboard         | Swappable pairs of letters (configurable)   | Configurable cuboid dimensions & number of rotors |
+| Key Configuration | Rotor settings + plugboard settings         | Key phrase + cuboid dimensions                    |
+| Output            | Lamp board                                  | Printed output or method result                   |
+
 
 # How to Use
 

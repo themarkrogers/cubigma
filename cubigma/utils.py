@@ -43,41 +43,6 @@ def strengthen_key(key_phrase: str, salt: bytes = None, iterations: int = 100_00
     return key, salt
 
 
-def quartet_to_index(quartet: str, num_symbols: int) -> int:
-    """
-    Maps a quartet (4-tuple) of symbols to a unique index.
-
-    Args:
-        quartet (tuple): A quartet of 4 symbols (e.g., (A, B, C, D)).
-        num_symbols (int): Total number of symbols in the cuboid.
-
-    Returns:
-        int: Unique index for the quartet.
-    """
-    a, b, c, d = quartet
-    result = a * (num_symbols**3) + b * (num_symbols**2) + c * num_symbols + d
-    return result
-
-
-def index_to_quartet(index: int, num_symbols: int) -> str:
-    """
-    Maps a unique index back to a quartet (4-tuple) of symbols.
-
-    Args:
-        index (int): Unique index for the quartet.
-        num_symbols (int): Total number of symbols in the cuboid.
-
-    Returns:
-        tuple: A quartet of 4 symbols.
-    """
-    a = index // (num_symbols**3)
-    b = (index % (num_symbols**3)) // (num_symbols**2)
-    c = (index % (num_symbols**2)) // num_symbols
-    d = index % num_symbols
-    quartet = "".join([a, b, c, d])
-    return quartet
-
-
 def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dict[int, int]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
@@ -242,16 +207,6 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
     # ToDo: See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
     return playfair_cuboid
 
-def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
-    key_third_length = len(sanitized_key_phrase) // num_rotors
-    key_parts = []
-    for i in range(num_rotors):
-        idx_start = key_third_length * i
-        idx_end = key_third_length * (i + 1)
-        key_part = sanitized_key_phrase[idx_start:idx_end]
-        key_parts.append(key_part)
-    return key_parts
-
 
 def generate_rotors(sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3) -> list[list[list[list[str]]]]:
     """
@@ -347,25 +302,6 @@ def get_opposite_corners(
     return point_five, point_six, point_seven, point_eight
 
 
-def get_prefix_order_number_quartet(order_number: int) -> str:
-    order_number_str = str(order_number)
-    assert len(order_number_str) == 1, "Invalid order number"
-    pad_symbols = ["", "", "", order_number_str]
-    random.shuffle(pad_symbols)
-    return "".join(pad_symbols)
-
-
-def pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
-    pad_symbols = ["", "", ""]
-    max_pad_idx = len(pad_symbols) - 1
-    while len(chunk) < LENGTH_OF_QUARTET:
-        new_random_number = random.randint(0, max_pad_idx)
-        random_pad_symbol = pad_symbols[new_random_number]
-        if random_pad_symbol not in chunk:
-            chunk += random_pad_symbol
-    return chunk
-
-
 def parse_arguments() -> tuple[str, str, str]:
     """
     Parses runtime arguments or prompts the user for input interactively.
@@ -430,6 +366,117 @@ def prep_string_for_encrypting(orig_message: str) -> str:
         chunk_idx += 1
     sanitized_string += cur_chunk
     return sanitized_string
+
+
+def split_to_human_readable_symbols(s: str) -> list[str]:
+    """
+    Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
+
+    Args:
+        s (str): The input string, guaranteed to have a user_perceived_length of 4.
+
+    Returns:
+        list[str]: A list of 4 human-readable symbols, each as a separate string.
+    """
+    # Match grapheme clusters (human-discernible symbols)
+    graphemes = regex.findall(r"\X", s)
+    # Ensure the string has exactly 4 human-discernible symbols
+    if len(graphemes) != 4:
+        raise ValueError("The input string must have a user-perceived length of 4.")
+    return graphemes
+
+
+# The below functions are under test
+
+
+def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
+    if len(sanitized_key_phrase) < num_rotors:
+        raise ValueError("Message length must be at least the number of rotors")
+    if num_rotors <= 0:
+        raise ValueError("Invalid number of rotors. Must be at least 1.")
+    key_third_length = len(sanitized_key_phrase) // num_rotors
+    key_parts = []
+    for i in range(num_rotors):
+        idx_start = key_third_length * i
+        idx_end = key_third_length * (i + 1)
+        if i == num_rotors - 1:
+            key_part = sanitized_key_phrase[idx_start:]
+        else:
+            key_part = sanitized_key_phrase[idx_start:idx_end]
+        key_parts.append(key_part)
+    return key_parts
+
+
+def get_prefix_order_number_quartet(order_number: int) -> str:
+    order_number_str = str(order_number)
+    assert len(order_number_str) == 1, "Invalid order number"
+    pad_symbols = ["", "", "", order_number_str]
+    random.shuffle(pad_symbols)
+    return "".join(pad_symbols)
+
+
+def index_to_quartet(index: int, symbols: list[str]) -> str:
+    """
+    Convert an index to a quartet based on the provided symbols.
+
+    Args:
+        index (int): The index to convert.
+        num_symbols (int): The total number of unique symbols available.
+        symbols (str): A string containing the unique symbols.
+
+    Returns:
+        str: The quartet representing the index.
+    """
+    if not symbols:
+        raise ValueError("List of symbols cannot be None or empty")
+    num_symbols = len(symbols)
+    if num_symbols < LENGTH_OF_QUARTET:
+        raise ValueError("List of symbols must be at least 4")
+    a = index // (num_symbols**3)
+    b = (index % (num_symbols**3)) // (num_symbols**2)
+    c = (index % (num_symbols**2)) // num_symbols
+    d = index % num_symbols
+
+    result = f"{symbols[a]}{symbols[b]}{symbols[c]}{symbols[d]}"
+    return result
+
+
+def pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
+    if len(chunk) < 1:
+        raise ValueError("Chunk cannot be empty")
+    pad_symbols = ["", "", ""]
+    max_pad_idx = len(pad_symbols) - 1
+    while len(chunk) < LENGTH_OF_QUARTET:
+        new_random_number = random.randint(0, max_pad_idx)
+        random_pad_symbol = pad_symbols[new_random_number]
+        if random_pad_symbol not in chunk:
+            chunk += random_pad_symbol
+    return chunk
+
+
+def quartet_to_index(quartet: str, symbols: list[str]) -> int:
+    """
+    Convert a quartet to its corresponding index based on the provided symbols.
+
+    Args:
+        quartet (str): The quartet to convert.
+        num_symbols (int): The total number of unique symbols available.
+        symbols (str): A string containing the unique symbols.
+
+    Returns:
+        int: The index representing the quartet.
+    """
+    num_symbols = len(symbols)
+    if user_perceived_length(quartet) != LENGTH_OF_QUARTET:
+        raise ValueError("Quartet must be exactly 4 characters long.")
+    indices = [symbols.index(char) for char in split_to_human_readable_symbols(quartet)]
+    result = (
+            indices[0] * (num_symbols ** 3) +
+            indices[1] * (num_symbols ** 2) +
+            indices[2] * num_symbols +
+            indices[3]
+    )
+    return result
 
 
 def read_config(config_file: str = "config.json") -> dict[str, Any]:

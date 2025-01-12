@@ -1,15 +1,16 @@
 """
 This file is used to encrypt and decrypt messages using the prepared cuboid.txt file.
-This is Step 2 (the main step) in The Cubigma encryption algorithm.
+This code implements the Cubigma encryption algorithm.
 """
 
 import math
 import random
 
 from cubigma.utils import (
-    user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL, get_opposite_corners, get_prefix_order_number_quartet,
-    pad_chunk_with_rand_pad_symbols, prep_string_for_encrypting, sanitize, parse_arguments,
-    prepare_cuboid_with_key_phrase, generate_rotors, generate_reflector, strengthen_key, quartet_to_index, index_to_quartet
+    LENGTH_OF_QUARTET, NOISE_SYMBOL, generate_reflector, generate_rotors, get_opposite_corners,
+    get_prefix_order_number_quartet, index_to_quartet, pad_chunk_with_rand_pad_symbols, parse_arguments,
+    prep_string_for_encrypting, prepare_cuboid_with_key_phrase, quartet_to_index, sanitize, strengthen_key,
+    user_perceived_length
 )
 
 NUM_BLOCKS = 7  # X
@@ -18,16 +19,6 @@ SYMBOLS_PER_LINE = 7  # Z
 
 NUM_TOTAL_SYMBOLS = NUM_BLOCKS * LINES_PER_BLOCK * SYMBOLS_PER_LINE
 NUM_UNIQUE_QUARTETS = math.comb(NUM_TOTAL_SYMBOLS, LENGTH_OF_QUARTET)
-
-# Keyboard (input)
-# Input wheel
-# 3 Rotors (clever scramblers)
-#   * Moved after each encoding
-# Reflector (different scrambler, pairwise)
-#   * Back through the 3 rotors, differently
-# Plugboard (user configurable, swaps pairs of letters)
-# Lamp board (output)
-
 
 
 class Cubigma:

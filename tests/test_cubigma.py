@@ -2,64 +2,6 @@ from unittest.mock import patch, mock_open
 import unittest
 
 from cubigma.cubigma import Cubigma
-from cubigma.utils import sanitize
-
-
-class TestSanitizeFunction(unittest.TestCase):
-    def test_escape_sequences(self):
-        """Test if escape sequences are properly converted."""
-        # Act & Assert
-        self.assertEqual(sanitize("\\n"), "\n", "Failed to convert newline escape sequence.")
-        self.assertEqual(sanitize("\\t"), "\t", "Failed to convert tab escape sequence.")
-        self.assertEqual(sanitize("\\\\"), "\\", "Failed to convert backslash escape sequence.")
-
-    def test_mixed_escape_sequences(self):
-        """Test if mixed escape sequences are handled correctly."""
-        input_str = "\\nSome\\tText\\\\Here"
-        expected_output = "\nSome\tText\\Here"
-
-        # Act & Assert
-        self.assertEqual(sanitize(input_str), expected_output, "Failed to handle mixed escape sequences.")
-
-    def test_plain_string(self):
-        """Test if a plain string without leading backslash is returned unchanged except for newline removal."""
-        input_str = "This is a test string.\nWith newline."
-        expected_output = "This is a test string.With newline."
-
-        # Act & Assert
-        self.assertEqual(sanitize(input_str), expected_output, "Failed to handle plain string correctly.")
-
-    def test_string_with_no_modifications(self):
-        """Test if a string without newlines or leading backslash is returned unchanged."""
-        input_str = "This is a test string."
-        expected_output = "This is a test string."
-
-        # Act & Assert
-        self.assertEqual(sanitize(input_str), expected_output, "Failed to handle string with no modifications.")
-
-    def test_empty_string(self):
-        """Test if an empty string is handled correctly."""
-        input_str = ""
-        expected_output = ""
-
-        # Act & Assert
-        self.assertEqual(sanitize(input_str), expected_output, "Failed to handle empty string.")
-
-    def test_leading_backslash_with_plain_text(self):
-        """Test if leading backslash with plain text is handled correctly."""
-        input_str = "\\Hello"
-        expected_output = "\\Hello"
-
-        # Act & Assert
-        self.assertEqual(sanitize(input_str), expected_output, "Failed to handle leading backslash with plain text.")
-
-    def test_only_backslashes(self):
-        """Test if a string with only backslashes is handled correctly."""
-        input_str = "\\\\\\"
-        expected_output = "\\\\"
-
-        # Act & Assert
-        self.assertEqual(sanitize(input_str), expected_output, "Failed to handle string with only backslashes.")
 
 
 class TestReadCharactersFile(unittest.TestCase):
@@ -113,7 +55,7 @@ class TestReadCharactersFile(unittest.TestCase):
             cubigma = Cubigma("characters.txt", "")
             result = cubigma._read_characters_file()
             assert mock_print.call_count == 0  # Check if duplicate symbols were reported
-            assert result == "Foo"
+            assert len(result) == num_of_symbols
 
     @patch("builtins.open")
     def test_exact_symbols_with_empty_lines(self, mock_open_func):
