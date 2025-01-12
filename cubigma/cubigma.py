@@ -6,13 +6,12 @@ This is Step 2 (the main step) in The Cubigma encryption algorithm.
 import argparse
 import random
 
-from utils import read_config, user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
+from cubigma.utils import user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
+# from utils import user_perceived_length, LENGTH_OF_QUARTET, NOISE_SYMBOL
 
-config = read_config()
-SYMBOLS_PER_LINE = config["SYMBOLS_PER_LINE"]
-LINES_PER_BLOCK = config["LINES_PER_BLOCK"]
-NUM_BLOCKS = config["NUM_BLOCKS"]
-
+NUM_BLOCKS = 7  # X
+LINES_PER_BLOCK = 7  # Y
+SYMBOLS_PER_LINE = 7  # Z
 
 # ToDo: This increases the complexity derived from the key
 #   * Maybe: Rotate the slices in a manner based on the key
@@ -126,12 +125,87 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     return sanitized_string
 
 
+def _sanitize(raw_input: str) -> str:
+    if raw_input.startswith("\\"):
+        return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+    return raw_input.replace("\n", "")
+
+
 class Cubigma:
+    characters_filepath: str
     cuboid_filepath: str
     playfair_cuboid: list[list[list[str]]]
 
-    def __init__(self, cuboid_filepath: str):
+    def __init__(self, characters_filepath: str, cuboid_filepath: str):
+        self.characters_filepath = characters_filepath
         self.cuboid_filepath = cuboid_filepath
+
+    def _read_characters_file(self) -> list[str]:
+        with open(self.characters_filepath, "r", encoding="utf-8") as line_count_file:
+            num_symbols_prepared = sum(1 for _ in line_count_file)
+
+        symbols_to_load = SYMBOLS_PER_LINE * LINES_PER_BLOCK * NUM_BLOCKS
+        symbols_loaded = 0
+        if symbols_to_load > num_symbols_prepared:
+            raise ValueError(
+                f"Not enough symbols are prepared. {num_symbols_prepared} symbols prepared. "
+                + f"Requested a cuboid with {symbols_to_load} symbols. "
+            )
+        symbols = []
+        with open(self.characters_filepath, "r", encoding="utf-8") as file:
+            for line in file.readlines():
+                len_before = len(symbols)
+                found_symbol = _sanitize(line)
+                symbols.append(found_symbol)
+                len_after = len(symbols)
+                if len_before == len_after:
+                    print(f"Duplicate symbol found: {found_symbol}")
+                symbols_loaded += 1
+                if symbols_loaded >= symbols_to_load:
+                    break
+        symbols_per_block = SYMBOLS_PER_LINE * LINES_PER_BLOCK
+        total_num_of_symbols = symbols_per_block * NUM_BLOCKS
+
+        if len(symbols) != total_num_of_symbols:
+            raise ValueError(
+                f"The file must contain exactly {total_num_of_symbols} symbols, one per line. Found {len(symbols)}"
+            )
+
+        # Reverse, so the least common symbols are first; this helps entropy when loading the key phrase
+        symbols = list(reversed(symbols))
+        return symbols
+
+    def _write_cuboid_file(self, symbols: list[str]) -> None:
+        symbols_per_block = SYMBOLS_PER_LINE * LINES_PER_BLOCK
+        output_lines = []
+        for block in range(NUM_BLOCKS):
+            for row in range(LINES_PER_BLOCK):
+                start_idx = block * symbols_per_block + row * SYMBOLS_PER_LINE
+                end_idx = block * symbols_per_block + (row + 1) * SYMBOLS_PER_LINE
+                line = "".join(symbols[start_idx:end_idx])
+                if user_perceived_length(line) != SYMBOLS_PER_LINE:
+                    raise ValueError("Something has failed")
+                sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
+                output_lines.append(sanitized_line)
+            output_lines.append("")  # Add an empty line between blocks
+        with open(self.cuboid_filepath, "w", encoding="utf-8") as file:
+            file.write("\n".join(output_lines))
+
+    def reformat_characters(self) -> None:
+        """
+        Convert characters.txt into cuboid.txt based on the three constants defined in config.json.
+        This is Step 1 in The Cubigma encryption algorithm.
+
+        Args:
+            input_characters_file (str): Path to the input characters.txt file.
+            output_cuboid_file (str): Path to the output cuboid.txt file.
+
+        Returns:
+            None
+        """
+        symbols = self._read_characters_file()
+        self._write_cuboid_file(symbols)
+        print(f"File successfully shuffled and written to: {self.cuboid_filepath}")
 
     def _read_cuboid_from_disk(self) -> None:
         playfair_cuboid = []
@@ -423,10 +497,12 @@ def main() -> None:
     Returns:
         None
     """
-    key_phrase, mode, message = _parse_arguments()
+    cubigma = Cubigma("characters.txt", "cuboid.txt")
+    cubigma.reformat_characters()
+
     # key_phrase = "Rumpelstiltskin"
     # clear_text_message = "This is cool!"
-    cubigma = Cubigma("cuboid.txt")
+    key_phrase, mode, message = _parse_arguments()
     if mode == "encrypt":
         clear_text_message = message
         print(f"{clear_text_message=}")

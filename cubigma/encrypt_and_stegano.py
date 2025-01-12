@@ -6,10 +6,10 @@ from itertools import combinations_with_replacement
 import math
 import random
 
-from cubigma import prep_string_for_encrypting
-from cubigma import Cubigma
-from steganography import embed_chunks, get_chunks_from_image
-from utils import read_config, LENGTH_OF_QUARTET, NOISE_SYMBOL
+from cubigma.cubigma import prep_string_for_encrypting
+from cubigma.cubigma import Cubigma
+from cubigma.steganography import embed_chunks, get_chunks_from_image
+from cubigma.utils import read_config, LENGTH_OF_QUARTET, NOISE_SYMBOL
 
 config = read_config()
 SYMBOLS_PER_LINE = config["SYMBOLS_PER_LINE"]

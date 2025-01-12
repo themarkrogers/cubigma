@@ -19,10 +19,8 @@ Requirements:
 
 Preparation:
 1. Agree on a cuboid size with your recipient (default is 7x7x7)
+   * If not using the default cuboid size, then modify the three constants in the top of `cubigma.py`
 2. Agree on a key phrase with your recipient (in a secure manner)
-3. Run `python3 shuffle_symbols.py`
-  * If not using the default cuboid size, then modify the three constants in the top of `shuffle_symbols.py`
-  * This generates a cuboid.txt from characters.txt
 
 Encrypting:
 1. Find a (preferably noisy) PNG image
