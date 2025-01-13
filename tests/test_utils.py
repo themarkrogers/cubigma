@@ -17,7 +17,10 @@ from cubigma.utils import (
     strengthen_key,
     user_perceived_length,
 )
-from cubigma.utils import _cascade_gap, _find_symbol, _split_key_into_parts  # noqa
+from cubigma.utils import (
+    _cascade_gap, _find_symbol, _move_letter_to_center, _move_letter_to_front, _move_letter_to_position,
+    _split_key_into_parts
+)
 
 LENGTH_OF_QUARTET = 4
 
@@ -39,7 +42,7 @@ class TestCascadeGap(unittest.TestCase):
             [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
             [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
         ]
-        letter_i = self.playfair_cuboid[0][2].pop(2)
+        letter_i = self.playfair_cuboid[0][2].pop(2)  # pylint:disable=W0612 # noqa: F841
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 2, direction="to-front")
         self.assertEqual(expected_cuboid, resultant_cuboid)
 
@@ -49,7 +52,7 @@ class TestCascadeGap(unittest.TestCase):
             [["I", "J", "K"], ["L", "M", "O"], ["P", "Q", "R"]],
             [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
         ]
-        letter_n = self.playfair_cuboid[1][1].pop(1)
+        letter_n = self.playfair_cuboid[1][1].pop(1)  # pylint:disable=W0612 # noqa: F841
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-front")
         self.assertEqual(expected_cuboid, resultant_cuboid)
 
@@ -59,7 +62,7 @@ class TestCascadeGap(unittest.TestCase):
             [["I", "J", "K"], ["L", "M", "N"], ["O", "P", "Q"]],
             [["R", "S", "T"], ["U", "V", "W"], ["X", "Y", "Z"]],
         ]
-        letter_zero = self.playfair_cuboid[2][2].pop(2)
+        letter_zero = self.playfair_cuboid[2][2].pop(2)  # pylint:disable=W0612 # noqa: F841
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 2, direction="to-front")
         self.assertEqual(expected_cuboid, resultant_cuboid)
 
@@ -69,7 +72,7 @@ class TestCascadeGap(unittest.TestCase):
             [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
             [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
         ]
-        letter_s = self.playfair_cuboid[2][0].pop(0)
+        letter_s = self.playfair_cuboid[2][0].pop(0)  # pylint:disable=W0612 # noqa: F841
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 0, direction="to-back")
         self.assertEqual(expected_cuboid, resultant_cuboid)
 
@@ -79,7 +82,7 @@ class TestCascadeGap(unittest.TestCase):
             [["J", "K", "L"], ["M", "O", "P"], ["Q", "R", "S"]],
             [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
         ]
-        letter_n = self.playfair_cuboid[1][1].pop(1)
+        letter_n = self.playfair_cuboid[1][1].pop(1)  # pylint:disable=W0612 # noqa: F841
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-back")
         self.assertEqual(expected_cuboid, resultant_cuboid)
 
@@ -89,7 +92,7 @@ class TestCascadeGap(unittest.TestCase):
             [["K", "L", "M"], ["N", "O", "P"], ["Q", "R", "S"]],
             [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
         ]
-        letter_a = self.playfair_cuboid[0][0].pop(0)
+        letter_a = self.playfair_cuboid[0][0].pop(0)  # pylint:disable=W0612 # noqa: F841
         resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-back")
         self.assertEqual(expected_cuboid, resultant_cuboid)
 
@@ -127,6 +130,193 @@ class TestFindSymbol(unittest.TestCase):
         self.assertEqual(_find_symbol("Z", self.playfair_cuboid), (2, 2, 1))
         self.assertEqual(_find_symbol("X", self.playfair_cuboid), (2, 1, 2))
         self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
+
+
+class TestMoveLetterToCenter(unittest.TestCase):
+
+    @patch('cubigma.utils._move_letter_to_position')
+    def test_move_letter_to_center_with_even_dimensions(self, mock_move_letter_to_position):
+        # Arrange
+        expected_return_value = [
+            [
+                ['A', 'B', 'C', 'D'],
+                ['E', 'F', 'G', 'H'],
+                ['I', 'J', 'K', 'L'],
+                ['M', 'N', 'O', 'P']
+            ],
+            [
+                ['Q', 'R', 'S', 'T'],
+                ['U', 'V', 'W', 'X'],
+                ['Y', 'Z', '1', '2'],
+                ['3', '4', '5', '6']
+            ],
+            [
+                ['7', '8', '9', '0'],
+                ['a', 'b', 'c', 'd'],
+                ['e', 'f', 'g', 'h'],
+                ['i', 'j', 'k', 'l']
+            ],
+            [
+                ['m', 'n', 'o', 'p'],
+                ['q', 'r', 's', 't'],
+                ['u', 'v', 'w', 'x'],
+                ['y', 'z', '!', '@']
+            ]
+        ]
+        mock_move_letter_to_position.return_value = expected_return_value
+        test_symbol = "R"
+        test_cuboid = [expected_return_value[3], expected_return_value[2], expected_return_value[1], expected_return_value[0]]
+
+        # Act
+        result = _move_letter_to_center(test_symbol, test_cuboid)
+
+        # Assert
+        self.assertEqual(expected_return_value, result)
+        mock_move_letter_to_position.assert_called_once_with(test_symbol, test_cuboid, (2, 2, 2))
+
+    @patch('cubigma.utils._move_letter_to_position')
+    def test_move_letter_to_center_with_odd_dimensions(self, mock_move_letter_to_position):
+        # Arrange
+        expected_return_value = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '1']
+            ]
+        ]
+        mock_move_letter_to_position.return_value = expected_return_value
+        test_symbol = "R"
+        test_cuboid = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
+
+        # Act
+        result = _move_letter_to_center(test_symbol, test_cuboid)
+
+        # Assert
+        self.assertEqual(expected_return_value, result)
+        mock_move_letter_to_position.assert_called_once_with(test_symbol, test_cuboid, (1, 1, 1))
+
+
+class TestMoveLetterToFront(unittest.TestCase):
+
+    @patch('cubigma.utils._move_letter_to_position')
+    def test_move_letter_to_front(self, mock_move_letter_to_position):
+        # Arrange
+        expected_return_value = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '1']
+            ]
+        ]
+        mock_move_letter_to_position.return_value = expected_return_value
+        test_symbol = "R"
+        test_cuboid = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
+
+        # Act
+        result = _move_letter_to_front(test_symbol, test_cuboid)
+
+        # Assert
+        self.assertEqual(expected_return_value, result)
+        mock_move_letter_to_position.assert_called_once_with(test_symbol, test_cuboid, (0, 0, 0))
+
+
+class TestMoveLetterToPosition(unittest.TestCase):
+    def setUp(self):
+        # Setup a sample playfair cuboid for testing
+        self.cuboid = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '1']
+            ]
+        ]
+
+    @patch('cubigma.utils._find_symbol')
+    @patch('cubigma.utils._cascade_gap')
+    def test_move_letter_to_position_to_front(self, mock_cascade_gap, mock_find_symbol):
+        # Mock the _find_symbol to return a specific position
+        mock_find_symbol.return_value = (1, 1, 1)  # 'N' at position (1, 1, 1)
+
+        # Call the function
+        updated_cuboid = _move_letter_to_position(
+            symbol_to_move='N',
+            playfair_cuboid=self.cuboid,
+            target_position=(0, 0, 1),
+            direction='to-front'
+        )
+
+        # Assertions
+        self.assertEqual(updated_cuboid[0][0][1], 'N')  # 'N' is at the new position
+        self.assertNotIn('N', self.cuboid[1][1])  # 'N' removed from the original position
+        mock_find_symbol.assert_called_once_with('N', self.cuboid)  # Ensure the symbol search was called
+        mock_cascade_gap.assert_called_once_with(self.cuboid, 1, 1, direction='to-front')  # Ensure cascading called
+
+    @patch('cubigma.utils._find_symbol')
+    @patch('cubigma.utils._cascade_gap')
+    def test_move_letter_to_position_to_back(self, mock_cascade_gap, mock_find_symbol):
+        # Mock the _find_symbol to return a specific position
+        mock_find_symbol.return_value = (2, 2, 2)  # '1' at position (2, 2, 2)
+
+        # Call the function
+        updated_cuboid = _move_letter_to_position(
+            symbol_to_move='1',
+            playfair_cuboid=self.cuboid,
+            target_position=(1, 0, 0),
+            direction='to-back'
+        )
+
+        # Assertions
+        self.assertEqual(updated_cuboid[1][0][0], '1')  # '1' is at the new position
+        self.assertNotIn('1', self.cuboid[2][2])  # '1' removed from the original position
+        mock_find_symbol.assert_called_once_with('1', self.cuboid)  # Ensure the symbol search was called
+        mock_cascade_gap.assert_called_once_with(self.cuboid, 2, 2, direction='to-back')  # Ensure cascading called
+
+    @patch('cubigma.utils._find_symbol')
+    @patch('cubigma.utils._cascade_gap')
+    def test_invalid_symbol(self, mock_cascade_gap, mock_find_symbol):
+        # Mock _find_symbol to raise an exception if the symbol is not found
+        mock_find_symbol.side_effect = ValueError("Symbol not found")
+
+        # Call the function and expect an exception
+        with self.assertRaises(ValueError):
+            _move_letter_to_position(
+                symbol_to_move='Z',
+                playfair_cuboid=self.cuboid,
+                target_position=(0, 0, 0)
+            )
+
+        # Ensure cascading was not called
+        mock_cascade_gap.assert_not_called()
 
 
 class TestSplitKeyIntoParts(unittest.TestCase):

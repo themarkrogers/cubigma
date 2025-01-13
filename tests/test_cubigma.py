@@ -10,13 +10,13 @@ class TestReadCharactersFile(unittest.TestCase):
     @patch("builtins.open")
     def test_valid_file(self, mock_open_func):
         # Arrange
-        num_of_symbols = 7 * 7 * 7  # ToDo: How do we keep the test passing and change this value?
+        num_of_symbols = 7 * 7 * 7  # ToDo: How do we keep the test passing and changes to this value?
         mock_data = "\n".join(f"symbol{i}" for i in range(num_of_symbols))
         mock_open_func.return_value = mock_open(mock=mock_open_func, read_data=mock_data).return_value
 
         # Act
         cubigma = Cubigma("characters.txt", "")
-        result = cubigma._read_characters_file()
+        result = cubigma._read_characters_file()  # pylint:disable=W0212
 
         # Assert
         expected_symbols = list(reversed([f"symbol{i}" for i in range(num_of_symbols)]))
@@ -30,7 +30,7 @@ class TestReadCharactersFile(unittest.TestCase):
         # Act & Assert
         with self.assertRaises(FileNotFoundError):
             cubigma = Cubigma("missing.txt", "")
-            cubigma._read_characters_file()
+            cubigma._read_characters_file()  # pylint:disable=W0212
 
     @patch("builtins.open")
     def test_insufficient_symbols(self, mock_open_func):
@@ -42,7 +42,7 @@ class TestReadCharactersFile(unittest.TestCase):
         # Act & Assert
         with self.assertRaises(ValueError) as context:
             cubigma = Cubigma("characters.txt", "")
-            cubigma._read_characters_file()
+            cubigma._read_characters_file()  # pylint:disable=W0212
         self.assertIn("Not enough symbols are prepared", str(context.exception))
 
     @patch("builtins.open")
@@ -55,7 +55,7 @@ class TestReadCharactersFile(unittest.TestCase):
         # Act & Assert
         with patch("builtins.print") as mock_print:
             cubigma = Cubigma("characters.txt", "")
-            result = cubigma._read_characters_file()
+            result = cubigma._read_characters_file()  # pylint:disable=W0212
             assert mock_print.call_count == 0  # Check if duplicate symbols were reported
             assert len(result) == num_of_symbols
 
@@ -69,7 +69,7 @@ class TestReadCharactersFile(unittest.TestCase):
 
         # Act
         cubigma = Cubigma("characters.txt", "")
-        result = cubigma._read_characters_file()
+        result = cubigma._read_characters_file()  # pylint:disable=W0212
 
         # Assert
         expected_symbols = list(reversed(symbols))

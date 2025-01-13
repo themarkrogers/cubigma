@@ -43,60 +43,13 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
     return reflector
 
 
-def _insert_symbol(
-    playfair_cuboid: list[list[list[str]]], target_frame: int, target_row: int, target_col: int, symbol_to_move: str
-):
-    """Inserts the symbol into the specified position in the playfair cuboid."""
-    pass
-
-
-def _move_letter_to_position(
-    symbol_to_move: str,
-    playfair_cuboid: list[list[list[str]]],
-    target_position: tuple[int, int, int],
-    direction: str = "to-front",
-) -> list[list[list[str]]]:
-    """
-    Generalized function to move a letter to a specific position in the playfair cuboid.
-
-    Args:
-        symbol_to_move (str): The ASCII character to move.
-        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
-        target_position (tuple[int, int, int]): The target frame, row, and column to move the symbol to.
-        direction (str): The direction to cascade ('to-front' or 'to-back').
-
-    Returns:
-        list[list[list[str]]]: The modified playfair cuboid.
-    """
-    frame_idx, row_idx, col_idx = _find_symbol(symbol_to_move, playfair_cuboid)
-    playfair_cuboid[frame_idx][row_idx].pop(col_idx)  # result of pop == symbol_to_move
-    _cascade_gap(playfair_cuboid, frame_idx, row_idx, direction=direction)
-    target_x, target_y, target_z = target_position
-    playfair_cuboid[target_x][target_y].insert(target_z, symbol_to_move)
-    return playfair_cuboid
-
-
-def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the front of the playfair cuboid."""
-    return _move_letter_to_position(symbol_to_move, playfair_cuboid, (0, 0, 0))
-
-
-def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the center of the playfair cuboid."""
-    num_blocks = len(playfair_cuboid)
-    lines_per_block = len(playfair_cuboid[0])
-    symbols_per_line = len(playfair_cuboid[0][0])
-    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
-    return _move_letter_to_position(symbol_to_move, playfair_cuboid, center_position)
-
-
 def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
     """
     Read the cuboid from disk and reorder it according to the key phrase provided
 
     Args:
         key_phrase (str): Key phrase to use for encrypting/decrypting
-        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before the full key phrase has been pulled to the front
+        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before the key phrase has been pulled to the front
 
     Returns:
         list[list[list[str]]]: The playfair cuboid with full key phrase has been pulled to the front
@@ -111,14 +64,15 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
     #   * Maybe: Rotate the slices in a manner based on the key
     #   * Maybe: Change which corner of the cuboid is chosen
     #   * Maybe: both?
-    # Split the key phrase into rough thirds. Come up with a logic that converts the string into an algorithm for rotation.
-    # Three parts of the key phrase, three axes of rotation. So, we need an algorithm that Takes the key third and the text
-    # being encoded/decoded and deterministically chooses which "slice" of the prism to rotate, and which way.
+    # Split the key phrase into rough thirds. Come up with a logic that converts the string into an algorithm for
+    # rotation.
+    # Three parts of the key phrase, three axes of rotation. So, we need an algorithm that Takes the key third and the
+    # text being encoded/decoded and deterministically chooses which "slice" of the prism to rotate, and which way.
     # Maybe: Combine these three elements: The sum of ord() of the key phrase, of the decoded string, and of the encoded
-    # quartet. This will yield the same three numbers both encoding/decoding (e.g. val = (clear ^ key) - encrypted). With
-    # this number, we determine which slice (e.g. val % key third % SIZE_OF_AXIS). We always turn it the same way (e.g.
-    # val % key third % 2). As long as we encode and decode in the same order, we'll be modifying the same starting cuboid
-    # in the same ways, allowing us to always get the correct opposite corners for decoding.
+    # quartet. This will yield the same three numbers both encoding/decoding (e.g. val = (clear ^ key) - encrypted).
+    # With this number, we determine which slice (e.g. val % key third % SIZE_OF_AXIS). We always turn it the same way
+    # (e.g. val % key third % 2). As long as we encode and decode in the same order, we'll be modifying the same
+    # starting cuboid in the same ways, allowing us to always get the correct opposite corners for decoding.
 
     # ToDo: See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
     return playfair_cuboid
@@ -132,7 +86,7 @@ def generate_rotors(
 
     Args:
         sanitized_key_phrase (str): The encryption key used to seed the random generator.
-        prepared_playfair_cuboid (list[list[list[str]]]): The playfair cuboid with the full key phrase pulled to the front
+        prepared_playfair_cuboid (list[list[list[str]]]): The playfair cuboid with the key phrase pulled to the front
         num_rotors (int): Number of "rotors" to use
 
     Returns:
@@ -372,6 +326,46 @@ def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) ->
                 col_idx = row.index(symbol_to_move)
                 return frame_idx, row_idx, col_idx
     raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
+
+
+def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the center of the playfair cuboid."""
+    num_blocks = len(playfair_cuboid)
+    lines_per_block = len(playfair_cuboid[0])
+    symbols_per_line = len(playfair_cuboid[0][0])
+    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
+    return _move_letter_to_position(symbol_to_move, playfair_cuboid, center_position)
+
+
+def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the front of the playfair cuboid."""
+    return _move_letter_to_position(symbol_to_move, playfair_cuboid, (0, 0, 0))
+
+
+def _move_letter_to_position(
+    symbol_to_move: str,
+    playfair_cuboid: list[list[list[str]]],
+    target_position: tuple[int, int, int],
+    direction: str = "to-front",
+) -> list[list[list[str]]]:
+    """
+    Generalized function to move a letter to a specific position in the playfair cuboid.
+
+    Args:
+        symbol_to_move (str): The ASCII character to move.
+        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
+        target_position (tuple[int, int, int]): The target frame, row, and column to move the symbol to.
+        direction (str): The direction to cascade ('to-front' or 'to-back').
+
+    Returns:
+        list[list[list[str]]]: The modified playfair cuboid.
+    """
+    frame_idx, row_idx, col_idx = _find_symbol(symbol_to_move, playfair_cuboid)
+    playfair_cuboid[frame_idx][row_idx].pop(col_idx)  # result of pop == symbol_to_move
+    _cascade_gap(playfair_cuboid, frame_idx, row_idx, direction=direction)
+    target_x, target_y, target_z = target_position
+    playfair_cuboid[target_x][target_y].insert(target_z, symbol_to_move)
+    return playfair_cuboid
 
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
