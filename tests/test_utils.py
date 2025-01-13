@@ -17,7 +17,6 @@ from cubigma.utils import (
     pad_chunk,
     parse_arguments,
     prep_string_for_encrypting,
-    prepare_cuboid_with_key_phrase,
     quartet_to_index,
     read_config,
     remove_duplicate_letters,
@@ -1123,48 +1122,6 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         expected_output = "abc*cdefghij"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
-
-
-class TestPrepareCuboidWithKeyPhrase(unittest.TestCase):
-    def setUp(self):
-        # Initial playfair cuboid setup
-        self.playfair_cuboid = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "-"]],
-        ]
-
-    def test_valid_key_phrase(self):
-        key_phrase = "HELLO"
-        expected_cuboid = [
-            [["H", "E", "L"], ["O", "A", "B"], ["C", "D", "F"]],
-            [["G", "I", "J"], ["K", "M", "N"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "-"]],
-        ]
-        result = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
-        self.assertEqual(result, expected_cuboid)
-
-    def test_short_key_phrase(self):
-        key_phrase = "AB"
-        with self.assertRaises(AssertionError) as context:
-            prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
-        self.assertEqual(str(context.exception), "Key phrase must be at least 3 characters long")
-
-    def test_key_phrase_with_duplicates(self):
-        key_phrase = "BALLOON"
-        expected_cuboid = [
-            [["B", "A", "L"], ["O", "N", "C"], ["D", "E", "F"]],
-            [["G", "H", "I"], ["J", "K", "M"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "-"]],
-        ]
-        result = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
-        self.assertEqual(result, expected_cuboid)
-
-    def test_empty_key_phrase(self):
-        key_phrase = ""
-        with self.assertRaises(AssertionError) as context:
-            prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
-        self.assertEqual(str(context.exception), "Key phrase must be at least 3 characters long")
 
 
 class TestQuartetToIndex(unittest.TestCase):

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from typing import Any
-import argparse
 import json
 import hashlib
 import hmac
@@ -213,7 +212,10 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
 
 
 def generate_rotors(
-    sanitized_key_phrase: str, raw_cube: list[list[list[str]]], num_rotors_to_make: int = 5, rotors_to_use: list[int] = [0, 4, 5],
+    sanitized_key_phrase: str,
+    raw_cube: list[list[list[str]]],
+    num_rotors_to_make: int | None = None,
+    rotors_to_use: list[int] | None = None,
 ) -> list[list[list[list[str]]]]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
@@ -241,10 +243,17 @@ def generate_rotors(
         raise ValueError("num_rotors must be an integer great than zero.")
     if not rotors_to_use or not isinstance(rotors_to_use, list):
         raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a non-empty list of integers")
-    seen_rotor_values = set()
+    seen_rotor_values: list[int] = []
     for index, rotor_item in enumerate(rotors_to_use):
-        if not isinstance(rotor_item, int) or rotor_item < 1 or rotor_item >= num_rotors_to_make or rotor_item in seen_rotor_values:
-            raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be unique integers between 0 & the number of rotors generated")
+        if (
+            not isinstance(rotor_item, int)
+            or rotor_item < 1
+            or rotor_item >= num_rotors_to_make
+            or rotor_item in seen_rotor_values
+        ):
+            first_half = "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be"
+            raise ValueError(f"{first_half} unique integers between 0 & the number of rotors generated")
+        seen_rotor_values.append(rotor_item)
     num_rotors = len(rotors_to_use)
 
     random.seed(sanitized_key_phrase)  # Seed the random generator with the key
@@ -371,7 +380,7 @@ def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rot
     return result
 
 
-def read_and_validate_config() -> tuple[int, int, list[int], str, bool]:
+def read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str, bool]:
     config = read_config()
     cube_length = config.get("LENGTH_OF_CUBE", None)
     if cube_length is None:
@@ -382,7 +391,7 @@ def read_and_validate_config() -> tuple[int, int, list[int], str, bool]:
         raise ValueError("LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12")
 
     num_rotors_to_make = config.get("NUMBER_OF_ROTORS_TO_GENERATE", None)
-    if num_rotors_to_make in None:
+    if num_rotors_to_make is None:
         raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE not found in config.json")
     if not isinstance(num_rotors_to_make, int):
         raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value")
@@ -394,20 +403,23 @@ def read_and_validate_config() -> tuple[int, int, list[int], str, bool]:
         raise ValueError("ROTORS_TO_USE not found in config.json")
     if not isinstance(rotors_to_use, list):
         raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a list of integers")
-    seen_rotor_values = set()
+    seen_rotor_values: list[int] = []
     for index, rotor_item in enumerate(rotors_to_use):
         if not isinstance(rotor_item, int):
             raise ValueError(
-                f"NUMBER_OF_ROTORS_TO_GENERATE (in config.json) contains a non-integer value at index: {index}")
+                f"NUMBER_OF_ROTORS_TO_GENERATE (in config.json) contains a non-integer value at index: {index}"
+            )
         if rotor_item < 1 or rotor_item >= num_rotors_to_make:
-            raise ValueError(
-                "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be between 0 & the number of rotors generated")
+            first_half = "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor"
+            raise ValueError(f"{first_half} values must be between 0 & the number of rotors generated")
         if rotor_item in seen_rotor_values:
             raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be unique")
+        seen_rotor_values.append(rotor_item)
 
-    mode = config.get("ENCRYPT_OR_DECRYPT", None)
-    if mode is None:
-        raise ValueError("ENCRYPT_OR_DECRYPT not found in config.json")
+    if not mode:
+        mode = config.get("ENCRYPT_OR_DECRYPT", None)
+        if mode is None:
+            raise ValueError("ENCRYPT_OR_DECRYPT not found in config.json")
     if not isinstance(mode, str):
         raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be a string")
     if mode.upper() not in ["ENCRYPT", "DECRYPT"]:
@@ -422,7 +434,9 @@ def read_and_validate_config() -> tuple[int, int, list[int], str, bool]:
     return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography
 
 
-def parse_arguments() -> tuple[str, str, str, int, int, list[int], bool]:
+def parse_arguments(
+    key_phrase: str = "", mode: str = "", message: str = ""
+) -> tuple[str, str, str, int, int, list[int], bool]:
     """
     Parses config and prompts the user for input interactively.
 
@@ -437,15 +451,17 @@ def parse_arguments() -> tuple[str, str, str, int, int, list[int], bool]:
           * whether to use steganography in addition to encryption
     """
 
-    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = read_and_validate_config()
+    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = read_and_validate_config(mode=mode)
 
-    key_phrase = input("Enter your key phrase: ").strip()
-    if mode.lower() == "encrypt":
-        message = input("Enter your plaintext message: ").strip()
-    elif mode.lower() == "decrypt":
-        message = input("Enter your encrypted message: ").strip()
-    else:
-        raise ValueError("Unknown mode")
+    if not key_phrase:
+        key_phrase = input("Enter your key phrase: ").strip()
+    if not message:
+        if mode.lower() == "encrypt":
+            message = input("Enter your plaintext message: ").strip()
+        elif mode.lower() == "decrypt":
+            message = input("Enter your encrypted message: ").strip()
+        else:
+            raise ValueError("Unknown mode")
 
     return key_phrase, mode.lower(), message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
 
@@ -480,25 +496,6 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
     sanitized_string += cur_chunk
     return sanitized_string
-
-
-def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """
-    Read the cuboid from disk and reorder it according to the key phrase provided
-
-    Args:
-        key_phrase (str): Key phrase to use for encrypting/decrypting
-        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before the key phrase has been pulled to the front
-
-    Returns:
-        list[list[list[str]]]: The playfair cuboid with full key phrase has been pulled to the front
-    """
-    assert len(key_phrase) >= 3, "Key phrase must be at least 3 characters long"
-    sanitized_key_phrase = remove_duplicate_letters(key_phrase)
-    reversed_key = list(reversed(sanitized_key_phrase))
-    for key_letter in reversed_key:
-        playfair_cuboid = _move_letter_to_front(key_letter, playfair_cuboid)
-    return playfair_cuboid
 
 
 def quartet_to_index(quartet: str, symbols: list[str]) -> int:

@@ -16,7 +16,6 @@ from cubigma.utils import (
     index_to_quartet,
     parse_arguments,
     prep_string_for_encrypting,
-    prepare_cuboid_with_key_phrase,
     quartet_to_index,
     sanitize,
     split_to_human_readable_symbols,
@@ -29,6 +28,7 @@ class Cubigma:
     _characters_filepath: str
     _cuboid_filepath: str
     _is_machine_prepared: bool = False
+    _is_using_steganography: bool = False
     _num_quartets_encoded = 0
     _symbols: list[str]
     rotors: list[list[list[list[str]]]]
@@ -277,9 +277,9 @@ class Cubigma:
         cube_length: int,
         num_rotors_to_make: int,
         rotors_to_use: list[int],
-        should_use_steganography: bool
+        should_use_steganography: bool,
     ) -> None:
-        # Set up user-configurable parameters (like the plug board)
+        # Set up user-configurable parameters (similar to configuring the plug board on an Enigma machine)
         self._symbols = self._read_characters_file(cube_length)
         self._write_cuboid_file(
             self._symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
@@ -292,17 +292,16 @@ class Cubigma:
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
 
-        # ToDo: Instead of floating the key phrase, simply use the key phrase to seed random, and then generate 5 random
-        #  cuboids, then allow the user to select which 3 rotors to use
-        cube = prepare_cuboid_with_key_phrase(key_phrase, raw_cube)
-
         # Set up the rotors and the reflector
-        rotors = generate_rotors(sanitized_key_phrase, cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use)
+        rotors = generate_rotors(
+            sanitized_key_phrase, raw_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use
+        )
         num_total_symbols = cube_length * cube_length * cube_length
         num_unique_quartets = math.comb(num_total_symbols, LENGTH_OF_QUARTET)
         reflector = generate_reflector(sanitized_key_phrase, num_unique_quartets)
         self.rotors = rotors
         self.reflector = reflector
+        self._is_using_steganography = should_use_steganography
         self._is_machine_prepared = True
 
 

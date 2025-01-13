@@ -7,7 +7,7 @@ import random
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
 from cubigma.steganography import embed_chunks, get_chunks_from_image, get_image_size
-from cubigma.utils import LENGTH_OF_QUARTET, pad_chunk
+from cubigma.utils import LENGTH_OF_QUARTET, pad_chunk, parse_arguments
 
 NUM_SQUARES = 5
 
@@ -102,20 +102,27 @@ def split_message_according_to_numbers(square_lengths: list[int], message: str) 
     return message_parts
 
 
-def encrypt_message_into_image(key_phrase: str, clear_text_message: str, original_image_filepath: str) -> None:
+def encrypt_message_into_image(
+    original_image_filepath: str, key_phrase: str = "", mode: str = "", message: str = ""
+) -> None:
     """
     Encrypt the message using the key phrase and embed it into the image provided
 
     Args:
-        key_phrase (str): The key phrase to use to encrypt
-        clear_text_message (str): The plain text message to encrypt
         original_image_filepath (str): Filepath of the image into which to embed the encrypted message
+        key_phrase (str): Raw key phrase
+        mode (str): 'encrypt' or 'decrypt
+        message (str): Message to encrypt/decrypt
 
     Returns:
         None
     """
     cubigma = Cubigma("cuboid.txt")
-    cubigma.prepare_machine(key_phrase)
+    tuple_result = parse_arguments(key_phrase=key_phrase, mode=mode, message=message)
+    key_phrase, mode, clear_text_message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
+        tuple_result
+    )
+    cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
     sanitized_string = prep_string_for_encrypting(clear_text_message)
 
     image_width, image_height = get_image_size(original_image_filepath)
@@ -144,19 +151,22 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
     embed_chunks(encrypted_chunks, original_image_filepath)
 
 
-def decrypt_message_from_image(key_phrase: str, stego_image_filepath: str) -> str:
+def decrypt_message_from_image(stego_image_filepath: str, key_phrase: str = "", mode: str = "") -> str:
     """
     Read the image for an embedded message, and decrypt it using the key phrase provided
 
     Args:
-        key_phrase (str): The key phrase to use to encrypt
         stego_image_filepath (str): Filepath of the image to read for embedded, encrypted messages
+        key_phrase (str): Raw key phrase
+        mode (str): 'encrypt' or 'decrypt
 
     Returns:
         Decrypted message
     """
     cubigma = Cubigma("cuboid.txt")
-    cubigma.prepare_machine(key_phrase)
+    tuple_result = parse_arguments(key_phrase=key_phrase, mode=mode)
+    key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = tuple_result
+    cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
     # prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
@@ -185,11 +195,14 @@ def main() -> None:
         None
     """
     key_phrase = "Death and Taxes"
+    mode = "ENCRYPT"
+    message = "This is cool!"
     print("Encrypting...")
-    encrypt_message_into_image(key_phrase, "This is cool!", "kitten.jpg.png")
+    encrypt_message_into_image("kitten.jpg.png", key_phrase=key_phrase, mode=mode, message=message)
     print("Done encrypting!")
     print("Decrypting...")
-    decrypted_message = decrypt_message_from_image(key_phrase, "kitten.jpg.data.png")
+    mode = "DECRYPT"
+    decrypted_message = decrypt_message_from_image("kitten.jpg.data.png", key_phrase=key_phrase, mode=mode)
     print("Done decrypting!")
     print("Found message:\n")
     print(decrypted_message)
