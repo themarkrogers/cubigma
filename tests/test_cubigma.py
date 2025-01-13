@@ -147,7 +147,7 @@ class TestReadCharactersFile(unittest.TestCase):
         cubigma = Cubigma("characters.txt", "")
         with self.assertRaises(ValueError):
             cubigma._read_characters_file(self.cube_length)  # pylint:disable=W0212
-        mock_print.assert_called_once_with('Duplicate symbol found: A')
+        mock_print.assert_called_once_with("Duplicate symbol found: A")
 
     @patch("builtins.open")
     def test_missing_file(self, mock_open_func):
@@ -306,7 +306,7 @@ class TestRunQuartetThroughReflector(unittest.TestCase):
         cubigma = Cubigma()
         cubigma._is_machine_prepared = True  # pylint:disable=W0212
         expected_symbols = ["A", "B", "C"]
-        cubigma._symbols = expected_symbols
+        cubigma._symbols = expected_symbols  # pylint:disable=W0212
         expected_quartet_index = 42
         expected_reflected_index = 9001
         mock_reflector = {expected_quartet_index: expected_reflected_index}
@@ -694,7 +694,9 @@ class TestCubigma(unittest.TestCase):
         rotors_to_use = [2, 0]
         should_use_steganography = True
 
-        result_salt = cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
+        result_salt = cubigma.prepare_machine(
+            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
+        )
 
         self.assertTrue(cubigma._is_machine_prepared)  # pylint:disable=W0212
         self.assertTrue(cubigma._is_using_steganography)  # pylint:disable=W0212
@@ -745,7 +747,9 @@ class TestCubigma(unittest.TestCase):
         rotors_to_use = [2, 0]
         should_use_steganography = True
 
-        result_salt = cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=expected_salt)
+        result_salt = cubigma.prepare_machine(
+            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=expected_salt
+        )
 
         self.assertTrue(cubigma._is_machine_prepared)  # pylint:disable=W0212
         self.assertTrue(cubigma._is_using_steganography)  # pylint:disable=W0212
@@ -756,7 +760,7 @@ class TestCubigma(unittest.TestCase):
             mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
         mock_read_cube_from_disk.assert_called_once_with(cube_length)
-        mock_strengthen_key.assert_called_once_with(key_phrase, salt=expected_salt)
+        mock_strengthen_key.assert_called_once_with(key_phrase, salt=expected_salt.encode("utf-8"))
         mock_split.assert_called_once_with(mock_encoded_strengthened_key)
         mock_generate_rotors.assert_called_once_with(
             mock_encoded_strengthened_key, mock_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use

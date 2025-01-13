@@ -28,6 +28,7 @@ class Cubigma:
     """
     This class is used to encrypt and decrypt messages (with or without additional steganography)
     """
+
     _characters_filepath: str
     _cube_filepath: str
     _is_machine_prepared: bool = False
@@ -309,7 +310,12 @@ class Cubigma:
         )
         raw_cube = self._read_cube_from_disk(cube_length)
 
-        strengthened_key_phrase, salt_used = strengthen_key(key_phrase, salt=salt)
+        encoded_salt: bytes | None
+        if salt is None:
+            encoded_salt = salt
+        else:
+            encoded_salt = salt.encode("utf-8")
+        strengthened_key_phrase, salt_used = strengthen_key(key_phrase, salt=encoded_salt)
         for character in split_to_human_readable_symbols(strengthened_key_phrase):
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
