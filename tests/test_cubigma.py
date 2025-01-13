@@ -9,36 +9,6 @@ from cubigma.cubigma import Cubigma
 # Testing Private Cubigma Functions
 
 
-class TestGetCharsForCoordinates(unittest.TestCase):
-
-    def test_get_chars_for_valid_coordinates(self):
-        # Arrange
-        cubigma = Cubigma()
-        test_rotor = [
-            [["1","2",'3'], ["4","5","6"], ["7", "8", "9"]]
-        ]
-        coordinate = (0, 2, 1)
-        expected_result = '8'
-
-        # Act
-        result = cubigma._get_chars_for_coordinates(coordinate, test_rotor)
-
-        # Assert
-        self.assertEqual(expected_result, result)
-
-    def test_get_chars_for_invalid_coordinates(self):
-        # Arrange
-        cubigma = Cubigma()
-        test_rotor = [
-            [["1","2",'3'], ["4","5","6"], ["7", "8", "9"]]
-        ]
-        coordinate = (1, 0, 2)
-
-        # Act & Assert
-        with self.assertRaises(IndexError):
-            cubigma._get_chars_for_coordinates(coordinate, test_rotor)
-
-
 class TestGetEncryptedLetterQuartet(unittest.TestCase):
 
     def test_get_encrypted_letter_quartet(self):
@@ -146,9 +116,9 @@ class TestRunQuartetThroughReflector(unittest.TestCase):
     def test_run_quartet_through_reflector_valid(self, mock_quartet_to_index, mock_index_to_quartet):
         # Arrange
         cubigma = Cubigma()
-        cubigma.is_machine_prepared = True
+        cubigma._is_machine_prepared = True
         expected_symbols = "ABC"
-        cubigma.symbols = expected_symbols
+        cubigma._symbols = expected_symbols
         expected_quartet_index = 42
         expected_reflected_index = 9001
         mock_reflector = { expected_quartet_index: expected_reflected_index }
@@ -193,7 +163,7 @@ class TestDecodeString(unittest.TestCase):
         # Arrange
         expected_return_value = "boop"
         cubigma = Cubigma()
-        cubigma.is_machine_prepared = True
+        cubigma._is_machine_prepared = True
         mock_encode_string = MagicMock()
         mock_encode_string.return_value = "boop"
         cubigma.encode_string = mock_encode_string
@@ -221,7 +191,7 @@ class TestEncryptMessage(unittest.TestCase):
         # Arrange
         expected_return_value = "boop"
         cubigma = Cubigma()
-        cubigma.is_machine_prepared = True
+        cubigma._is_machine_prepared = True
         expected_string = "bar"
         mock_prep_string_for_encrypting.return_value = expected_string
         mock_encode_string = MagicMock()

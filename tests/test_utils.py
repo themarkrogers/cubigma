@@ -7,9 +7,12 @@ import os
 import unittest
 
 from cubigma.utils import (
-    get_prefix_order_number_quartet,
+    NOISE_SYMBOL,
+    LENGTH_OF_QUARTET,
     generate_reflector,
     generate_rotors,
+    get_prefix_order_number_quartet,
+    get_random_noise_chunk,
     index_to_quartet,
     pad_chunk_with_rand_pad_symbols,
     parse_arguments,
@@ -22,11 +25,10 @@ from cubigma.utils import (
     strengthen_key,user_perceived_length
 )
 from cubigma.utils import (
-    _find_symbol, _get_flat_index, _is_valid_coord, _move_letter_to_center, _move_letter_to_front,
-    _move_symbol_in_3d_grid, _split_key_into_parts
+    _find_symbol, _get_chars_for_coordinates, _get_flat_index, _is_valid_coord, _move_letter_to_center,
+    _move_letter_to_front, _move_symbol_in_3d_grid, _split_key_into_parts
 )
 
-LENGTH_OF_QUARTET = 4
 
 # Testing Private Functions
 
@@ -59,6 +61,34 @@ class TestFindSymbol(unittest.TestCase):
         self.assertEqual(_find_symbol("Z", self.playfair_cuboid), (2, 2, 1))
         self.assertEqual(_find_symbol("X", self.playfair_cuboid), (2, 1, 2))
         self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
+
+
+class TestGetCharsForCoordinates(unittest.TestCase):
+
+    def test_get_chars_for_valid_coordinates(self):
+        # Arrange
+        test_rotor = [
+            [["1","2",'3'], ["4","5","6"], ["7", "8", "9"]]
+        ]
+        coordinate = (0, 2, 1)
+        expected_result = '8'
+
+        # Act
+        result = _get_chars_for_coordinates(coordinate, test_rotor)
+
+        # Assert
+        self.assertEqual(expected_result, result)
+
+    def test_get_chars_for_invalid_coordinates(self):
+        # Arrange
+        test_rotor = [
+            [["1","2",'3'], ["4","5","6"], ["7", "8", "9"]]
+        ]
+        coordinate = (1, 0, 2)
+
+        # Act & Assert
+        with self.assertRaises(IndexError):
+            _get_chars_for_coordinates(coordinate, test_rotor)
 
 
 class TestGetFlatIndex(unittest.TestCase):
@@ -576,6 +606,61 @@ class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
 
         # Verify that we have multiple unique outputs, indicating randomness
         self.assertGreater(len(results), 1, "Function does not produce randomized outputs")
+
+
+class TestGetRandomNoiseChunk(unittest.TestCase):
+    def setUp(self):
+        self.rotor = [
+            [
+                ["A", "B", "C"],
+                ["D", "E", "F"],
+                ["G", "H", "I"],
+            ],
+            [
+                ["J", "K", "L"],
+                ["M", "N", "O"],
+                ["P", "Q", "R"],
+            ],
+            [
+                ["S", "T", "U"],
+                ["V", "W", "X"],
+                ["Y", "Z", "0"],
+            ],
+        ]
+
+    @patch("random.randint")
+    @patch("random.shuffle", lambda x: None)  # Prevent shuffle for predictable output
+    def test_output_length(self, mock_randint):
+        """Test that the function output has the correct length."""
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]  # Mock coordinates
+        result = get_random_noise_chunk(self.rotor)
+        self.assertEqual(len(result), LENGTH_OF_QUARTET)
+
+    @patch("random.randint")
+    def test_includes_noise_symbol(self, mock_randint):
+        """Test that the output includes the NOISE_SYMBOL."""
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        result = get_random_noise_chunk(self.rotor)
+        self.assertIn(NOISE_SYMBOL, result)
+
+    @patch("random.randint")
+    def test_unique_symbols_in_output(self, mock_randint):
+        """Test that the output contains unique symbols."""
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        result = get_random_noise_chunk(self.rotor)
+        self.assertEqual(len(set(result)), LENGTH_OF_QUARTET)
+
+    @patch("random.randint")
+    def test_handles_non_uniform_rotor(self, mock_randint):
+        """Test that the function handles a rotor with varying dimensions."""
+        non_uniform_rotor = [
+            [["A", "B"]],
+            [["C", "D", "E"]],
+            [["F"]],
+        ]
+        mock_randint.side_effect = [0, 0, 0, 1, 0, 0, 2, 0, 0]
+        result = get_random_noise_chunk(non_uniform_rotor)
+        self.assertEqual(len(result), LENGTH_OF_QUARTET)
 
 
 class TestIndexToQuartet(unittest.TestCase):

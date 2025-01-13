@@ -14,6 +14,7 @@ from cubigma.utils import (
     generate_rotors,
     get_opposite_corners,
     get_prefix_order_number_quartet,
+    get_random_noise_chunk,
     index_to_quartet,
     pad_chunk_with_rand_pad_symbols,
     parse_arguments,
@@ -34,22 +35,18 @@ NUM_UNIQUE_QUARTETS = math.comb(NUM_TOTAL_SYMBOLS, LENGTH_OF_QUARTET)
 
 
 class Cubigma:
-    characters_filepath: str
-    cuboid_filepath: str
-    symbols: list[str]
-    playfair_cuboid: list[list[list[str]]]
+    _characters_filepath: str
+    _cuboid_filepath: str
+    _is_machine_prepared: bool = False
+    _num_quartets_encoded = 0
+    _symbols: list[str]
     rotors: list[list[list[list[str]]]]
     reflector: dict[int, int]
-    is_machine_prepared: bool = False
 
     def __init__(self, characters_filepath: str = "characters.txt", cuboid_filepath: str = "cuboid.txt"):
-        self.characters_filepath = characters_filepath
-        self.cuboid_filepath = cuboid_filepath
-        self.is_machine_prepared = False
-
-    def _get_chars_for_coordinates(self, coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
-        x, y, z = coordinate
-        return rotor[x][y][z]
+        self._characters_filepath = characters_filepath
+        self._cuboid_filepath = cuboid_filepath
+        self._is_machine_prepared = False
 
     def _run_quartet_through_rotors(self, char_quartet: str, rotors: list[list[list[list[str]]]]) -> str:
         indices_by_char = {}
@@ -77,7 +74,9 @@ class Cubigma:
                 NUM_BLOCKS,
                 LINES_PER_BLOCK,
                 SYMBOLS_PER_LINE,
+                num_quartets_encoded
             )
+            num_quartets_encoded += 1
             encrypted_char_1 = self._get_chars_for_coordinates(encrypted_indices[0], rotor)
             encrypted_char_2 = self._get_chars_for_coordinates(encrypted_indices[1], rotor)
             encrypted_char_3 = self._get_chars_for_coordinates(encrypted_indices[2], rotor)
@@ -87,13 +86,13 @@ class Cubigma:
         return cur_quartet
 
     def _run_quartet_through_reflector(self, char_quartet) -> str:
-        if not self.is_machine_prepared:
+        if not self._is_machine_prepared:
             raise ValueError(
                 "Machine is not prepared yet! Call prepare_machine(key_phrase) before running quartet through reflector"
             )
-        quartet_index = quartet_to_index(char_quartet, self.symbols)
+        quartet_index = quartet_to_index(char_quartet, self._symbols)
         reflected_index = self.reflector[quartet_index]  # Reflect the index
-        reflected_quartet = index_to_quartet(reflected_index, self.symbols)
+        reflected_quartet = index_to_quartet(reflected_index, self._symbols)
         return reflected_quartet
 
     def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
@@ -102,23 +101,8 @@ class Cubigma:
         encrypted_quartet = self._run_quartet_through_rotors(partially_encrypted_quartet_2, list(reversed(self.rotors)))
         return encrypted_quartet
 
-    def _get_random_noise_chunk(self) -> str:
-        noise_quartet_symbols = [NOISE_SYMBOL]
-        while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
-            coordinate = (
-                random.randint(0, NUM_BLOCKS - 1),
-                random.randint(0, LINES_PER_BLOCK - 1),
-                random.randint(0, SYMBOLS_PER_LINE - 1),
-            )
-            x, y, z = coordinate
-            found_symbol = self.playfair_cuboid[x][y][z]
-            if found_symbol not in noise_quartet_symbols:
-                noise_quartet_symbols.append(found_symbol)
-        random.shuffle(noise_quartet_symbols)
-        return "".join(noise_quartet_symbols)
-
     def _read_characters_file(self) -> list[str]:
-        with open(self.characters_filepath, "r", encoding="utf-8") as line_count_file:
+        with open(self._characters_filepath, "r", encoding="utf-8") as line_count_file:
             num_symbols_prepared = sum(1 for _ in line_count_file)
 
         symbols_to_load = SYMBOLS_PER_LINE * LINES_PER_BLOCK * NUM_BLOCKS
@@ -129,7 +113,7 @@ class Cubigma:
                 + f"Requested a cuboid with {symbols_to_load} symbols. "
             )
         symbols: list[str] = []
-        with open(self.characters_filepath, "r", encoding="utf-8") as file:
+        with open(self._characters_filepath, "r", encoding="utf-8") as file:
             for line in file.readlines():
                 len_before = len(symbols)
                 found_symbol = sanitize(line)
@@ -152,10 +136,10 @@ class Cubigma:
         symbols = list(reversed(symbols))
         return symbols
 
-    def _read_cuboid_from_disk(self) -> None:
+    def _read_cuboid_from_disk(self) -> list[list[list[str]]]:
         playfair_cuboid = []
         current_frame = []
-        with open(self.cuboid_filepath, "r", encoding="utf-8-sig") as cuboid_file:
+        with open(self._cuboid_filepath, "r", encoding="utf-8-sig") as cuboid_file:
             for line in cuboid_file.readlines():
                 if line != "\n":
                     sanitized_line = line.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
@@ -171,7 +155,7 @@ class Cubigma:
                 if len(current_frame) >= LINES_PER_BLOCK:
                     playfair_cuboid.append(current_frame)
                     current_frame = []
-        self.playfair_cuboid = playfair_cuboid
+        return playfair_cuboid
 
     def _write_cuboid_file(
         self,
@@ -192,7 +176,7 @@ class Cubigma:
                 sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
                 output_lines.append(sanitized_line)
             output_lines.append("")  # Add an empty line between blocks
-        with open(self.cuboid_filepath, "w", encoding="utf-8") as file:
+        with open(self._cuboid_filepath, "w", encoding="utf-8") as file:
             file.write("\n".join(output_lines))
 
     def decode_string(self, encrypted_message: str) -> str:
@@ -205,7 +189,7 @@ class Cubigma:
         Returns:
             str: Decrypted string
         """
-        if not self.is_machine_prepared:
+        if not self._is_machine_prepared:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
@@ -223,7 +207,7 @@ class Cubigma:
         Returns:
             str: Decrypted string
         """
-        if not self.is_machine_prepared:
+        if not self._is_machine_prepared:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
             )
@@ -248,7 +232,7 @@ class Cubigma:
         Returns:
             str: Encrypted string
         """
-        if not self.is_machine_prepared:
+        if not self._is_machine_prepared:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
@@ -271,7 +255,7 @@ class Cubigma:
         Returns:
             str: Encrypted string
         """
-        if not self.is_machine_prepared:
+        if not self._is_machine_prepared:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
             )
@@ -279,7 +263,7 @@ class Cubigma:
         encrypted_message = self.encode_string(sanitized_string)
         return encrypted_message
 
-    def pad_chunk(self, chunk: str, padded_chunk_length: int, chunk_order_number: int) -> str:
+    def pad_chunk(self, chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:
         """
         Pad an encrypted message chunk
 
@@ -295,7 +279,7 @@ class Cubigma:
         while len(padded_chunk) < padded_chunk_length:
             if len(padded_chunk) % LENGTH_OF_QUARTET != 0:
                 padded_chunk = pad_chunk_with_rand_pad_symbols(padded_chunk)
-            random_noise_chunk = self._get_random_noise_chunk()
+            random_noise_chunk = get_random_noise_chunk(rotor)
             padded_chunk += random_noise_chunk
         prefix_order_number_quartet = get_prefix_order_number_quartet(chunk_order_number)
         result = prefix_order_number_quartet + padded_chunk
@@ -309,21 +293,22 @@ class Cubigma:
         cuboid_width: int = SYMBOLS_PER_LINE,
     ) -> None:
         # Set up user-configurable parameters (like the plug board)
-        self.symbols = self._read_characters_file()
+        self._symbols = self._read_characters_file()
         self._write_cuboid_file(
-            self.symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width
+            self._symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width
         )
-        self._read_cuboid_from_disk()
-        self.playfair_cuboid = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
-
-        # Set up the rotors and the reflector
+        raw_cuboid = self._read_cuboid_from_disk()
+        cuboid = prepare_cuboid_with_key_phrase(key_phrase, raw_cuboid)
+        
         key_phrase_bytes, salt_used = strengthen_key(key_phrase)
         sanitized_key_phrase = key_phrase_bytes.decode("utf-8")
-        rotors = generate_rotors(sanitized_key_phrase, self.playfair_cuboid)
+
+        # Set up the rotors and the reflector
+        rotors = generate_rotors(sanitized_key_phrase, cuboid)
         reflector = generate_reflector(sanitized_key_phrase, NUM_UNIQUE_QUARTETS)
         self.rotors = rotors
         self.reflector = reflector
-        self.is_machine_prepared = True
+        self._is_machine_prepared = True
 
 
 def main() -> None:

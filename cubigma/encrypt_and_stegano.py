@@ -133,11 +133,11 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
     # # "- LENGTH_OF_QUARTET" is to leave room for the prefixed order number
     # padded_chunk_length = (int(padded_length / NUM_SQUARES) - LENGTH_OF_QUARTET)
 
-    padded_chunk1 = cubigma.pad_chunk(chunks[0], chunk_sizes[0] - LENGTH_OF_QUARTET, 1)
-    padded_chunk2 = cubigma.pad_chunk(chunks[1], chunk_sizes[1] - LENGTH_OF_QUARTET, 2)
-    padded_chunk3 = cubigma.pad_chunk(chunks[2], chunk_sizes[2] - LENGTH_OF_QUARTET, 3)
-    padded_chunk4 = cubigma.pad_chunk(chunks[3], chunk_sizes[3] - LENGTH_OF_QUARTET, 4)
-    padded_chunk5 = cubigma.pad_chunk(chunks[4], chunk_sizes[4] - LENGTH_OF_QUARTET, 5)
+    padded_chunks = []
+    for i in range(5):
+        rotor_to_use = i % len(cubigma.rotors)
+        padded_chunk = cubigma.pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_QUARTET, i+1, cubigma.rotors[rotor_to_use])
+        padded_chunks.append(padded_chunk)
 
     # Then encrypt each chunk
     encrypted_chunk1 = cubigma.encode_string(padded_chunk1)

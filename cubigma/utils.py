@@ -51,22 +51,23 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
 
 
 def get_opposite_corners(
-    point_one: tuple[int, int, int],
-    point_two: tuple[int, int, int],
-    point_three: tuple[int, int, int],
-    point_four: tuple[int, int, int],
+    point_1: tuple[int, int, int],
+    point_2: tuple[int, int, int],
+    point_3: tuple[int, int, int],
+    point_4: tuple[int, int, int],
     num_blocks: int,
     lines_per_block: int,
     symbols_per_line: int,
+    num_quartets_encoded: int
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
     Given four corners of a rectangular cuboid, find the other four corners.
 
     Args:
-        point_one: A tuple representing the first point (x, y, z).
-        point_two: A tuple representing the second point (x, y, z).
-        point_three: A tuple representing the third point (x, y, z).
-        point_four: A tuple representing the fourth point (x, y, z).
+        point_1: A tuple representing the first point (x, y, z).
+        point_2: A tuple representing the second point (x, y, z).
+        point_3: A tuple representing the third point (x, y, z).
+        point_4: A tuple representing the fourth point (x, y, z).
         num_blocks (int): How tall in the cuboid (x).
         lines_per_block (int): How long in the cuboid (y).
         symbols_per_line (int): How wide in the cuboid (z).
@@ -75,23 +76,24 @@ def get_opposite_corners(
         A tuple of four tuples, each representing the coordinates of the remaining corners.
     """
     # Check for unique points
-    points = {point_one, point_two, point_three, point_four}
+    points = {point_1, point_2, point_3, point_4}
     if len(points) != LENGTH_OF_QUARTET:
         raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cuboid.")
 
-    x1, y1, z1 = point_one
-    x2, y2, z2 = point_two
-    x3, y3, z3 = point_three
-    x4, y4, z4 = point_four
+    x1, y1, z1 = point_1
+    x2, y2, z2 = point_2
+    x3, y3, z3 = point_3
+    x4, y4, z4 = point_4
 
     max_frame_idx = num_blocks - 1
     max_row_idx = lines_per_block - 1
     max_col_idx = symbols_per_line - 1
 
-    point_five = (max_frame_idx - x1, max_row_idx - y1, max_col_idx - z1)
-    point_six = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
-    point_seven = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
-    point_eight = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
+    point_5 = (max_frame_idx - x1, max_row_idx - y1, max_col_idx - z1)
+    point_6 = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
+    point_7 = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
+    point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
+    points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
     # ToDo: This is where some of the Enigma logic will happen.
     #  * Use each key third as a "dial". Combine all three dials and a reflector.
@@ -101,16 +103,13 @@ def get_opposite_corners(
     #    * How do we reduce the key thirds to a small numeric space?
     #    * What is the deterministic algorithm by which we can drive the movement of the chosen corners?
 
-    # ToDo: Build an machine that, like the Enigma, has 3 "confusion dials" and 1 "reflector"
-    #  * Make a playfair_cube out of the whole key_phrase, then make 3 total copies of it, and
-    #  * Move the key third from the front to the middle
-    #  * Come up with some playfair_cube way of connecting "letter pairs"
-    #  * This would accomplish the potentially duplicated letter issue without needing different corners, I think
+    indices_to_choose = [4,7,1,4]  # ToDo: How do we reduce the key_phrase into this?
+    chosen_point_1 = points[indices_to_choose[0]]
+    chosen_point_2 = points[indices_to_choose[1]]
+    chosen_point_3 = points[indices_to_choose[2]]
+    chosen_point_4 = points[indices_to_choose[3]]
 
-    # ToDo: Maybe, instead of encoding quartets, we use a queue of 4 characters, so that the last char has been encoded
-    #  4 times
-
-    return point_five, point_six, point_seven, point_eight
+    return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
 
 
 # The below functions are under test
@@ -124,6 +123,11 @@ def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) ->
                 col_idx = row.index(symbol_to_move)
                 return frame_idx, row_idx, col_idx
     raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
+
+
+def _get_chars_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
+    x, y, z = coordinate
+    return rotor[x][y][z]
 
 
 def _get_flat_index(x, y, z, size_x, size_y):
@@ -303,6 +307,25 @@ def get_prefix_order_number_quartet(order_number: int) -> str:
     pad_symbols = ["", "", "", order_number_str]
     random.shuffle(pad_symbols)
     return "".join(pad_symbols)
+
+
+def get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
+    num_blocks = len(rotor)
+    lines_per_block = len(rotor[0])
+    symbols_per_line = len(rotor[0][0])
+    noise_quartet_symbols = [NOISE_SYMBOL]
+    while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
+        coordinate = (
+            random.randint(0, num_blocks - 1),
+            random.randint(0, lines_per_block - 1),
+            random.randint(0, symbols_per_line - 1),
+        )
+        x, y, z = coordinate
+        found_symbol = rotor[x][y][z]
+        if found_symbol not in noise_quartet_symbols:
+            noise_quartet_symbols.append(found_symbol)
+    random.shuffle(noise_quartet_symbols)
+    return "".join(noise_quartet_symbols)
 
 
 def index_to_quartet(index: int, symbols: list[str]) -> str:

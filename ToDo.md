@@ -4,6 +4,8 @@ Convert this project to Rust?
 
 Convert this project to Javascript and run it in the browser?
 
+Maybe, instead of encoding quartets, we use a queue of 4 characters, so that the last char has been encoded 4 times
+
 ## User Interface
 
 Make a UI that looks like an Enigma machine in a box

@@ -30,7 +30,7 @@ However, unlike an Enigma machine, this algorithm does allow a letter to occasio
 
 Requirements:
 * Key Phrase must be at least 3 characters long
-* The area of your cuboid is not recommended to go below 101 (5*5*5 is a good minimum.).  
+* The area of your cuboid is not recommended to go below 101 (5x5x5 is a good minimum.).  
 
 Preparation:
 1. Agree on a cuboid size with your recipient (default is 7x7x7)
@@ -56,6 +56,8 @@ ASCII frequency:
 ## Unit Tests
 
 `coverage run -m unittest discover`
+`coverage report`
+`coverage html`
 
 ## Linting
 
