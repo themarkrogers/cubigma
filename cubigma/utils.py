@@ -113,6 +113,25 @@ def get_opposite_corners(
     return point_five, point_six, point_seven, point_eight
 
 
+# The below functions are under test
+
+
+def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
+    """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
+    for frame_idx, frame in enumerate(playfair_cuboid):
+        for row_idx, row in enumerate(frame):
+            if symbol_to_move in row:
+                col_idx = row.index(symbol_to_move)
+                return frame_idx, row_idx, col_idx
+    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
+
+
+def _get_flat_index(x, y, z, size_x, size_y):
+    if size_x <= 0 or size_y <= 0:
+        raise ValueError("size dimensions must be greater than 0")
+    return x * size_y * size_x + y * size_x + z
+
+
 def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -> bool:
     inner_x, inner_y, inner_z = coord
     is_x_valid = 0 <= inner_x < len(inner_grid)
@@ -123,11 +142,25 @@ def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -
     return is_z_valid
 
 
-def get_flat_index(x, y, z, size_x, size_y):
-    return x * size_y * size_x + y * size_x + z
+def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the center of the playfair cuboid."""
+    num_blocks = len(playfair_cuboid)
+    lines_per_block = len(playfair_cuboid[0])
+    symbols_per_line = len(playfair_cuboid[0][0])
+    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
+    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
+    updated_cuboid = _move_symbol_in_3d_grid(start_position, center_position, playfair_cuboid)
+    return updated_cuboid
 
 
-def move_symbol_in_3d_grid(
+def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the front of the playfair cuboid."""
+    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
+    updated_cuboid = _move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cuboid)
+    return updated_cuboid
+
+
+def _move_symbol_in_3d_grid(
     coord1: tuple[int, int, int],
     coord2: tuple[int, int, int],
     grid: list[list[list[str]]]
@@ -153,8 +186,8 @@ def move_symbol_in_3d_grid(
         for z in range(size_z)
     ]
 
-    idx1 = get_flat_index(*coord1, size_x, size_y)
-    idx2 = get_flat_index(*coord2, size_x, size_y)
+    idx1 = _get_flat_index(*coord1, size_x, size_y)
+    idx2 = _get_flat_index(*coord2, size_x, size_y)
 
     symbol_to_move = flat_grid[idx1]
 
@@ -173,37 +206,6 @@ def move_symbol_in_3d_grid(
         for x in range(size_x)
     ]
     return updated_grid
-
-
-# The below functions are under test
-
-
-def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
-    """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
-    for frame_idx, frame in enumerate(playfair_cuboid):
-        for row_idx, row in enumerate(frame):
-            if symbol_to_move in row:
-                col_idx = row.index(symbol_to_move)
-                return frame_idx, row_idx, col_idx
-    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
-
-
-def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the center of the playfair cuboid."""
-    num_blocks = len(playfair_cuboid)
-    lines_per_block = len(playfair_cuboid[0])
-    symbols_per_line = len(playfair_cuboid[0][0])
-    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
-    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
-    updated_cuboid = move_symbol_in_3d_grid(start_position, center_position, playfair_cuboid)
-    return updated_cuboid
-
-
-def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the front of the playfair cuboid."""
-    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
-    updated_cuboid = move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cuboid)
-    return updated_cuboid
 
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:

@@ -10,7 +10,6 @@ from cubigma.utils import (
     generate_reflector,
     generate_rotors,
     index_to_quartet,
-    move_symbol_in_3d_grid,
     pad_chunk_with_rand_pad_symbols,
     parse_arguments,
     prep_string_for_encrypting,
@@ -23,7 +22,8 @@ from cubigma.utils import (
     user_perceived_length,
 )
 from cubigma.utils import (
-    _find_symbol, _move_letter_to_center, _move_letter_to_front, _split_key_into_parts
+    _find_symbol, _get_flat_index, _is_valid_coord, _move_letter_to_center, _move_letter_to_front,
+    _move_symbol_in_3d_grid, _split_key_into_parts
 )
 
 LENGTH_OF_QUARTET = 4
@@ -61,9 +61,84 @@ class TestFindSymbol(unittest.TestCase):
         self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
 
 
+class TestGetFlatIndex(unittest.TestCase):
+    def test_basic_case(self):
+        """Test basic case with typical inputs."""
+        self.assertEqual(_get_flat_index(2, 3, 4, 5, 6), 79)
+
+    def test_zero_coordinates(self):
+        """Test when x, y, or z is zero."""
+        self.assertEqual(_get_flat_index(0, 0, 0, 4, 5), 0)
+        self.assertEqual(_get_flat_index(0, 1, 2, 4, 5), 6)
+        self.assertEqual(_get_flat_index(1, 0, 2, 4, 5), 22)
+        self.assertEqual(_get_flat_index(1, 2, 0, 4, 5), 28)
+
+    def test_large_values(self):
+        """Test with large values to ensure no overflow issues."""
+        self.assertEqual(_get_flat_index(100, 200, 300, 400, 500), 20_080_300)
+
+    def test_edge_case_sizes(self):
+        """Test edge cases where size_x or size_y is 1."""
+        self.assertEqual(_get_flat_index(1, 2, 3, 1, 1), 6)
+        self.assertEqual(_get_flat_index(1, 2, 3, 1, 5), 10)
+        self.assertEqual(_get_flat_index(1, 2, 3, 4, 1), 15)
+
+    def test_negative_coordinates(self):
+        """Test with negative coordinates to ensure proper handling."""
+        self.assertEqual(_get_flat_index(-1, 2, 3, 4, 5), -9)
+        self.assertEqual(_get_flat_index(1, -2, 3, 4, 5), 15)
+        self.assertEqual(_get_flat_index(1, 2, -3, 4, 5), 25)
+
+    def test_invalid_sizes(self):
+        """Test with invalid sizes to ensure proper handling."""
+        with self.assertRaises(ValueError):
+            _get_flat_index(1, 2, 3, 0, 5)
+        with self.assertRaises(ValueError):
+            _get_flat_index(1, 2, 3, 4, 0)
+        with self.assertRaises(ValueError):
+            _get_flat_index(1, 2, 3, -4, 5)
+        with self.assertRaises(ValueError):
+            _get_flat_index(1, 2, 3, 4, -5)
+
+
+class TestIsValidCoord(unittest.TestCase):
+    def test_valid_coordinates(self):
+        grid = [[[0 for _ in range(3)] for _ in range(4)] for _ in range(5)]  # 5x4x3 grid
+        self.assertTrue(_is_valid_coord((0, 0, 0), grid))  # Lower boundary
+        self.assertTrue(_is_valid_coord((4, 3, 2), grid))  # Upper boundary
+        self.assertTrue(_is_valid_coord((2, 2, 1), grid))  # Middle of the grid
+
+    def test_invalid_x_coordinate(self):
+        grid = [[[0 for _ in range(3)] for _ in range(4)] for _ in range(5)]  # 5x4x3 grid
+        self.assertFalse(_is_valid_coord((-1, 0, 0), grid))  # Negative x
+        self.assertFalse(_is_valid_coord((5, 0, 0), grid))  # x outside upper limit
+
+    def test_invalid_y_coordinate(self):
+        grid = [[[0 for _ in range(3)] for _ in range(4)] for _ in range(5)]  # 5x4x3 grid
+        self.assertFalse(_is_valid_coord((0, -1, 0), grid))  # Negative y
+        self.assertFalse(_is_valid_coord((0, 4, 0), grid))  # y outside upper limit
+
+    def test_invalid_z_coordinate(self):
+        grid = [[[0 for _ in range(3)] for _ in range(4)] for _ in range(5)]  # 5x4x3 grid
+        self.assertFalse(_is_valid_coord((0, 0, -1), grid))  # Negative z
+        self.assertFalse(_is_valid_coord((0, 0, 3), grid))  # z outside upper limit
+
+    def test_empty_grid(self):
+        grid = []  # Empty grid
+        self.assertFalse(_is_valid_coord((0, 0, 0), grid))  # Any coordinate is invalid
+
+    def test_non_uniform_grid(self):
+        grid = [
+            [[0, 1], [2, 3]],  # 2x2x2 grid in first dimension
+            [[4, 5, 6], [7, 8, 9]]  # 2x2x3 grid in second dimension
+        ]
+        self.assertTrue(_is_valid_coord((0, 0, 1), grid))  # Valid in first grid
+        self.assertFalse(_is_valid_coord((1, 0, 2), grid))  # Invalid in second grid (z exceeds limit)
+
+
 class TestMoveLetterToCenter(unittest.TestCase):
 
-    @patch('cubigma.utils.move_symbol_in_3d_grid')
+    @patch('cubigma.utils._move_symbol_in_3d_grid')
     def test_move_letter_to_center_with_even_dimensions(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
@@ -103,7 +178,7 @@ class TestMoveLetterToCenter(unittest.TestCase):
         self.assertEqual(expected_return_value, result)
         mock_move_symbol_in_3d_grid.assert_called_once_with((2, 0, 1), (2, 2, 2), test_cuboid)
 
-    @patch('cubigma.utils.move_symbol_in_3d_grid')
+    @patch('cubigma.utils._move_symbol_in_3d_grid')
     def test_move_letter_to_center_with_odd_dimensions(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
@@ -137,7 +212,7 @@ class TestMoveLetterToCenter(unittest.TestCase):
 
 class TestMoveLetterToFront(unittest.TestCase):
 
-    @patch('cubigma.utils.move_symbol_in_3d_grid')
+    @patch('cubigma.utils._move_symbol_in_3d_grid')
     def test_move_letter_to_front(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
@@ -167,6 +242,74 @@ class TestMoveLetterToFront(unittest.TestCase):
         # Assert
         self.assertEqual(expected_return_value, result)
         mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (0, 0, 0), test_cuboid)
+
+
+class TestMoveSymbolIn3DSpace(unittest.TestCase):
+
+    def setUp(self):
+        # Set up a 3x3x3 grid for testing
+        self.grid = [
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
+        ]
+
+    def test_valid_move_forward(self):
+        # Test moving a symbol forward in the grid
+        coord1 = (0, 0, 0)
+        coord2 = (2, 1, 0)
+        result = _move_symbol_in_3d_grid(coord1, coord2, self.grid)
+        self.assertEqual(result[0][0][0], "B")
+        self.assertEqual(result[0][0][1], "C")
+        self.assertEqual(result[2][1][0], "A")
+        self.assertEqual(result[2][2][2], "0")
+
+    def test_valid_move_backward(self):
+        # Test moving a symbol backward in the grid
+        coord1 = (2, 1, 0)
+        coord2 = (0, 0, 0)
+        result = _move_symbol_in_3d_grid(coord1, coord2, self.grid)
+        self.assertEqual(result[0][0][0], "V")
+        self.assertEqual(result[0][0][1], "A")
+        self.assertEqual(result[2][1][0], "U")
+        self.assertEqual(result[2][2][2], "0")
+
+    def test_move_to_same_position(self):
+        # Test moving a symbol to the same position
+        coord1 = (1, 1, 1)
+        coord2 = (1, 1, 1)
+        result = _move_symbol_in_3d_grid(coord1, coord2, self.grid)
+        self.assertEqual(result, self.grid)
+
+    def test_invalid_coord1(self):
+        # Test when coord1 is out of bounds
+        coord1 = (3, 0, 0)
+        coord2 = (0, 0, 0)
+        with self.assertRaises(ValueError):
+            _move_symbol_in_3d_grid(coord1, coord2, self.grid)
+
+    def test_invalid_coord2(self):
+        # Test when coord2 is out of bounds
+        coord1 = (0, 0, 0)
+        coord2 = (3, 0, 0)
+        with self.assertRaises(ValueError):
+            _move_symbol_in_3d_grid(coord1, coord2, self.grid)
+
+    def test_large_grid_move(self):
+        # Test a larger grid
+        large_grid = [[[f"{x}{y}{z}" for z in range(5)] for y in range(5)] for x in range(5)]
+        coord1 = (2, 2, 2)
+        coord2 = (3, 3, 3)
+        result = _move_symbol_in_3d_grid(coord1, coord2, large_grid)
+        self.assertEqual(result[3][3][3], "222")
+        self.assertNotEqual(result[2][2][2], "222")
+
+    def test_move_symbol_in_3d_grid_with_valid_coords(self):
+        # Arrange & Act
+        result = _move_symbol_in_3d_grid((0, 0, 0), (1, 1, 1), self.grid)
+
+        # Assert
+        self.assertNotEqual(self.grid, result, "Failed to manipulate cube")
 
 
 class TestSplitKeyIntoParts(unittest.TestCase):
@@ -540,21 +683,6 @@ class TestIndexToQuartet(unittest.TestCase):
         # Test symbols with special characters
         special_symbols = ["@", "#", "$", "%"]
         self.assertEqual(index_to_quartet(42, special_symbols), "@$$$")
-
-
-class TestMoveSymbolIn3DSpace(unittest.TestCase):
-
-    def test_move_symbol_in_3d_grid_with_valid_coords(self):
-        # Arrange
-        cuboid = [
-            [["K", "E", "Y"], ["_", "A", "B"], ["C", "D", "F"]],
-            [["G", "H", "I"], ["J", "L", "M"], ["N", "O", "P"]],
-            [["Q", "R", "S"], ["T", "U", "V"], ["W", "X", "Z"]],
-        ]
-
-        result = move_symbol_in_3d_grid((0,0,0), (1,1,1), cuboid)
-
-        self.assertNotEqual(cuboid, result, "Failed to manipulate cube")
 
 
 class TestPadChunkWithRandPadSymbols(unittest.TestCase):
