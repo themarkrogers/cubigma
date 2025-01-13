@@ -4,7 +4,7 @@ from unittest.mock import patch, mock_open, MagicMock
 import os
 import unittest
 
-from cubigma.cubigma import Cubigma
+from cubigma.cubigma import Cubigma, NOISE_SYMBOL
 
 
 # Testing Private Cubigma Functions
@@ -216,7 +216,7 @@ class TestReadCharactersFile(unittest.TestCase):
         self.assertEqual(result, expected_symbols)
 
 
-class TestReadCuboidFromDisk(unittest.TestCase):
+class TestReadCubeFromDisk(unittest.TestCase):
 
     def setUp(self):
         self.cube_file_path = "mock_cube_file.txt"
@@ -411,6 +411,107 @@ class TestDecodeString(unittest.TestCase):
         mock_encode_string.assert_called_once_with("foo", "bar")
 
 
+class TestDecryptMessage(unittest.TestCase):
+
+    def test_decrypt_message_not_prepared(self):
+        """
+        Test decrypt_message with valid inputs and a prepared machine.
+        """
+        key_phrase = "testkey"
+        encrypted_message_valid = "ENCR" + "YPTE" + "DSTR" + "INGS"
+
+        cubigma = Cubigma()
+
+        with self.assertRaises(ValueError):
+            cubigma.decrypt_message(encrypted_message_valid, key_phrase)
+
+    def test_decrypt_message_valid_without_noise(self):
+        """
+        Test decrypt_message with valid inputs and a prepared machine.
+        """
+        key_phrase = "testkey"
+        encrypted_message_valid = "ENCR" + "YPTE" + "DSTR" + "INGS"
+        mock_data = ["DECR", "YPTE", "DSTR", "INGS"]
+        expected_output = "".join(mock_data)
+
+        cubigma = Cubigma()
+        cubigma._is_machine_prepared = True
+        mock_decode = MagicMock()
+        mock_decode.side_effect = mock_data
+        cubigma.decode_string = mock_decode
+
+        result = cubigma.decrypt_message(encrypted_message_valid, key_phrase)
+
+        self.assertEqual(expected_output, result)
+        assert mock_decode.call_count == 4
+
+    def test_decrypt_message_valid_with_noise(self):
+        """
+        Test decrypt_message with valid inputs and a prepared machine.
+        """
+        key_phrase = "testkey"
+        encrypted_message_valid = "ENCR" + f"1{NOISE_SYMBOL}34" + "YPTE" + f"12{NOISE_SYMBOL}4" + "DSTR" + f"123{NOISE_SYMBOL}" + "INGS" + f"{NOISE_SYMBOL}234"
+        mock_data = ["DECR", "foo1", "YPTE", "foo2", "DSTR", "foo3", "INGS", "foo4"]
+        expected_output = "".join(mock_data)
+
+        cubigma = Cubigma()
+        cubigma._is_machine_prepared = True
+        mock_decode = MagicMock()
+        mock_decode.side_effect = mock_data
+        cubigma.decode_string = mock_decode
+
+        result = cubigma.decrypt_message(encrypted_message_valid, key_phrase)
+
+        self.assertEqual(expected_output, result)
+        assert mock_decode.call_count == 8
+
+
+class TestEncodeMessage(unittest.TestCase):
+
+    def test_encode_string_machine_not_prepared(self):
+        """Test encode_string raises ValueError when machine is not prepared."""
+        # This case is already covered, but we'll keep it for completeness.
+        sanitized_message = "ABCDEFGH"
+        key_phrase = "SECRET"
+        instance = Cubigma()  # Not prepared yet
+
+        with self.assertRaises(ValueError):
+            instance.encode_string(sanitized_message, key_phrase)
+
+    def test_encode_string_valid(self):
+        """Test encode_string with valid inputs."""
+        # Arrange
+        sanitized_message = "ABCDEFGH"  # Example sanitized message
+        key_phrase = "SECRET"
+        instance = Cubigma()
+        instance._is_machine_prepared = True
+        mock_data = ["STUV", "WXYZ"]
+        mock_get_encrypted_letter_quartet = MagicMock()
+        mock_get_encrypted_letter_quartet.side_effect = mock_data
+        instance._get_encrypted_letter_quartet = mock_get_encrypted_letter_quartet
+        expected_result = "".join(mock_data)
+
+        # Act
+        result = instance.encode_string(sanitized_message, key_phrase)
+
+        # Assert
+        self.assertIsInstance(result, str)
+        self.assertEqual(expected_result, result)
+        assert mock_get_encrypted_letter_quartet.call_count == 2
+
+    def test_encode_string_invalid_sanitized_message(self):
+        """Test encode_string raises AssertionError for invalid sanitized message length."""
+        # Arrange
+        sanitized_message = "ABCDE"  # Invalid length (not divisible by LENGTH_OF_QUARTET)
+        key_phrase = "SECRET"
+        instance = Cubigma()
+        instance._is_machine_prepared = True
+
+        # Act & Assert
+        with self.assertRaises(AssertionError):
+            instance.encode_string(sanitized_message, key_phrase)
+
+
 class TestEncryptMessage(unittest.TestCase):
 
     def test_encrypt_message_before_machine_prepared(self):
@@ -439,6 +540,9 @@ class TestEncryptMessage(unittest.TestCase):
         # Assert
         self.assertEqual(expected_return_value, result, "return value is not the expected value")
         mock_encode_string.assert_called_once_with(expected_string, "baz")
+
+
+
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
