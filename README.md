@@ -1,6 +1,7 @@
 # Cubigma
 
-[![Python application](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml/badge.svg)](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml)
+[![Unit Tests](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml/badge.svg)](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml)
+[![Project Status](http://opensource.box.com/badges/active.svg)](http://opensource.box.com/badges)
 
 # Introduction
 
