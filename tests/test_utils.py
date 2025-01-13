@@ -1,6 +1,6 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
-from contextlib import redirect_stderr
+from copy import deepcopy
 from unittest.mock import patch
 import json
 import os
@@ -36,6 +36,8 @@ from cubigma.utils import (
     _move_letter_to_front,
     _move_symbol_in_3d_grid,
     _pad_chunk_with_rand_pad_symbols,
+    _read_and_validate_config,
+    _shuffle_cube_with_key_phrase,
     _split_key_into_parts,
 )
 
@@ -441,6 +443,215 @@ class TestMoveSymbolIn3DSpace(unittest.TestCase):
         self.assertNotEqual(self.grid, result, "Failed to manipulate cube")
 
 
+class TestReadAndValidateConfig(unittest.TestCase):
+    def setUp(self):
+        self.valid_config = {
+            "LENGTH_OF_CUBE": 7,
+            "NUMBER_OF_ROTORS_TO_GENERATE": 10,
+            "ROTORS_TO_USE": [1, 2, 3],
+            "ENCRYPT_OR_DECRYPT": "ENCRYPT",
+            "ALSO_USE_STEGANOGRAPHY": True
+        }
+
+    @patch('cubigma.utils.read_config')
+    def test_valid_config(self, mock_read_config):
+        mock_read_config.return_value = self.valid_config
+        result = _read_and_validate_config()
+        self.assertEqual(result, (7, 10, [1, 2, 3], "ENCRYPT", True))
+
+    @patch('cubigma.utils.read_config')
+    def test_missing_length_of_cube(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        del invalid_config["LENGTH_OF_CUBE"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("LENGTH_OF_CUBE not found in config.json", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_incorrect_length_of_cube_type(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["LENGTH_OF_CUBE"] = "3"
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("LENGTH_OF_CUBE (in config.json) must have an integer value",
+                      str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_invalid_length_of_cube(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["LENGTH_OF_CUBE"] = 3
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_missing_num_rotors_to_make(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        del invalid_config["NUMBER_OF_ROTORS_TO_GENERATE"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("NUMBER_OF_ROTORS_TO_GENERATE not found in config.json", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_incorrect_num_rotors_to_make_type(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["NUMBER_OF_ROTORS_TO_GENERATE"] = "3"
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value",
+                      str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_invalid_num_rotors_to_make(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["NUMBER_OF_ROTORS_TO_GENERATE"] = -1
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be greater than 0", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_missing_rotors_to_use(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        del invalid_config["ROTORS_TO_USE"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ROTORS_TO_USE not found in config.json", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_incorrect_rotors_to_use_type(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ROTORS_TO_USE"] = "[0, 1, 2]"
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ROTORS_TO_USE (in config.json) must be a list of integers",
+                      str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_incorrect_rotors_to_use_values_1(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ROTORS_TO_USE"] = [1, "0", 2]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ROTORS_TO_USE (in config.json) contains a non-integer value at index: 1",
+                      str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_incorrect_rotors_to_use_values_2(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ROTORS_TO_USE"] = [2, 1, 42]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("OTORS_TO_USE (in config.json) all rotor values must be between 0 & the number of rotors generated",
+                      str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_duplicate_rotors(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ROTORS_TO_USE"] = [1, 1, 3]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ROTORS_TO_USE (in config.json) all rotor values must be unique", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_missing_mode(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        del invalid_config["ENCRYPT_OR_DECRYPT"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ENCRYPT_OR_DECRYPT not found in config.json", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_incorrect_mode_type(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ENCRYPT_OR_DECRYPT"] = True
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ENCRYPT_OR_DECRYPT (in config.json) must be a string",
+                      str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_invalid_mode(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ENCRYPT_OR_DECRYPT"] = "INVALID_MODE"
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ENCRYPT_OR_DECRYPT (in config.json) must be either 'ENCRYPT' or 'DECRYPT'", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_missing_steganography(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        del invalid_config["ALSO_USE_STEGANOGRAPHY"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ALSO_USE_STEGANOGRAPHY not found in config.json", str(context.exception))
+
+    @patch('cubigma.utils.read_config')
+    def test_invalid_steganography(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["ALSO_USE_STEGANOGRAPHY"] = "true"
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value", str(context.exception))
+
+
+class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
+    def setUp(self):
+        """Set up reusable test data."""
+        self.key_phrase_1 = "securekey1"
+        self.key_phrase_2 = "differentkey"
+
+        self.orig_cube = [
+            [["a", "b", "c"], ["d", "e", "f"]],
+            [["g", "h", "i"], ["j", "k", "l"]]
+        ]
+
+    def test_consistent_shuffling_with_same_key(self):
+        """Test that shuffling with the same key gives consistent results."""
+        shuffled_1 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube))
+        shuffled_2 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube))
+        self.assertEqual(shuffled_1, shuffled_2)
+
+    def test_different_keys_produce_different_results(self):
+        """Test that shuffling with different keys gives different results."""
+        shuffled_1 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube))
+        shuffled_2 = _shuffle_cube_with_key_phrase(self.key_phrase_2, deepcopy(self.orig_cube))
+        self.assertNotEqual(shuffled_1, shuffled_2)
+
+    def test_structure_preserved(self):
+        """Test that the structure of the cube is preserved after shuffling."""
+        shuffled = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube))
+        # Ensure the top-level list length is preserved
+        self.assertEqual(len(shuffled), len(self.orig_cube))
+        for orig_outer, shuffled_outer in zip(self.orig_cube, shuffled):
+            # Ensure the second-level list length is preserved
+            self.assertEqual(len(shuffled_outer), len(orig_outer))
+            for orig_inner, shuffled_inner in zip(orig_outer, shuffled_outer):
+                # Ensure the third-level list length is preserved
+                self.assertEqual(len(shuffled_inner), len(orig_inner))
+
+    def test_no_side_effects(self):
+        """Test that the original cube is not modified by the function."""
+        orig_cube_copy = deepcopy(self.orig_cube)
+        _ = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube))
+        self.assertEqual(self.orig_cube, orig_cube_copy)
+
+
 class TestSplitKeyIntoParts(unittest.TestCase):
     def test_even_division(self):
         """Test when the sanitized key phrase length is evenly divisible by the number of rotors."""
@@ -541,129 +752,96 @@ class TestGenerateReflector(unittest.TestCase):
 
 class TestGenerateRotors(unittest.TestCase):
     def setUp(self):
-        """
-        Set up reusable test data for the tests.
-        """
-        self.sanitized_key_phrase = "TESTKEY"
-        self.prepared_playfair_cuboid = [
+        self.valid_key = "testkey"
+        self.valid_cube = [
             [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
             [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "_"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "1"]],
         ]
-        self.num_rotors = 3
+        self.num_rotors_to_make = 5
+        self.rotors_to_use = [0, 3, 4]
 
-    @patch("random.seed")
-    @patch("cubigma.utils._split_key_into_parts")
-    @patch("cubigma.utils._move_letter_to_center")
-    def test_generate_rotors_valid(self, mock_move_letter, mock_split_key, mock_seed):
-        """
-        Test that the function generates the correct number of rotors with deterministic output.
-        """
-        mock_seed.return_value = None
-        mock_split_key.return_value = ["TE", "ST", "KEY"]
-        mock_move_letter.side_effect = lambda symbol, inner_rotor: inner_rotor  # Mocking as identity for simplicity
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_generate_rotors_valid_input(self, mock_shuffle):
+        """Test function with valid inputs."""
+        mock_shuffle.side_effect = lambda key, cube: cube  # Mock shuffle function
 
-        result = generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, self.num_rotors)
+        result = generate_rotors(
+            sanitized_key_phrase=self.valid_key,
+            raw_cube=self.valid_cube,
+            num_rotors_to_make=self.num_rotors_to_make,
+            rotors_to_use=self.rotors_to_use,
+        )
 
-        self.assertEqual(len(result), self.num_rotors, "Should create the correct number of rotors.")
+        self.assertEqual(len(result), len(self.rotors_to_use))
         for rotor in result:
-            self.assertEqual(rotor, self.prepared_playfair_cuboid, "Each rotor should match the mock-adjusted input.")
+            self.assertEqual(rotor, self.valid_cube)
 
-    def test_generate_rotors_empty_key(self):
-        """
-        Test that the function raises an error when the key is invalid.
-        """
+    def test_missing_key_phrase(self):
+        """Test function raises error on missing or invalid key phrase."""
         with self.assertRaises(ValueError):
-            generate_rotors("", self.prepared_playfair_cuboid, self.num_rotors)
+            generate_rotors("", self.valid_cube, self.num_rotors_to_make, self.rotors_to_use)
 
-    def test_generate_rotors_null_key(self):
-        """
-        Test that the function raises an error when the key is invalid.
-        """
+    def test_invalid_num_rotors_to_make(self):
+        """Test function raises error on invalid num_rotors_to_make."""
         with self.assertRaises(ValueError):
-            generate_rotors(None, self.prepared_playfair_cuboid, self.num_rotors)
+            generate_rotors(self.valid_key, self.valid_cube, -1, self.rotors_to_use)
 
-    def test_generate_rotors_non_string_key(self):
-        """
-        Test that the function raises an error when the key is invalid.
-        """
+    def test_invalid_rotors_to_use_values(self):
+        """Test function raises error on invalid rotors_to_use."""
+        invalid_rotors = [0, 5, 1, 1]  # Duplicate and out-of-range values
         with self.assertRaises(ValueError):
-            generate_rotors(420, self.prepared_playfair_cuboid, self.num_rotors)
+            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors)
 
-    def test_generate_rotors_zero_rotors(self):
-        """
-        Test that the function raises an error when the key is invalid.
-        """
+    def test_invalid_rotors_to_use_not_list(self):
+        """Test function raises error on invalid rotors_to_use."""
+        invalid_rotors = "[0, 5, 1, 1]"
         with self.assertRaises(ValueError):
-            generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, 0)
+            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors)
 
-    def test_generate_rotors_null_rotors(self):
-        """
-        Test that the function raises an error when the key is invalid.
-        """
-        with self.assertRaises(ValueError):
-            generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, None)
-
-    def test_generate_rotors_non_number_num_rotors(self):
-        """
-        Test that the function raises an error when the key is invalid.
-        """
-        with self.assertRaises(ValueError):
-            generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, "3")
-
-    def test_generate_rotors_too_many_rotors(self):
-        """
-        Test that the function raises an error when the playfair cuboid is invalid.
-        """
-        with self.assertRaises(ValueError):
-            generate_rotors("1234", self.prepared_playfair_cuboid, 5)
-
-    def test_generate_rotors_invalid_cuboid_string(self):
-        """
-        Test that the function raises an error when the playfair cuboid is invalid.
-        """
-        invalid_cuboid = "InvalidCuboid"
-        with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
-            generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
-
-    def test_generate_rotors_invalid_cuboid_number(self):
-        """
-        Test that the function raises an error when the playfair cuboid is invalid.
-        """
-        invalid_cuboid = [
-            [[4, "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "_"]],
+    def test_invalid_cube(self):
+        """Test function raises error on invalid rotors_to_use."""
+        invalid_cube = [
+            ["AB", "CD"],
+            ["EF", "GH"]
         ]
-        with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
-            generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
+        with self.assertRaises(ValueError):
+            generate_rotors(self.valid_key, invalid_cube, self.num_rotors_to_make, self.rotors_to_use)
 
-    def test_generate_rotors_invalid_cuboid_2d_array(self):
-        """
-        Test that the function raises an error when the playfair cuboid is invalid.
-        """
-        invalid_cuboid = [["ABC", "DEF", "GHI"], ["JKL", "MNO", "PQR"], ["STU", "VWX", "YZ_"]]
-        with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
-            generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_rotors_correct_count(self, mock_shuffle):
+        """Test function generates the correct number of rotors."""
+        mock_shuffle.side_effect = lambda key, cube: cube
 
-    @patch("random.seed")
-    def test_generate_rotors_different_seeds(self, mock_seed):
-        """
-        Test that the function generates different outputs for different keys.
-        """
-        mock_seed.return_value = None
-        cuboid = [
-            [["K", "E", "Y"], ["_", "A", "B"], ["C", "D", "F"]],
-            [["G", "H", "I"], ["J", "L", "M"], ["N", "O", "P"]],
-            [["Q", "R", "S"], ["T", "U", "V"], ["W", "X", "Z"]],
-        ]
-        key_phrase_1 = "KEY_A"
-        key_phrase_2 = "KEY_B"
+        result = generate_rotors(
+            sanitized_key_phrase=self.valid_key,
+            raw_cube=self.valid_cube,
+            num_rotors_to_make=self.num_rotors_to_make,
+            rotors_to_use=self.rotors_to_use,
+        )
 
-        result1 = generate_rotors(key_phrase_1, cuboid, self.num_rotors)
-        result2 = generate_rotors(key_phrase_2, cuboid, self.num_rotors)
+        self.assertEqual(len(result), len(self.rotors_to_use))
 
-        self.assertNotEqual(result1, result2, "Different keys should produce different rotors.")
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_deterministic_output(self, mock_shuffle):
+        """Test function produces deterministic output for the same inputs."""
+        mock_shuffle.side_effect = lambda key, cube: cube
+
+        result1 = generate_rotors(
+            sanitized_key_phrase=self.valid_key,
+            raw_cube=self.valid_cube,
+            num_rotors_to_make=self.num_rotors_to_make,
+            rotors_to_use=self.rotors_to_use,
+        )
+
+        result2 = generate_rotors(
+            sanitized_key_phrase=self.valid_key,
+            raw_cube=self.valid_cube,
+            num_rotors_to_make=self.num_rotors_to_make,
+            rotors_to_use=self.rotors_to_use,
+        )
+
+        self.assertEqual(result1, result2)
 
 
 class TestGetOppositeCorners(unittest.TestCase):
@@ -957,116 +1135,65 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
 
 
 class TestParseArguments(unittest.TestCase):
-    @patch("builtins.print")
-    @patch("builtins.input", side_effect=["encrypt", "test_key", "This is a test message"])
-    def test_interactive_mode_encrypt(self, mock_print, mock_input):
-        """Test interactive mode for encryption."""
-        with patch("sys.argv", ["script_name"]):
-            key_phrase, mode, message = parse_arguments()
-            self.assertEqual(key_phrase, "test_key")
-            self.assertEqual(mode, "encrypt")
-            self.assertEqual(message, "This is a test message")
+    @patch("builtins.input", side_effect=["test_key", "test_message"])
+    @patch("cubigma.utils._read_and_validate_config")  # Replace 'cubigma.utils' with the actual module name
+    def test_parse_arguments_with_inputs(self, mock_read_and_validate_config, mock_input):
+        """Test parse_arguments function with interactive inputs."""
+        # Mock the return value of _read_and_validate_config
+        mock_read_and_validate_config.return_value = (
+            5,  # cube_length
+            3,  # num_rotors_to_make
+            [1, 2, 3],  # rotors_to_use
+            "encrypt",  # mode
+            True,  # should_use_steganography
+        )
 
-    @patch("builtins.print")
-    @patch("builtins.input", side_effect=["decrypt", "test_key", "EncryptedMessage"])
-    def test_interactive_mode_decrypt(self, mock_print, mock_input):
-        """Test interactive mode for decryption."""
-        with patch("sys.argv", ["script_name"]):
-            key_phrase, mode, message = parse_arguments()
-            self.assertEqual(key_phrase, "test_key")
-            self.assertEqual(mode, "decrypt")
-            self.assertEqual(message, "EncryptedMessage")
+        # Call the function
+        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = parse_arguments()
 
-    @patch("builtins.print")
-    @patch("builtins.input", side_effect=["both", "test_key", "EncryptedMessage"])
-    def test_interactive_mode_both(self, mock_print, mock_input):
-        """Test interactive mode for decryption."""
-        with patch("sys.argv", ["script_name"]):
-            key_phrase, mode, message = parse_arguments()
-            self.assertEqual(key_phrase, "test_key")
-            self.assertEqual(mode, "both")
-            self.assertEqual(message, "EncryptedMessage")
+        # Assertions
+        self.assertEqual(key_phrase, "test_key")
+        self.assertEqual(mode, "encrypt")
+        self.assertEqual(message, "test_message")
+        self.assertEqual(cube_length, 5)
+        self.assertEqual(num_rotors_to_make, 3)
+        self.assertEqual(rotors_to_use, [1, 2, 3])
+        self.assertTrue(should_use_steganography)
 
-    @patch("builtins.print")
-    @patch("builtins.input", side_effect=["rawr", "again", "encrypt", "test_key", "EncryptedMessage"])
-    def test_interactive_mode_invalid(self, mock_print, mock_input):
-        """Test interactive mode for decryption."""
-        with patch("sys.argv", ["script_name"]):
-            key_phrase, mode, message = parse_arguments()
-            self.assertEqual(key_phrase, "test_key")
-            self.assertEqual(mode, "encrypt")
-            self.assertEqual(message, "EncryptedMessage")
+    @patch("builtins.input", side_effect=["test_key", "test_encrypted_message"])
+    @patch("cubigma.utils._read_and_validate_config")
+    def test_parse_arguments_with_mode_decrypt(self, mock_read_and_validate_config, mock_input):
+        """Test parse_arguments function with mode 'decrypt' and interactive inputs."""
+        mock_read_and_validate_config.return_value = (
+            4,  # cube_length
+            2,  # num_rotors_to_make
+            [0, 1],  # rotors_to_use
+            "decrypt",  # mode
+            False,  # should_use_steganography
+        )
 
-    def test_command_line_encrypt(self):
-        """Test command-line arguments for encryption."""
-        with patch(
-            "sys.argv", ["script_name", "--key_phrase", "test_key", "--clear_text_message", "This is a test message"]
-        ):
-            key_phrase, mode, message = parse_arguments()
-            self.assertEqual(key_phrase, "test_key")
-            self.assertEqual(mode, "encrypt")
-            self.assertEqual(message, "This is a test message")
+        # Call the function
+        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = parse_arguments(mode="decrypt")
 
-    def test_command_line_decrypt(self):
-        """Test command-line arguments for decryption."""
-        with patch("sys.argv", ["script_name", "--key_phrase", "test_key", "--encrypted_message", "EncryptedMessage"]):
-            key_phrase, mode, message = parse_arguments()
-            self.assertEqual(key_phrase, "test_key")
-            self.assertEqual(mode, "decrypt")
-            self.assertEqual(message, "EncryptedMessage")
+        # Assertions
+        self.assertEqual(key_phrase, "test_key")
+        self.assertEqual(mode, "decrypt")
+        self.assertEqual(message, "test_encrypted_message")  # Message is empty because it isn't provided
+        self.assertEqual(cube_length, 4)
+        self.assertEqual(num_rotors_to_make, 2)
+        self.assertEqual(rotors_to_use, [0, 1])
+        self.assertFalse(should_use_steganography)
 
-    def test_command_line_error_both_messages(self):
-        """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch(
-            "sys.argv",
-            [
-                "script_name",
-                "--key_phrase",
-                "test_key",
-                "--clear_text_message",
-                "Text",
-                "--encrypted_message",
-                "Encrypted",
-            ],
-        ):
-            # Redirect stderr to silence the argparse error message
-            with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
-                    parse_arguments()
-            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
+    @patch("builtins.input", side_effect=["cryptid", "message"])
+    @patch("cubigma.utils._read_and_validate_config")
+    def test_parse_arguments_invalid_mode(self, mock_read_and_validate_config, mock_input):
+        """Test parse_arguments function with an invalid mode."""
+        mock_read_and_validate_config.return_value = (0, 0, [], "invalid_mode", False)
 
-    def test_command_line_error_key_and_no_message(self):
-        """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch("sys.argv", ["script_name", "--key_phrase", "test_key"]):
-            with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
-                    parse_arguments()
-            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
+        with self.assertRaises(ValueError) as context:
+            parse_arguments()
 
-    def test_command_line_error_clear_message_and_no_key(self):
-        """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch("sys.argv", ["script_name", "--clear_text_message", "Text"]):
-            with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
-                    parse_arguments()
-            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
-
-    def test_command_line_error_encrypted_message_and_no_key(self):
-        """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch("sys.argv", ["script_name", "--encrypted_message", "Text"]):
-            with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
-                    parse_arguments()
-            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
-
-    @patch("builtins.print")
-    def test_no_arguments_provided(self, mock_print):
-        """Test behavior when no arguments are provided."""
-        with patch("sys.argv", ["script_name"]), patch("builtins.input", side_effect=KeyboardInterrupt):
-            with self.assertRaises(KeyboardInterrupt):
-                # User interrupts interactive mode
-                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
-                    parse_arguments()
+        self.assertEqual(str(context.exception), "Unknown mode")
 
 
 class TestPrepStringForEncrypting(unittest.TestCase):

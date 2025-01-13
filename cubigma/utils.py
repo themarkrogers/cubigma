@@ -164,6 +164,58 @@ def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
     return chunk
 
 
+def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str, bool]:
+    config = read_config()
+    cube_length = config.get("LENGTH_OF_CUBE", None)
+    if cube_length is None:
+        raise ValueError("LENGTH_OF_CUBE not found in config.json")
+    if not isinstance(cube_length, int):
+        raise ValueError("LENGTH_OF_CUBE (in config.json) must have an integer value")
+    if cube_length < 5 or cube_length > 11:
+        raise ValueError("LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12")
+
+    num_rotors_to_make = config.get("NUMBER_OF_ROTORS_TO_GENERATE", None)
+    if num_rotors_to_make is None:
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE not found in config.json")
+    if not isinstance(num_rotors_to_make, int):
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value")
+    if num_rotors_to_make < 1:
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be greater than 0")
+
+    rotors_to_use = config.get("ROTORS_TO_USE", None)
+    if rotors_to_use is None:
+        raise ValueError("ROTORS_TO_USE not found in config.json")
+    if not isinstance(rotors_to_use, list):
+        raise ValueError("ROTORS_TO_USE (in config.json) must be a list of integers")
+    seen_rotor_values: list[int] = []
+    for index, rotor_item in enumerate(rotors_to_use):
+        if not isinstance(rotor_item, int):
+            raise ValueError(f"ROTORS_TO_USE (in config.json) contains a non-integer value at index: {index}")
+        if rotor_item < 1 or rotor_item >= num_rotors_to_make:
+            first_half = "ROTORS_TO_USE (in config.json) all rotor"
+            raise ValueError(f"{first_half} values must be between 0 & the number of rotors generated")
+        if rotor_item in seen_rotor_values:
+            raise ValueError("ROTORS_TO_USE (in config.json) all rotor values must be unique")
+        seen_rotor_values.append(rotor_item)
+
+    if not mode:
+        mode = config.get("ENCRYPT_OR_DECRYPT", None)
+        if mode is None:
+            raise ValueError("ENCRYPT_OR_DECRYPT not found in config.json")
+    if not isinstance(mode, str):
+        raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be a string")
+    if mode.upper() not in ["ENCRYPT", "DECRYPT"]:
+        raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be either 'ENCRYPT' or 'DECRYPT'")
+
+    should_use_steganography = config.get("ALSO_USE_STEGANOGRAPHY", None)
+    if should_use_steganography is None:
+        raise ValueError("ALSO_USE_STEGANOGRAPHY not found in config.json")
+    if not isinstance(should_use_steganography, bool):
+        raise ValueError("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value (e.g. true or false)")
+
+    return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography
+
+
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
     if len(sanitized_key_phrase) < num_rotors:
         raise ValueError("Message length must be at least the number of rotors")
@@ -247,21 +299,20 @@ def generate_rotors(
     for index, rotor_item in enumerate(rotors_to_use):
         if (
             not isinstance(rotor_item, int)
-            or rotor_item < 1
+            or rotor_item < 0
             or rotor_item >= num_rotors_to_make
             or rotor_item in seen_rotor_values
         ):
             first_half = "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be"
             raise ValueError(f"{first_half} unique integers between 0 & the number of rotors generated")
         seen_rotor_values.append(rotor_item)
-    num_rotors = len(rotors_to_use)
 
     random.seed(sanitized_key_phrase)  # Seed the random generator with the key
 
     generated_rotors = []
-    for i in range(num_rotors):
+    for i in range(num_rotors_to_make):
         raw_rotor = raw_cube.copy()
-        shuffled_rotor = shuffle_cube_with_key_phrase(sanitized_key_phrase, raw_rotor)
+        shuffled_rotor = _shuffle_cube_with_key_phrase(sanitized_key_phrase, raw_rotor)
         generated_rotors.append(shuffled_rotor)
 
     rotors_ready_for_use: list[list[list[list[str]]]] = []
@@ -380,60 +431,6 @@ def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rot
     return result
 
 
-def read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str, bool]:
-    config = read_config()
-    cube_length = config.get("LENGTH_OF_CUBE", None)
-    if cube_length is None:
-        raise ValueError("LENGTH_OF_CUBE not found in config.json")
-    if not isinstance(cube_length, int):
-        raise ValueError("LENGTH_OF_CUBE (in config.json) must have an integer value")
-    if cube_length < 5 or cube_length > 11:
-        raise ValueError("LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12")
-
-    num_rotors_to_make = config.get("NUMBER_OF_ROTORS_TO_GENERATE", None)
-    if num_rotors_to_make is None:
-        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE not found in config.json")
-    if not isinstance(num_rotors_to_make, int):
-        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value")
-    if num_rotors_to_make < 1:
-        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be greater than 0")
-
-    rotors_to_use = config.get("ROTORS_TO_USE", None)
-    if rotors_to_use is None:
-        raise ValueError("ROTORS_TO_USE not found in config.json")
-    if not isinstance(rotors_to_use, list):
-        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a list of integers")
-    seen_rotor_values: list[int] = []
-    for index, rotor_item in enumerate(rotors_to_use):
-        if not isinstance(rotor_item, int):
-            raise ValueError(
-                f"NUMBER_OF_ROTORS_TO_GENERATE (in config.json) contains a non-integer value at index: {index}"
-            )
-        if rotor_item < 1 or rotor_item >= num_rotors_to_make:
-            first_half = "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor"
-            raise ValueError(f"{first_half} values must be between 0 & the number of rotors generated")
-        if rotor_item in seen_rotor_values:
-            raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be unique")
-        seen_rotor_values.append(rotor_item)
-
-    if not mode:
-        mode = config.get("ENCRYPT_OR_DECRYPT", None)
-        if mode is None:
-            raise ValueError("ENCRYPT_OR_DECRYPT not found in config.json")
-    if not isinstance(mode, str):
-        raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be a string")
-    if mode.upper() not in ["ENCRYPT", "DECRYPT"]:
-        raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be either 'ENCRYPT' or 'DECRYPT'")
-
-    should_use_steganography = config.get("ALSO_USE_STEGANOGRAPHY", None)
-    if should_use_steganography is None:
-        raise ValueError("ALSO_USE_STEGANOGRAPHY not found in config.json")
-    if not isinstance(should_use_steganography, bool):
-        raise ValueError("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value (e.g. true or false)")
-
-    return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography
-
-
 def parse_arguments(
     key_phrase: str = "", mode: str = "", message: str = ""
 ) -> tuple[str, str, str, int, int, list[int], bool]:
@@ -451,7 +448,7 @@ def parse_arguments(
           * whether to use steganography in addition to encryption
     """
 
-    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = read_and_validate_config(mode=mode)
+    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = _read_and_validate_config(mode=mode)
 
     if not key_phrase:
         key_phrase = input("Enter your key phrase: ").strip()
@@ -549,7 +546,7 @@ def sanitize(raw_input: str) -> str:
     return raw_input.replace("\n", "")
 
 
-def shuffle_cube_with_key_phrase(sanitized_key_phrase: str, orig_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+def _shuffle_cube_with_key_phrase(sanitized_key_phrase: str, orig_cube: list[list[list[str]]]) -> list[list[list[str]]]:
     """
     Shuffles the elements of a 3-dimensional list in-place for cryptographic use.
 
