@@ -1,7 +1,7 @@
 """ Useful shared utilities for the cubigma project. """
 
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 import argparse
 import json
 import hashlib
@@ -50,7 +50,7 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
     return playfair_cuboid
 
 
-def get_opposite_corners(
+def _get_opposite_corners(
     point_1: tuple[int, int, int],
     point_2: tuple[int, int, int],
     point_3: tuple[int, int, int],
@@ -136,6 +136,33 @@ def _get_flat_index(x, y, z, size_x, size_y):
     return x * size_y * size_x + y * size_x + z
 
 
+def _get_prefix_order_number_quartet(order_number: int) -> str:
+    order_number_str = str(order_number)
+    assert len(order_number_str) == 1, "Invalid order number"
+    pad_symbols = ["", "", "", order_number_str]
+    random.shuffle(pad_symbols)
+    return "".join(pad_symbols)
+
+
+def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
+    num_blocks = len(rotor)
+    lines_per_block = len(rotor[0])
+    symbols_per_line = len(rotor[0][0])
+    noise_quartet_symbols = [NOISE_SYMBOL]
+    while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
+        coordinate = (
+            random.randint(0, num_blocks - 1),
+            random.randint(0, lines_per_block - 1),
+            random.randint(0, symbols_per_line - 1),
+        )
+        x, y, z = coordinate
+        found_symbol = rotor[x][y][z]
+        if found_symbol not in noise_quartet_symbols:
+            noise_quartet_symbols.append(found_symbol)
+    random.shuffle(noise_quartet_symbols)
+    return "".join(noise_quartet_symbols)
+
+
 def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -> bool:
     inner_x, inner_y, inner_z = coord
     is_x_valid = 0 <= inner_x < len(inner_grid)
@@ -210,6 +237,19 @@ def _move_symbol_in_3d_grid(
         for x in range(size_x)
     ]
     return updated_grid
+
+
+def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
+    if len(chunk) < 1:
+        raise ValueError("Chunk cannot be empty")
+    pad_symbols = ["", "", ""]
+    max_pad_idx = len(pad_symbols) - 1
+    while len(chunk) < LENGTH_OF_QUARTET:
+        new_random_number = random.randint(0, max_pad_idx)
+        random_pad_symbol = pad_symbols[new_random_number]
+        if random_pad_symbol not in chunk:
+            chunk += random_pad_symbol
+    return chunk
 
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
@@ -301,33 +341,6 @@ def generate_rotors(
     return finished_rotors
 
 
-def get_prefix_order_number_quartet(order_number: int) -> str:
-    order_number_str = str(order_number)
-    assert len(order_number_str) == 1, "Invalid order number"
-    pad_symbols = ["", "", "", order_number_str]
-    random.shuffle(pad_symbols)
-    return "".join(pad_symbols)
-
-
-def get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
-    num_blocks = len(rotor)
-    lines_per_block = len(rotor[0])
-    symbols_per_line = len(rotor[0][0])
-    noise_quartet_symbols = [NOISE_SYMBOL]
-    while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
-        coordinate = (
-            random.randint(0, num_blocks - 1),
-            random.randint(0, lines_per_block - 1),
-            random.randint(0, symbols_per_line - 1),
-        )
-        x, y, z = coordinate
-        found_symbol = rotor[x][y][z]
-        if found_symbol not in noise_quartet_symbols:
-            noise_quartet_symbols.append(found_symbol)
-    random.shuffle(noise_quartet_symbols)
-    return "".join(noise_quartet_symbols)
-
-
 def index_to_quartet(index: int, symbols: list[str]) -> str:
     """
     Convert an index to a quartet based on the provided symbols.
@@ -353,17 +366,28 @@ def index_to_quartet(index: int, symbols: list[str]) -> str:
     return result
 
 
-def pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
-    if len(chunk) < 1:
-        raise ValueError("Chunk cannot be empty")
-    pad_symbols = ["", "", ""]
-    max_pad_idx = len(pad_symbols) - 1
-    while len(chunk) < LENGTH_OF_QUARTET:
-        new_random_number = random.randint(0, max_pad_idx)
-        random_pad_symbol = pad_symbols[new_random_number]
-        if random_pad_symbol not in chunk:
-            chunk += random_pad_symbol
-    return chunk
+def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:
+    """
+    Pad an encrypted message chunk
+
+    Args:
+        chunk (str): Encrypted message chunk to pad
+        padded_chunk_length (int): Desired chunk length
+        chunk_order_number (int): Which chunk is this (i.e. 1-5)?
+        rotor (list[list[list[str]]]): the playfair cuboid to use for padding
+
+    Returns:
+        str: Padded chunk
+    """
+    padded_chunk = chunk
+    while len(padded_chunk) < padded_chunk_length:
+        if len(padded_chunk) % LENGTH_OF_QUARTET != 0:
+            padded_chunk = _pad_chunk_with_rand_pad_symbols(padded_chunk)
+        random_noise_chunk = _get_random_noise_chunk(rotor)
+        padded_chunk += random_noise_chunk
+    prefix_order_number_quartet = _get_prefix_order_number_quartet(chunk_order_number)
+    result = prefix_order_number_quartet + padded_chunk
+    return result
 
 
 def parse_arguments() -> tuple[str, str, str]:
@@ -435,13 +459,13 @@ def prep_string_for_encrypting(orig_message: str) -> str:
             cur_chunk = ""
             chunk_idx = 0
         if orig_char in cur_chunk:
-            cur_chunk = pad_chunk_with_rand_pad_symbols(cur_chunk)
+            cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
             sanitized_string += cur_chunk
             cur_chunk = ""
             chunk_idx = 0
         cur_chunk += orig_char
         chunk_idx += 1
-    cur_chunk = pad_chunk_with_rand_pad_symbols(cur_chunk)
+    cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
     sanitized_string += cur_chunk
     return sanitized_string
 
@@ -489,6 +513,47 @@ def remove_duplicate_letters(orig: str) -> str:
         if letter not in unique_letters:
             unique_letters.append(letter)
     return "".join(list(unique_letters))
+
+
+def run_quartet_through_rotors(char_quartet: str, rotors: list[list[list[list[str]]]]) -> str:
+    indices_by_char = {}
+    cur_quartet = char_quartet
+    for rotor in rotors:
+        for frame_idx, cur_frame in enumerate(rotor):
+            for row_idx, cur_line in enumerate(cur_frame):
+                if any(char in cur_line for char in cur_quartet):
+                    if cur_quartet[0] in cur_line:
+                        indices_by_char[cur_quartet[0]] = (frame_idx, row_idx, cur_line.index(cur_quartet[0]))
+                    if cur_quartet[1] in cur_line:
+                        indices_by_char[cur_quartet[1]] = (frame_idx, row_idx, cur_line.index(cur_quartet[1]))
+                    if cur_quartet[2] in cur_line:
+                        indices_by_char[cur_quartet[2]] = (frame_idx, row_idx, cur_line.index(cur_quartet[2]))
+                    if cur_quartet[3] in cur_line:
+                        indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
+        orig_indices = []
+        for cur_char in cur_quartet:
+            orig_indices.append(indices_by_char[cur_char])
+        num_blocks = len(rotor)
+        lines_per_block = len(rotor[0])
+        symbols_per_line = len(rotor[0][0])
+        encrypted_indices = _get_opposite_corners(
+            orig_indices[0],
+            orig_indices[1],
+            orig_indices[2],
+            orig_indices[3],
+            num_blocks,
+            lines_per_block,
+            symbols_per_line,
+            num_quartets_encoded
+        )
+        num_quartets_encoded += 1
+        encrypted_char_1 = _get_chars_for_coordinates(encrypted_indices[0], rotor)
+        encrypted_char_2 = _get_chars_for_coordinates(encrypted_indices[1], rotor)
+        encrypted_char_3 = _get_chars_for_coordinates(encrypted_indices[2], rotor)
+        encrypted_char_4 = _get_chars_for_coordinates(encrypted_indices[3], rotor)
+        encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
+        cur_quartet = encrypted_quartet
+    return cur_quartet
 
 
 def sanitize(raw_input: str) -> str:

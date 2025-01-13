@@ -4,7 +4,6 @@ This code implements the Cubigma encryption algorithm.
 """
 
 import math
-import random
 
 from cubigma.utils import (
 # from utils import (
@@ -12,15 +11,12 @@ from cubigma.utils import (
     NOISE_SYMBOL,
     generate_reflector,
     generate_rotors,
-    get_opposite_corners,
-    get_prefix_order_number_quartet,
-    get_random_noise_chunk,
     index_to_quartet,
-    pad_chunk_with_rand_pad_symbols,
     parse_arguments,
     prep_string_for_encrypting,
     prepare_cuboid_with_key_phrase,
     quartet_to_index,
+    run_quartet_through_rotors,
     sanitize,
     strengthen_key,
     user_perceived_length,
@@ -48,43 +44,6 @@ class Cubigma:
         self._cuboid_filepath = cuboid_filepath
         self._is_machine_prepared = False
 
-    def _run_quartet_through_rotors(self, char_quartet: str, rotors: list[list[list[list[str]]]]) -> str:
-        indices_by_char = {}
-        cur_quartet = char_quartet
-        for rotor in rotors:
-            for frame_idx, cur_frame in enumerate(rotor):
-                for row_idx, cur_line in enumerate(cur_frame):
-                    if any(char in cur_line for char in cur_quartet):
-                        if cur_quartet[0] in cur_line:
-                            indices_by_char[cur_quartet[0]] = (frame_idx, row_idx, cur_line.index(cur_quartet[0]))
-                        if cur_quartet[1] in cur_line:
-                            indices_by_char[cur_quartet[1]] = (frame_idx, row_idx, cur_line.index(cur_quartet[1]))
-                        if cur_quartet[2] in cur_line:
-                            indices_by_char[cur_quartet[2]] = (frame_idx, row_idx, cur_line.index(cur_quartet[2]))
-                        if cur_quartet[3] in cur_line:
-                            indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
-            orig_indices = []
-            for cur_char in cur_quartet:
-                orig_indices.append(indices_by_char[cur_char])
-            encrypted_indices = get_opposite_corners(
-                orig_indices[0],
-                orig_indices[1],
-                orig_indices[2],
-                orig_indices[3],
-                NUM_BLOCKS,
-                LINES_PER_BLOCK,
-                SYMBOLS_PER_LINE,
-                num_quartets_encoded
-            )
-            num_quartets_encoded += 1
-            encrypted_char_1 = self._get_chars_for_coordinates(encrypted_indices[0], rotor)
-            encrypted_char_2 = self._get_chars_for_coordinates(encrypted_indices[1], rotor)
-            encrypted_char_3 = self._get_chars_for_coordinates(encrypted_indices[2], rotor)
-            encrypted_char_4 = self._get_chars_for_coordinates(encrypted_indices[3], rotor)
-            encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
-            cur_quartet = encrypted_quartet
-        return cur_quartet
-
     def _run_quartet_through_reflector(self, char_quartet) -> str:
         if not self._is_machine_prepared:
             raise ValueError(
@@ -96,9 +55,9 @@ class Cubigma:
         return reflected_quartet
 
     def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
-        partially_encrypted_quartet_1 = self._run_quartet_through_rotors(char_quartet, self.rotors)
+        partially_encrypted_quartet_1 = run_quartet_through_rotors(char_quartet, self.rotors)
         partially_encrypted_quartet_2 = self._run_quartet_through_reflector(partially_encrypted_quartet_1)
-        encrypted_quartet = self._run_quartet_through_rotors(partially_encrypted_quartet_2, list(reversed(self.rotors)))
+        encrypted_quartet = run_quartet_through_rotors(partially_encrypted_quartet_2, list(reversed(self.rotors)))
         return encrypted_quartet
 
     def _read_characters_file(self) -> list[str]:
@@ -262,28 +221,6 @@ class Cubigma:
         sanitized_string = prep_string_for_encrypting(clear_text_message)
         encrypted_message = self.encode_string(sanitized_string)
         return encrypted_message
-
-    def pad_chunk(self, chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:
-        """
-        Pad an encrypted message chunk
-
-        Args:
-            chunk (str): Encrypted message chunk to pad
-            padded_chunk_length (int): Desired chunk length
-            chunk_order_number (int): Which chunk is this (i.e. 1-5)?
-
-        Returns:
-            str: Padded chunk
-        """
-        padded_chunk = chunk
-        while len(padded_chunk) < padded_chunk_length:
-            if len(padded_chunk) % LENGTH_OF_QUARTET != 0:
-                padded_chunk = pad_chunk_with_rand_pad_symbols(padded_chunk)
-            random_noise_chunk = get_random_noise_chunk(rotor)
-            padded_chunk += random_noise_chunk
-        prefix_order_number_quartet = get_prefix_order_number_quartet(chunk_order_number)
-        result = prefix_order_number_quartet + padded_chunk
-        return result
 
     def prepare_machine(
         self,

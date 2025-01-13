@@ -7,7 +7,7 @@ import random
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
 from cubigma.steganography import embed_chunks, get_chunks_from_image, get_image_size
-from cubigma.utils import read_config, LENGTH_OF_QUARTET
+from cubigma.utils import LENGTH_OF_QUARTET, pad_chunk, read_config
 
 config = read_config()
 SYMBOLS_PER_LINE = config["SYMBOLS_PER_LINE"]
@@ -136,17 +136,14 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
     padded_chunks = []
     for i in range(5):
         rotor_to_use = i % len(cubigma.rotors)
-        padded_chunk = cubigma.pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_QUARTET, i+1, cubigma.rotors[rotor_to_use])
+        padded_chunk = pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_QUARTET, i+1, cubigma.rotors[rotor_to_use])
         padded_chunks.append(padded_chunk)
 
     # Then encrypt each chunk
-    encrypted_chunk1 = cubigma.encode_string(padded_chunk1)
-    encrypted_chunk2 = cubigma.encode_string(padded_chunk2)
-    encrypted_chunk3 = cubigma.encode_string(padded_chunk3)
-    encrypted_chunk4 = cubigma.encode_string(padded_chunk4)
-    encrypted_chunk5 = cubigma.encode_string(padded_chunk5)
-
-    encrypted_chunks = [encrypted_chunk1, encrypted_chunk2, encrypted_chunk3, encrypted_chunk4, encrypted_chunk5]
+    encrypted_chunks = []
+    for i in range(5):
+        encrypted_chunk = cubigma.encode_string(padded_chunks[i])
+        encrypted_chunks.append(encrypted_chunk)
     random.shuffle(encrypted_chunks)
 
     embed_chunks(encrypted_chunks, original_image_filepath)

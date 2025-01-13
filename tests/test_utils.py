@@ -11,10 +11,10 @@ from cubigma.utils import (
     LENGTH_OF_QUARTET,
     generate_reflector,
     generate_rotors,
-    get_prefix_order_number_quartet,
-    get_random_noise_chunk,
+    _get_prefix_order_number_quartet,
+    _get_random_noise_chunk,
     index_to_quartet,
-    pad_chunk_with_rand_pad_symbols,
+    _pad_chunk_with_rand_pad_symbols,
     parse_arguments,
     prep_string_for_encrypting,
     quartet_to_index,
@@ -22,7 +22,7 @@ from cubigma.utils import (
     remove_duplicate_letters,
     sanitize,
     split_to_human_readable_symbols,
-    strengthen_key,user_perceived_length
+    strengthen_key, user_perceived_length
 )
 from cubigma.utils import (
     _find_symbol, _get_chars_for_coordinates, _get_flat_index, _is_valid_coord, _move_letter_to_center,
@@ -462,7 +462,7 @@ class TestGenerateRotors(unittest.TestCase):
         """
         mock_seed.return_value = None
         mock_split_key.return_value = ["TE", "ST", "KEY"]
-        mock_move_letter.side_effect = lambda symbol, rotor: rotor  # Mocking as identity for simplicity
+        mock_move_letter.side_effect = lambda symbol, inner_rotor: inner_rotor  # Mocking as identity for simplicity
 
         result = generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, self.num_rotors)
 
@@ -575,7 +575,7 @@ class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
     def test_valid_order_number(self):
         """Test that a valid single-digit order number returns a quartet of symbols including the order number."""
         order_number = 5
-        result = get_prefix_order_number_quartet(order_number)
+        result = _get_prefix_order_number_quartet(order_number)
 
         # Check that the result has exactly 4 characters
         self.assertEqual(len(result), 4, "Resulting string does not have 4 characters")
@@ -591,18 +591,18 @@ class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
     def test_invalid_order_number(self):
         """Test that an invalid order number raises an assertion error."""
         with self.assertRaises(AssertionError):
-            get_prefix_order_number_quartet(10)  # Not a single-digit number
+            _get_prefix_order_number_quartet(10)  # Not a single-digit number
 
         with self.assertRaises(AssertionError):
-            get_prefix_order_number_quartet(-1)  # Negative number
+            _get_prefix_order_number_quartet(-1)  # Negative number
 
         with self.assertRaises(AssertionError):
-            get_prefix_order_number_quartet(123)  # Multiple digits
+            _get_prefix_order_number_quartet(123)  # Multiple digits
 
     def test_randomness(self):
         """Test that the function produces different outputs for the same input due to shuffling."""
         order_number = 3
-        results = {get_prefix_order_number_quartet(order_number) for _ in range(100)}
+        results = {_get_prefix_order_number_quartet(order_number) for _ in range(100)}
 
         # Verify that we have multiple unique outputs, indicating randomness
         self.assertGreater(len(results), 1, "Function does not produce randomized outputs")
@@ -633,21 +633,21 @@ class TestGetRandomNoiseChunk(unittest.TestCase):
     def test_output_length(self, mock_randint):
         """Test that the function output has the correct length."""
         mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]  # Mock coordinates
-        result = get_random_noise_chunk(self.rotor)
+        result = _get_random_noise_chunk(self.rotor)
         self.assertEqual(len(result), LENGTH_OF_QUARTET)
 
     @patch("random.randint")
     def test_includes_noise_symbol(self, mock_randint):
         """Test that the output includes the NOISE_SYMBOL."""
         mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
-        result = get_random_noise_chunk(self.rotor)
+        result = _get_random_noise_chunk(self.rotor)
         self.assertIn(NOISE_SYMBOL, result)
 
     @patch("random.randint")
     def test_unique_symbols_in_output(self, mock_randint):
         """Test that the output contains unique symbols."""
         mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
-        result = get_random_noise_chunk(self.rotor)
+        result = _get_random_noise_chunk(self.rotor)
         self.assertEqual(len(set(result)), LENGTH_OF_QUARTET)
 
     @patch("random.randint")
@@ -659,7 +659,7 @@ class TestGetRandomNoiseChunk(unittest.TestCase):
             [["F"]],
         ]
         mock_randint.side_effect = [0, 0, 0, 1, 0, 0, 2, 0, 0]
-        result = get_random_noise_chunk(non_uniform_rotor)
+        result = _get_random_noise_chunk(non_uniform_rotor)
         self.assertEqual(len(result), LENGTH_OF_QUARTET)
 
 
@@ -774,30 +774,30 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     @patch("cubigma.utils.random")
     def test_pad_chunk_with_empty_input(self, mock_randint):
         with self.assertRaises(ValueError) as context:
-            pad_chunk_with_rand_pad_symbols("")
+            _pad_chunk_with_rand_pad_symbols("")
         self.assertIn("Chunk cannot be empty", str(context.exception))
 
     @patch("random.randint")
     def test_pad_chunk_with_one_length_input(self, mock_randint):
         mock_randint.side_effect = [0, 1, 2]
-        result = pad_chunk_with_rand_pad_symbols("A")
+        result = _pad_chunk_with_rand_pad_symbols("A")
         self.assertEqual(result, "A\x07\x16\x06")
 
     @patch("random.randint")
     def test_pad_chunk_with_two_length_input(self, mock_randint):
         mock_randint.side_effect = [2, 1]
-        result = pad_chunk_with_rand_pad_symbols("AB")
+        result = _pad_chunk_with_rand_pad_symbols("AB")
         self.assertEqual(result, "AB\x06\x16")
 
     @patch("random.randint")
     def test_pad_chunk_with_three_length_input(self, mock_randint):
         mock_randint.side_effect = [0]
-        result = pad_chunk_with_rand_pad_symbols("ABC")
+        result = _pad_chunk_with_rand_pad_symbols("ABC")
         self.assertEqual(result, "ABC\x07")
 
     @patch("random.randint")
     def test_pad_chunk_with_full_length_input(self, mock_randint):
-        result = pad_chunk_with_rand_pad_symbols("ABCD")
+        result = _pad_chunk_with_rand_pad_symbols("ABCD")
         self.assertEqual(result, "ABCD")
 
 
