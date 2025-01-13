@@ -285,6 +285,8 @@ class Cubigma:
             self._symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width
         )
         raw_cuboid = self._read_cuboid_from_disk()
+        # ToDo: Instead of floating the key phrase, simply use the key phrase to seed random, and then generate 5 random
+        #  cuboids, then allow the user to select which 3 rotors to use
         cuboid = prepare_cuboid_with_key_phrase(key_phrase, raw_cuboid)
 
         key_phrase_bytes, salt_used = strengthen_key(key_phrase)
