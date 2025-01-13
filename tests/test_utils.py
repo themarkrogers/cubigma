@@ -12,10 +12,12 @@ from cubigma.utils import (
     generate_reflector,
     generate_rotors,
     get_chars_for_coordinates,
+    get_opposite_corners,
     index_to_quartet,
     pad_chunk,
     parse_arguments,
     prep_string_for_encrypting,
+    prepare_cuboid_with_key_phrase,
     quartet_to_index,
     read_config,
     remove_duplicate_letters,
@@ -665,6 +667,78 @@ class TestGenerateRotors(unittest.TestCase):
         self.assertNotEqual(result1, result2, "Different keys should produce different rotors.")
 
 
+class TestGetOppositeCorners(unittest.TestCase):
+    def setUp(self):
+        self.num_blocks = 10
+        self.lines_per_block = 10
+        self.symbols_per_line = 10
+        self.key_phrase = "testkey"
+        self.num_quartets_encoded = 1
+
+    def test_valid_input(self):
+        point_1 = (0, 0, 0)
+        point_2 = (0, 0, 1)
+        point_3 = (0, 1, 0)
+        point_4 = (0, 1, 1)
+
+        result = get_opposite_corners(
+            point_1, point_2, point_3, point_4,
+            self.num_blocks, self.lines_per_block, self.symbols_per_line,
+            self.key_phrase, self.num_quartets_encoded
+        )
+
+        self.assertEqual(len(result), 4)
+        for point in result:
+            self.assertIsInstance(point, tuple)
+            self.assertEqual(len(point), 3)
+
+    def test_non_unique_points(self):
+        point_1 = (0, 0, 0)
+        point_2 = (0, 0, 0)  # Duplicate
+        point_3 = (0, 1, 0)
+        point_4 = (0, 1, 1)
+
+        with self.assertRaises(ValueError):
+            get_opposite_corners(
+                point_1, point_2, point_3, point_4,
+                self.num_blocks, self.lines_per_block, self.symbols_per_line,
+                self.key_phrase, self.num_quartets_encoded
+            )
+
+    # def test_points_outside_bounds(self):
+    #     point_1 = (-1, 0, 0)
+    #     point_2 = (0, 11, 1)
+    #     point_3 = (0, 1, -1)
+    #     point_4 = (0, 1, 1)
+    #
+    #     with self.assertRaises(ValueError):
+    #         get_opposite_corners(
+    #             point_1, point_2, point_3, point_4,
+    #             self.num_blocks, self.lines_per_block, self.symbols_per_line,
+    #             self.key_phrase, self.num_quartets_encoded
+    #         )
+
+    def test_key_phrase_affects_result(self):
+        point_1 = (0, 0, 0)
+        point_2 = (0, 0, 1)
+        point_3 = (0, 1, 0)
+        point_4 = (0, 1, 1)
+
+        result_1 = get_opposite_corners(
+            point_1, point_2, point_3, point_4,
+            self.num_blocks, self.lines_per_block, self.symbols_per_line,
+            "key1", self.num_quartets_encoded
+        )
+
+        result_2 = get_opposite_corners(
+            point_1, point_2, point_3, point_4,
+            self.num_blocks, self.lines_per_block, self.symbols_per_line,
+            "key2", self.num_quartets_encoded
+        )
+
+        self.assertNotEqual(result_1, result_2)
+
+
 class TestIndexToQuartet(unittest.TestCase):
     def setUp(self):
         self.symbols = [
@@ -1021,6 +1095,84 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         expected_output = "abc*cdefghij"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
+
+
+class TestPrepareCuboidWithKeyPhrase(unittest.TestCase):
+    def setUp(self):
+        # Initial playfair cuboid setup
+        self.playfair_cuboid = [
+            [
+                ['A', 'B', 'C'],
+                ['D', 'E', 'F'],
+                ['G', 'H', 'I']
+            ],
+            [
+                ['J', 'K', 'L'],
+                ['M', 'N', 'O'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '-']
+            ]
+        ]
+
+    def test_valid_key_phrase(self):
+        key_phrase = "HELLO"
+        expected_cuboid = [
+            [
+                ['H', 'E', 'L'],
+                ['O', 'A', 'B'],
+                ['C', 'D', 'F']
+            ],
+            [
+                ['G', 'I', 'J'],
+                ['K', 'M', 'N'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '-']
+            ]
+        ]
+        result = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        self.assertEqual(result, expected_cuboid)
+
+    def test_short_key_phrase(self):
+        key_phrase = "AB"
+        with self.assertRaises(AssertionError) as context:
+            prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        self.assertEqual(str(context.exception), "Key phrase must be at least 3 characters long")
+
+    def test_key_phrase_with_duplicates(self):
+        key_phrase = "BALLOON"
+        expected_cuboid = [
+            [
+                ['B', 'A', 'L'],
+                ['O', 'N', 'C'],
+                ['D', 'E', 'F']
+            ],
+            [
+                ['G', 'H', 'I'],
+                ['J', 'K', 'M'],
+                ['P', 'Q', 'R']
+            ],
+            [
+                ['S', 'T', 'U'],
+                ['V', 'W', 'X'],
+                ['Y', 'Z', '-']
+            ]
+        ]
+        result = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        self.assertEqual(result, expected_cuboid)
+
+    def test_empty_key_phrase(self):
+        key_phrase = ""
+        with self.assertRaises(AssertionError) as context:
+            prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
+        self.assertEqual(str(context.exception), "Key phrase must be at least 3 characters long")
 
 
 class TestQuartetToIndex(unittest.TestCase):

@@ -16,106 +16,6 @@ LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
 
 
-def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """
-    Read the cuboid from disk and reorder it according to the key phrase provided
-
-    Args:
-        key_phrase (str): Key phrase to use for encrypting/decrypting
-        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before the key phrase has been pulled to the front
-
-    Returns:
-        list[list[list[str]]]: The playfair cuboid with full key phrase has been pulled to the front
-    """
-    assert len(key_phrase) >= 3, "Key phrase must be at least 3 characters long"
-    sanitized_key_phrase = remove_duplicate_letters(key_phrase)
-    reversed_key = list(reversed(sanitized_key_phrase))
-    for key_letter in reversed_key:
-        playfair_cuboid = _move_letter_to_front(key_letter, playfair_cuboid)
-
-    # ToDo: This increases the complexity derived from the key
-    #   * Maybe: Rotate the slices in a manner based on the key
-    #   * Maybe: Change which corner of the cuboid is chosen
-    #   * Maybe: both?
-    # Split the key phrase into rough thirds. Come up with a logic that converts the string into an algorithm for
-    # rotation.
-    # Three parts of the key phrase, three axes of rotation. So, we need an algorithm that Takes the key third and the
-    # text being encoded/decoded and deterministically chooses which "slice" of the prism to rotate, and which way.
-    # Maybe: Combine these three elements: The sum of ord() of the key phrase, of the decoded string, and of the encoded
-    # quartet. This will yield the same three numbers both encoding/decoding (e.g. val = (clear ^ key) - encrypted).
-    # With this number, we determine which slice (e.g. val % key third % SIZE_OF_AXIS). We always turn it the same way
-    # (e.g. val % key third % 2). As long as we encode and decode in the same order, we'll be modifying the same
-    # starting cuboid in the same ways, allowing us to always get the correct opposite corners for decoding.
-
-    # ToDo: See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
-    return playfair_cuboid
-
-
-def get_opposite_corners(
-    point_1: tuple[int, int, int],
-    point_2: tuple[int, int, int],
-    point_3: tuple[int, int, int],
-    point_4: tuple[int, int, int],
-    num_blocks: int,
-    lines_per_block: int,
-    symbols_per_line: int,
-    key_phrase: str,
-    num_quartets_encoded: int,
-) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
-    """
-    Given four corners of a rectangular cuboid, find the other four corners.
-
-    Args:
-        point_1: A tuple representing the first point (x, y, z).
-        point_2: A tuple representing the second point (x, y, z).
-        point_3: A tuple representing the third point (x, y, z).
-        point_4: A tuple representing the fourth point (x, y, z).
-        num_blocks (int): How tall in the cuboid (x).
-        lines_per_block (int): How long in the cuboid (y).
-        symbols_per_line (int): How wide in the cuboid (z).
-
-    Returns:
-        A tuple of four tuples, each representing the coordinates of the remaining corners.
-    """
-    # Check for unique points
-    given_points = {point_1, point_2, point_3, point_4}
-    if len(given_points) != LENGTH_OF_QUARTET:
-        raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cuboid.")
-
-    x1, y1, z1 = point_1
-    x2, y2, z2 = point_2
-    x3, y3, z3 = point_3
-    x4, y4, z4 = point_4
-
-    max_frame_idx = num_blocks - 1
-    max_row_idx = lines_per_block - 1
-    max_col_idx = symbols_per_line - 1
-
-    point_5 = (max_frame_idx - x1, max_row_idx - y1, max_col_idx - z1)
-    point_6 = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
-    point_7 = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
-    point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
-    all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
-
-    # ToDo: This is where some of the Enigma logic will happen.
-    #  * Use each key third as a "dial". Combine all three dials and a reflector.
-    #  * Use these data, and the index of the quartet to drive a deterministic movement in which corners are chosen
-    #  * This is also where we can theoretically allow cornerN to be encoded as cornerN (fixing an Enigma issue)
-    #  * Open questions:
-    #    * How do we reduce the key thirds to a small numeric space?
-    #    * What is the deterministic algorithm by which we can drive the movement of the chosen corners?
-
-    indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
-    chosen_point_1 = all_points[indices_to_choose[0]]
-    chosen_point_2 = all_points[indices_to_choose[1]]
-    chosen_point_3 = all_points[indices_to_choose[2]]
-    chosen_point_4 = all_points[indices_to_choose[3]]
-    return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
-
-
-# The below functions are under test
-
-
 def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
     """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
     for frame_idx, frame in enumerate(playfair_cuboid):
@@ -359,6 +259,60 @@ def get_chars_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list
     return rotor[x][y][z]
 
 
+def get_opposite_corners(
+    point_1: tuple[int, int, int],
+    point_2: tuple[int, int, int],
+    point_3: tuple[int, int, int],
+    point_4: tuple[int, int, int],
+    num_blocks: int,
+    lines_per_block: int,
+    symbols_per_line: int,
+    key_phrase: str,
+    num_quartets_encoded: int,
+) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+    """
+    Given four corners of a rectangular cuboid, find the other four corners.
+
+    Args:
+        point_1: A tuple representing the first point (x, y, z).
+        point_2: A tuple representing the second point (x, y, z).
+        point_3: A tuple representing the third point (x, y, z).
+        point_4: A tuple representing the fourth point (x, y, z).
+        num_blocks (int): How tall in the cuboid (x).
+        lines_per_block (int): How long in the cuboid (y).
+        symbols_per_line (int): How wide in the cuboid (z).
+
+    Returns:
+        A tuple of four tuples, each representing the coordinates of the remaining corners.
+    """
+    # Check for unique points
+    given_points = {point_1, point_2, point_3, point_4}
+    if len(given_points) != LENGTH_OF_QUARTET:
+        raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cuboid.")
+
+    x1, y1, z1 = point_1
+    x2, y2, z2 = point_2
+    x3, y3, z3 = point_3
+    x4, y4, z4 = point_4
+
+    max_frame_idx = num_blocks - 1
+    max_row_idx = lines_per_block - 1
+    max_col_idx = symbols_per_line - 1
+
+    point_5 = (max_frame_idx - x1, max_row_idx - y1, max_col_idx - z1)
+    point_6 = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
+    point_7 = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
+    point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
+    all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
+
+    indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+    chosen_point_1 = all_points[indices_to_choose[0]]
+    chosen_point_2 = all_points[indices_to_choose[1]]
+    chosen_point_3 = all_points[indices_to_choose[2]]
+    chosen_point_4 = all_points[indices_to_choose[3]]
+    return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
+
+
 def index_to_quartet(index: int, symbols: list[str]) -> str:
     """
     Convert an index to a quartet based on the provided symbols.
@@ -486,6 +440,25 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
     sanitized_string += cur_chunk
     return sanitized_string
+
+
+def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
+    """
+    Read the cuboid from disk and reorder it according to the key phrase provided
+
+    Args:
+        key_phrase (str): Key phrase to use for encrypting/decrypting
+        playfair_cuboid (list[list[list[str]]]): The playfair cuboid before the key phrase has been pulled to the front
+
+    Returns:
+        list[list[list[str]]]: The playfair cuboid with full key phrase has been pulled to the front
+    """
+    assert len(key_phrase) >= 3, "Key phrase must be at least 3 characters long"
+    sanitized_key_phrase = remove_duplicate_letters(key_phrase)
+    reversed_key = list(reversed(sanitized_key_phrase))
+    for key_letter in reversed_key:
+        playfair_cuboid = _move_letter_to_front(key_letter, playfair_cuboid)
+    return playfair_cuboid
 
 
 def quartet_to_index(quartet: str, symbols: list[str]) -> int:
