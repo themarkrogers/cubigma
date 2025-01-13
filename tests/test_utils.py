@@ -7,8 +7,10 @@ import unittest
 
 from cubigma.utils import (
     get_prefix_order_number_quartet,
+    generate_reflector,
     index_to_quartet,
     pad_chunk_with_rand_pad_symbols,
+    prep_string_for_encrypting,
     quartet_to_index,
     read_config,
     remove_duplicate_letters,
@@ -359,6 +361,64 @@ class TestSplitKeyIntoParts(unittest.TestCase):
 # Testing Public Functions
 
 
+class TestGenerateReflector(unittest.TestCase):
+
+    def test_reflector_pairs_correctly(self):
+        """Test that the reflector maps quartets bidirectionally."""
+        sanitized_key_phrase = "testkey"
+        num_quartets = 10
+        reflector = generate_reflector(sanitized_key_phrase, num_quartets)
+
+        for key, value in reflector.items():
+            self.assertEqual(reflector[value], key)
+
+    def test_deterministic_output(self):
+        """Test that the function generates deterministic output for the same key."""
+        sanitized_key_phrase = "testkey"
+        num_quartets = 10
+        reflector1 = generate_reflector(sanitized_key_phrase, num_quartets)
+        reflector2 = generate_reflector(sanitized_key_phrase, num_quartets)
+
+        self.assertEqual(reflector1, reflector2)
+
+    def test_randomized_output_with_different_keys(self):
+        """Test that the function generates different outputs for different keys."""
+        sanitized_key_phrase1 = "key1"
+        sanitized_key_phrase2 = "key2"
+        num_quartets = 10
+        reflector1 = generate_reflector(sanitized_key_phrase1, num_quartets)
+        reflector2 = generate_reflector(sanitized_key_phrase2, num_quartets)
+
+        self.assertNotEqual(reflector1, reflector2)
+
+    def test_even_number_of_quartets(self):
+        """Test that the function raises an error for odd number of quartets."""
+        sanitized_key_phrase = "testkey"
+        num_quartets = 9  # Odd number of quartets
+        with self.assertRaises(IndexError):
+            generate_reflector(sanitized_key_phrase, num_quartets)
+
+    def test_empty_key(self):
+        """Test that an empty key produces valid but deterministic results."""
+        sanitized_key_phrase = ""
+        num_quartets = 10
+        reflector = generate_reflector(sanitized_key_phrase, num_quartets)
+
+        self.assertIsInstance(reflector, dict)
+        self.assertEqual(len(reflector), num_quartets)
+
+    def test_large_number_of_quartets(self):
+        """Test that the function handles a large number of quartets."""
+        sanitized_key_phrase = "largekey"
+        num_quartets = 10000  # Large number of quartets
+        reflector = generate_reflector(sanitized_key_phrase, num_quartets)
+
+        self.assertIsInstance(reflector, dict)
+        self.assertEqual(len(reflector), num_quartets)
+        for key, value in reflector.items():
+            self.assertEqual(reflector[value], key)
+
+
 class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
     def test_valid_order_number(self):
         """Test that a valid single-digit order number returns a quartet of symbols including the order number."""
@@ -532,6 +592,63 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     def test_pad_chunk_with_full_length_input(self, mock_randint):
         result = pad_chunk_with_rand_pad_symbols("ABCD")
         self.assertEqual(result, "ABCD")
+
+
+class TestPrepStringForEncrypting(unittest.TestCase):
+
+    def _fake_pad_chunk_with_rand_pad_symbols(self, chunk):
+        """
+        Mock implementation of the pad_chunk_with_rand_pad_symbols function
+        Adds '*' symbols to the chunk until its length is LENGTH_OF_QUARTET.
+        """
+        while len(chunk) < LENGTH_OF_QUARTET:
+            chunk += '*'
+        return chunk
+
+    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    def test_no_padding_needed(self, mock_pad):
+        """Test when the input string is already a multiple of LENGTH_OF_QUARTET."""
+        mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
+        input_message = "abcd"
+        expected_output = "abcd"
+        result = prep_string_for_encrypting(input_message)
+        self.assertEqual(result, expected_output)
+
+    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    def test_padding_needed(self, mock_pad):
+        """Test when the input string length is not a multiple of LENGTH_OF_QUARTET."""
+        mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
+        input_message = "abc"
+        expected_output = "abc*"
+        result = prep_string_for_encrypting(input_message)
+        self.assertEqual(result, expected_output)
+
+    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    def test_repeating_characters(self, mock_pad):
+        """Test when the input string contains repeating characters in a chunk."""
+        mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
+        input_message = "aabbcc"
+        expected_output = "a***ab**bc**c***"
+        result = prep_string_for_encrypting(input_message)
+        self.assertEqual(result, expected_output)
+
+    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    def test_empty_string(self, mock_pad):
+        """Test when the input string is empty."""
+        mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
+        input_message = ""
+        expected_output = ""
+        with self.assertRaises(ValueError):
+            prep_string_for_encrypting(input_message)
+
+    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    def test_long_string(self, mock_pad):
+        """Test a longer string with multiple chunks."""
+        mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
+        input_message = "abccdefghij"
+        expected_output = "abc*cdefghij"
+        result = prep_string_for_encrypting(input_message)
+        self.assertEqual(result, expected_output)
 
 
 class TestQuartetToIndex(unittest.TestCase):
@@ -915,6 +1032,8 @@ class TestUserPerceivedLength(unittest.TestCase):
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
+
+
 
 
 if __name__ == "__main__":

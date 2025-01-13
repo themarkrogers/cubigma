@@ -14,35 +14,6 @@ LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
 
 
-def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dict[int, int]:
-    """
-    Generate a deterministic, key-dependent reflector for quartets.
-
-    Args:
-        sanitized_key_phrase (str): The encryption key used to seed the random generator.
-        num_quartets (int): The total number of unique quartets.
-
-    Returns:
-        dict: A mapping of quartets to their reflected counterparts.
-    """
-    # Create a list of all possible quartets
-    quartets = list(range(num_quartets))
-
-    # Seed the random generator with the key
-    random.seed(sanitized_key_phrase)
-
-    # Shuffle the quartets
-    random.shuffle(quartets)
-
-    # Create pairs and map them bidirectionally
-    reflector = {}
-    for i in range(0, len(quartets), 2):
-        q1, q2 = quartets[i], quartets[i + 1]
-        reflector[q1] = q2
-        reflector[q2] = q1
-    return reflector
-
-
 def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
     """
     Read the cuboid from disk and reorder it according to the key phrase provided
@@ -211,35 +182,6 @@ def parse_arguments() -> tuple[str, str, str]:
     return key_phrase, "decrypt", args.encrypted_message
 
 
-def prep_string_for_encrypting(orig_message: str) -> str:
-    """
-    Pad the string with random pad symbols until its length is a multiple of 4
-
-    Args:
-        orig_message (str): String to be prepared for encryption
-
-    Returns:
-        str: String prepared for encryption
-    """
-    sanitized_string = ""
-    cur_chunk = ""
-    chunk_idx = 0
-    for orig_char in orig_message:
-        if chunk_idx >= LENGTH_OF_QUARTET:
-            sanitized_string += cur_chunk
-            cur_chunk = ""
-            chunk_idx = 0
-        if orig_char in cur_chunk:
-            cur_chunk = pad_chunk_with_rand_pad_symbols(cur_chunk)
-            sanitized_string += cur_chunk
-            cur_chunk = ""
-            chunk_idx = 0
-        cur_chunk += orig_char
-        chunk_idx += 1
-    sanitized_string += cur_chunk
-    return sanitized_string
-
-
 # The below functions are under test
 
 
@@ -386,6 +328,35 @@ def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> lis
     return key_parts
 
 
+def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dict[int, int]:
+    """
+    Generate a deterministic, key-dependent reflector for quartets.
+
+    Args:
+        sanitized_key_phrase (str): The encryption key used to seed the random generator.
+        num_quartets (int): The total number of unique quartets.
+
+    Returns:
+        dict: A mapping of quartets to their reflected counterparts.
+    """
+    # Create a list of all possible quartets
+    quartets = list(range(num_quartets))
+
+    # Seed the random generator with the key
+    random.seed(sanitized_key_phrase)
+
+    # Shuffle the quartets
+    random.shuffle(quartets)
+
+    # Create pairs and map them bidirectionally
+    reflector = {}
+    for i in range(0, len(quartets), 2):
+        q1, q2 = quartets[i], quartets[i + 1]
+        reflector[q1] = q2
+        reflector[q2] = q1
+    return reflector
+
+
 def get_prefix_order_number_quartet(order_number: int) -> str:
     order_number_str = str(order_number)
     assert len(order_number_str) == 1, "Invalid order number"
@@ -430,6 +401,38 @@ def pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
         if random_pad_symbol not in chunk:
             chunk += random_pad_symbol
     return chunk
+
+
+def prep_string_for_encrypting(orig_message: str) -> str:
+    """
+    Pad the string with random pad symbols until its length is a multiple of 4
+
+    Args:
+        orig_message (str): String to be prepared for encryption
+
+    Returns:
+        str: String prepared for encryption
+    """
+    if not orig_message:
+        raise ValueError("Cannot encrypt an empty message")
+    sanitized_string = ""
+    cur_chunk = ""
+    chunk_idx = 0
+    for orig_char in orig_message:
+        if chunk_idx >= LENGTH_OF_QUARTET:
+            sanitized_string += cur_chunk
+            cur_chunk = ""
+            chunk_idx = 0
+        if orig_char in cur_chunk:
+            cur_chunk = pad_chunk_with_rand_pad_symbols(cur_chunk)
+            sanitized_string += cur_chunk
+            cur_chunk = ""
+            chunk_idx = 0
+        cur_chunk += orig_char
+        chunk_idx += 1
+    cur_chunk = pad_chunk_with_rand_pad_symbols(cur_chunk)
+    sanitized_string += cur_chunk
+    return sanitized_string
 
 
 def quartet_to_index(quartet: str, symbols: list[str]) -> int:
