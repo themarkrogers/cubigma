@@ -117,7 +117,7 @@ def encrypt_message_into_image(
     Returns:
         None
     """
-    cubigma = Cubigma("cuboid.txt")
+    cubigma = Cubigma("cube.txt")
     tuple_result = parse_arguments(key_phrase=key_phrase, mode=mode, message=message)
     key_phrase, mode, clear_text_message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
         tuple_result
@@ -163,11 +163,10 @@ def decrypt_message_from_image(stego_image_filepath: str, key_phrase: str = "", 
     Returns:
         Decrypted message
     """
-    cubigma = Cubigma("cuboid.txt")
+    cubigma = Cubigma("cube.txt")
     tuple_result = parse_arguments(key_phrase=key_phrase, mode=mode)
     key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = tuple_result
     cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
-    # prepare_cuboid_with_key_phrase(key_phrase, cubigma.playfair_cuboid)
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
     for chunk in chunks:

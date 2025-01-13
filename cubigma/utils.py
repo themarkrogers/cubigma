@@ -15,14 +15,14 @@ LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
 
 
-def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
-    """Finds the frame, row, and column of the given symbol in the playfair cuboid."""
-    for frame_idx, frame in enumerate(playfair_cuboid):
+def _find_symbol(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> tuple[int, int, int]:
+    """Finds the frame, row, and column of the given symbol in the playfair cube."""
+    for frame_idx, frame in enumerate(playfair_cube):
         for row_idx, row in enumerate(frame):
             if symbol_to_move in row:
                 col_idx = row.index(symbol_to_move)
                 return frame_idx, row_idx, col_idx
-    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
+    raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cube.")
 
 
 def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list[int]:
@@ -88,22 +88,22 @@ def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -
     return is_z_valid
 
 
-def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the center of the playfair cuboid."""
-    num_blocks = len(playfair_cuboid)
-    lines_per_block = len(playfair_cuboid[0])
-    symbols_per_line = len(playfair_cuboid[0][0])
+def _move_letter_to_center(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the center of the playfair cube."""
+    num_blocks = len(playfair_cube)
+    lines_per_block = len(playfair_cube[0])
+    symbols_per_line = len(playfair_cube[0][0])
     center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
-    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
-    updated_cuboid = _move_symbol_in_3d_grid(start_position, center_position, playfair_cuboid)
-    return updated_cuboid
+    start_position = _find_symbol(symbol_to_move, playfair_cube)
+    updated_cube = _move_symbol_in_3d_grid(start_position, center_position, playfair_cube)
+    return updated_cube
 
 
-def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the front of the playfair cuboid."""
-    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
-    updated_cuboid = _move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cuboid)
-    return updated_cuboid
+def _move_letter_to_front(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the front of the playfair cube."""
+    start_position = _find_symbol(symbol_to_move, playfair_cube)
+    updated_cube = _move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cube)
+    return updated_cube
 
 
 def _move_symbol_in_3d_grid(
@@ -274,12 +274,12 @@ def generate_rotors(
 
     Args:
         sanitized_key_phrase (str): The encryption key (strengthened & sanitized) used to seed the random generator.
-        raw_cube (list[list[list[str]]]): The playfair cuboid with the key phrase pulled to the front
+        raw_cube (list[list[list[str]]]): The playfair cube with the key phrase pulled to the front
         num_rotors_to_make (int): Number of "rotors" to generate
         rotors_to_use (list[int]): Indices of which "rotors" to actually use
 
     Returns:
-        list[list[list[list[str]]]]: A list of "rotors", where each "rotor" is a 3-dimensional cuboid representing a
+        list[list[list[list[str]]]]: A list of "rotors", where each "rotor" is a 3-dimensional cube representing a
           playfair cube. These have been shuffled (based on the key_phrase provided)
     """
     if not sanitized_key_phrase or not isinstance(sanitized_key_phrase, str):
@@ -290,7 +290,7 @@ def generate_rotors(
         or (not raw_cube[0][0] or not isinstance(raw_cube[0][0], list))
         or (not raw_cube[0][0][0] or not isinstance(raw_cube[0][0][0], str))
     ):
-        raise ValueError("prepared_playfair_cuboid must be a 3-dimensional list of non-empty strings.")
+        raise ValueError("raw_cube must be a 3-dimensional list of non-empty strings.")
     if not num_rotors_to_make or not isinstance(num_rotors_to_make, numbers.Number) or num_rotors_to_make < 1:
         raise ValueError("num_rotors must be an integer great than zero.")
     if not rotors_to_use or not isinstance(rotors_to_use, list):
@@ -338,16 +338,16 @@ def get_opposite_corners(
     num_quartets_encoded: int,
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
-    Given four corners of a rectangular cuboid, find the other four corners.
+    Given four corners of a rectangular cube, find the other four corners.
 
     Args:
         point_1: A tuple representing the first point (x, y, z).
         point_2: A tuple representing the second point (x, y, z).
         point_3: A tuple representing the third point (x, y, z).
         point_4: A tuple representing the fourth point (x, y, z).
-        num_blocks (int): How tall in the cuboid (x).
-        lines_per_block (int): How long in the cuboid (y).
-        symbols_per_line (int): How wide in the cuboid (z).
+        num_blocks (int): How tall in the cube (x).
+        lines_per_block (int): How long in the cube (y).
+        symbols_per_line (int): How wide in the cube (z).
         key_phrase (str): Secret key phrase
         num_quartets_encoded (int): Number of quartet encodings performed thus far
 
@@ -357,7 +357,7 @@ def get_opposite_corners(
     # Check for unique points
     given_points = {point_1, point_2, point_3, point_4}
     if len(given_points) != LENGTH_OF_QUARTET:
-        raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cuboid.")
+        raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cube.")
 
     x1, y1, z1 = point_1
     x2, y2, z2 = point_2
@@ -415,7 +415,7 @@ def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rot
         chunk (str): Encrypted message chunk to pad
         padded_chunk_length (int): Desired chunk length
         chunk_order_number (int): Which chunk is this (i.e. 1-5)?
-        rotor (list[list[list[str]]]): the playfair cuboid to use for padding
+        rotor (list[list[list[str]]]): the playfair cube to use for padding
 
     Returns:
         str: Padded chunk
@@ -448,7 +448,9 @@ def parse_arguments(
           * whether to use steganography in addition to encryption
     """
 
-    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = _read_and_validate_config(mode=mode)
+    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = _read_and_validate_config(
+        mode=mode
+    )
 
     if not key_phrase:
         key_phrase = input("Enter your key phrase: ").strip()
@@ -568,7 +570,7 @@ def _shuffle_cube_with_key_phrase(sanitized_key_phrase: str, orig_cube: list[lis
     return cube
 
 
-def split_to_human_readable_symbols(s: str) -> list[str]:
+def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | None = LENGTH_OF_QUARTET) -> list[str]:
     """
     Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
 
@@ -581,8 +583,9 @@ def split_to_human_readable_symbols(s: str) -> list[str]:
     # Match grapheme clusters (human-discernible symbols)
     graphemes = regex.findall(r"\X", s)
     # Ensure the string has exactly 4 human-discernible symbols
-    if len(graphemes) != 4:
-        raise ValueError("The input string must have a user-perceived length of 4.")
+    if expected_number_of_graphemes:
+        if len(graphemes) != 4:
+            raise ValueError("The input string must have a user-perceived length of 4.")
     return graphemes
 
 

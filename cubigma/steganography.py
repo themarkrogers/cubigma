@@ -54,7 +54,7 @@ def get_image_size(filepath: str) -> tuple[int, int]:
 
 def embed_chunks(encrypted_chunks: list[str], original_image_filepath: str) -> None:
     """
-    Given four corners of a rectangular cuboid, find the other four corners.
+    Given four corners of a rectangular cube, find the other four corners.
 
     Args:
         encrypted_chunks: List of 5 encrypted text strings to embed into the image

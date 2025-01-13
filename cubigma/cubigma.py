@@ -1,5 +1,5 @@
 """
-This file is used to encrypt and decrypt messages using the prepared cuboid.txt file.
+This file is used to encrypt and decrypt messages using the prepared cube.txt file.
 This code implements the Cubigma encryption algorithm.
 """
 
@@ -26,7 +26,7 @@ from cubigma.utils import (
 
 class Cubigma:
     _characters_filepath: str
-    _cuboid_filepath: str
+    _cube_filepath: str
     _is_machine_prepared: bool = False
     _is_using_steganography: bool = False
     _num_quartets_encoded = 0
@@ -34,9 +34,9 @@ class Cubigma:
     rotors: list[list[list[list[str]]]]
     reflector: dict[int, int]
 
-    def __init__(self, characters_filepath: str = "characters.txt", cuboid_filepath: str = "cuboid.txt"):
+    def __init__(self, characters_filepath: str = "characters.txt", cube_filepath: str = "cube.txt"):
         self._characters_filepath = characters_filepath
-        self._cuboid_filepath = cuboid_filepath
+        self._cube_filepath = cube_filepath
         self._is_machine_prepared = False
 
     def _run_quartet_through_reflector(self, char_quartet) -> str:
@@ -112,56 +112,61 @@ class Cubigma:
         if symbols_to_load > num_symbols_prepared:
             raise ValueError(
                 f"Not enough symbols are prepared. {num_symbols_prepared} symbols prepared. "
-                + f"Requested a cuboid with {symbols_to_load} symbols. "
+                + f"Requested a cube with {symbols_to_load} symbols. "
             )
         symbols: list[str] = []
+        unique_symbols: set[str] = set()
         with open(self._characters_filepath, "r", encoding="utf-8") as file:
             for line in file.readlines():
-                len_before = len(symbols)
-                found_symbol = sanitize(line)
-                symbols.append(found_symbol)
-                len_after = len(symbols)
-                if len_before == len_after:
-                    print(f"Duplicate symbol found: {found_symbol}")
-                symbols_loaded += 1
-                if symbols_loaded >= symbols_to_load:
-                    break
+                sanitized_line = sanitize(line)
+                for visible_symbol in split_to_human_readable_symbols(
+                    sanitized_line, expected_number_of_graphemes=None
+                ):
+                    len_before = len(unique_symbols)
+                    unique_symbols.add(visible_symbol)
+                    len_after = len(unique_symbols)
+                    if len_before == len_after:
+                        print(f"Duplicate symbol found: {visible_symbol}")
+                    symbols.append(visible_symbol)
+                    symbols_loaded += 1
+                    if symbols_loaded >= symbols_to_load:
+                        break
         symbols_per_block = symbols_per_line * line_per_block
         total_num_of_symbols = symbols_per_block * num_blocks
 
         if len(symbols) != total_num_of_symbols:
-            raise ValueError(
-                f"The file must contain exactly {total_num_of_symbols} symbols, one per line. Found {len(symbols)}"
-            )
+            msg = f"The file must contain exactly {total_num_of_symbols} symbols, one per line. Found {len(symbols)}"
+            raise ValueError(msg)
 
         # Reverse, so the least common symbols are first; this helps entropy when loading the key phrase
-        symbols = list(reversed(symbols))
+        symbols = list(reversed(list(symbols)))
         return symbols
 
-    def _read_cuboid_from_disk(self, cube_length: int) -> list[list[list[str]]]:
+    def _read_cube_from_disk(self, cube_length: int) -> list[list[list[str]]]:
         line_per_block = cube_length
         symbols_per_line = cube_length
-        playfair_cuboid = []
+        playfair_cube = []
         current_frame = []
-        with open(self._cuboid_filepath, "r", encoding="utf-8-sig") as cuboid_file:
-            for line in cuboid_file.readlines():
+        with open(self._cube_filepath, "r", encoding="utf-8-sig") as cube_file:
+            for line in cube_file.readlines():
                 if line != "\n":
                     sanitized_line = line.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
                     if sanitized_line.endswith("\n"):
                         trimmed_line = sanitized_line[0:-1]
                     else:
                         trimmed_line = sanitized_line
-                    if user_perceived_length(trimmed_line) > symbols_per_line:
+                    visible_length = user_perceived_length(trimmed_line)
+                    if visible_length != symbols_per_line:
                         raise ValueError(
                             "String have already been formatted to a length of 6. This error is unexpected."
                         )
                     current_frame.append(list(trimmed_line))
                 if len(current_frame) >= line_per_block:
-                    playfair_cuboid.append(current_frame)
+                    playfair_cube.append(current_frame)
                     current_frame = []
-        return playfair_cuboid
+        return playfair_cube
 
-    def _write_cuboid_file(
+    def _write_cube_file(
         self,
         symbols: list[str],
         num_blocks: int = -1,
@@ -180,12 +185,12 @@ class Cubigma:
                 sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
                 output_lines.append(sanitized_line)
             output_lines.append("")  # Add an empty line between blocks
-        with open(self._cuboid_filepath, "w", encoding="utf-8") as file:
+        with open(self._cube_filepath, "w", encoding="utf-8") as file:
             file.write("\n".join(output_lines))
 
     def decode_string(self, encrypted_message: str, key_phrase: str) -> str:
         """
-        Decrypt the message using the playfair cuboid
+        Decrypt the message using the playfair cube
 
         Args:
             encrypted_message (str): Encrypted message
@@ -204,7 +209,7 @@ class Cubigma:
 
     def decrypt_message(self, encrypted_message: str, key_phrase: str) -> str:
         """
-        Decrypt the message using the playfair cuboid
+        Decrypt the message using the playfair cube
 
         Args:
             encrypted_message (str): Encrypted message
@@ -230,7 +235,7 @@ class Cubigma:
 
     def encode_string(self, sanitized_message: str, key_phrase: str) -> str:
         """
-        Encrypt the message using the playfair cuboid
+        Encrypt the message using the playfair cube
 
         Args:
             sanitized_message (str): String prepared for encryption
@@ -254,7 +259,7 @@ class Cubigma:
 
     def encrypt_message(self, clear_text_message: str, key_phrase: str) -> str:
         """
-        Decrypt the message using the playfair cuboid
+        Decrypt the message using the playfair cube
 
         Args:
             clear_text_message (str): Message to encrypt
@@ -281,10 +286,10 @@ class Cubigma:
     ) -> None:
         # Set up user-configurable parameters (similar to configuring the plug board on an Enigma machine)
         self._symbols = self._read_characters_file(cube_length)
-        self._write_cuboid_file(
+        self._write_cube_file(
             self._symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
-        raw_cube = self._read_cuboid_from_disk(cube_length)
+        raw_cube = self._read_cube_from_disk(cube_length)
 
         key_phrase_bytes, salt_used = strengthen_key(key_phrase)
         sanitized_key_phrase = key_phrase_bytes.decode("utf-8")
@@ -312,7 +317,7 @@ def main() -> None:
     Returns:
         None
     """
-    cubigma = Cubigma("characters.txt", "cuboid.txt")
+    cubigma = Cubigma("characters.txt", "cube.txt")
 
     # ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
     # the encrypted message AND THE CLEARTEXT SALT to Bob.

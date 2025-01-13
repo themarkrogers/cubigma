@@ -47,8 +47,8 @@ from cubigma.utils import (
 
 class TestFindSymbol(unittest.TestCase):
     def setUp(self):
-        # Example 3x3x3 playfair cuboid
-        self.playfair_cuboid = [
+        # Example 3x3x3 playfair cube
+        self.playfair_cube = [
             [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
             [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
             [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
@@ -56,23 +56,23 @@ class TestFindSymbol(unittest.TestCase):
 
     def test_find_symbol_valid(self):
         # Test cases for valid symbols
-        self.assertEqual(_find_symbol("A", self.playfair_cuboid), (0, 0, 0))
-        self.assertEqual(_find_symbol("E", self.playfair_cuboid), (0, 1, 1))
-        self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
-        self.assertEqual(_find_symbol("Z", self.playfair_cuboid), (2, 2, 1))
+        self.assertEqual(_find_symbol("A", self.playfair_cube), (0, 0, 0))
+        self.assertEqual(_find_symbol("E", self.playfair_cube), (0, 1, 1))
+        self.assertEqual(_find_symbol("R", self.playfair_cube), (1, 2, 2))
+        self.assertEqual(_find_symbol("Z", self.playfair_cube), (2, 2, 1))
 
     def test_find_symbol_not_found(self):
-        # Test for a symbol that is not in the cuboid
+        # Test for a symbol that is not in the cube
         with self.assertRaises(ValueError) as context:
-            _find_symbol("1", self.playfair_cuboid)
-        self.assertEqual(str(context.exception), "Symbol '1' not found in playfair_cuboid.")
+            _find_symbol("1", self.playfair_cube)
+        self.assertEqual(str(context.exception), "Symbol '1' not found in playfair_cube.")
 
     def test_find_symbol_edge_cases(self):
         # Test for edge cases like last element
-        self.assertEqual(_find_symbol("0", self.playfair_cuboid), (2, 2, 2))
-        self.assertEqual(_find_symbol("Z", self.playfair_cuboid), (2, 2, 1))
-        self.assertEqual(_find_symbol("X", self.playfair_cuboid), (2, 1, 2))
-        self.assertEqual(_find_symbol("R", self.playfair_cuboid), (1, 2, 2))
+        self.assertEqual(_find_symbol("0", self.playfair_cube), (2, 2, 2))
+        self.assertEqual(_find_symbol("Z", self.playfair_cube), (2, 2, 1))
+        self.assertEqual(_find_symbol("X", self.playfair_cube), (2, 1, 2))
+        self.assertEqual(_find_symbol("R", self.playfair_cube), (1, 2, 2))
 
 
 class TestGetCharsForCoordinates(unittest.TestCase):
@@ -319,7 +319,7 @@ class TestMoveLetterToCenter(unittest.TestCase):
         ]
         mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
-        test_cuboid = [
+        test_cube = [
             expected_return_value[3],
             expected_return_value[2],
             expected_return_value[1],
@@ -327,11 +327,11 @@ class TestMoveLetterToCenter(unittest.TestCase):
         ]
 
         # Act
-        result = _move_letter_to_center(test_symbol, test_cuboid)
+        result = _move_letter_to_center(test_symbol, test_cube)
 
         # Assert
         self.assertEqual(expected_return_value, result)
-        mock_move_symbol_in_3d_grid.assert_called_once_with((2, 0, 1), (2, 2, 2), test_cuboid)
+        mock_move_symbol_in_3d_grid.assert_called_once_with((2, 0, 1), (2, 2, 2), test_cube)
 
     @patch("cubigma.utils._move_symbol_in_3d_grid")
     def test_move_letter_to_center_with_odd_dimensions(self, mock_move_symbol_in_3d_grid):
@@ -343,14 +343,14 @@ class TestMoveLetterToCenter(unittest.TestCase):
         ]
         mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
-        test_cuboid = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
+        test_cube = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
 
         # Act
-        result = _move_letter_to_center(test_symbol, test_cuboid)
+        result = _move_letter_to_center(test_symbol, test_cube)
 
         # Assert
         self.assertEqual(expected_return_value, result)
-        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (1, 1, 1), test_cuboid)
+        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (1, 1, 1), test_cube)
 
 
 class TestMoveLetterToFront(unittest.TestCase):
@@ -365,14 +365,14 @@ class TestMoveLetterToFront(unittest.TestCase):
         ]
         mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
-        test_cuboid = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
+        test_cube = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
 
         # Act
-        result = _move_letter_to_front(test_symbol, test_cuboid)
+        result = _move_letter_to_front(test_symbol, test_cube)
 
         # Assert
         self.assertEqual(expected_return_value, result)
-        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (0, 0, 0), test_cuboid)
+        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (0, 0, 0), test_cube)
 
 
 class TestMoveSymbolIn3DSpace(unittest.TestCase):
@@ -450,16 +450,16 @@ class TestReadAndValidateConfig(unittest.TestCase):
             "NUMBER_OF_ROTORS_TO_GENERATE": 10,
             "ROTORS_TO_USE": [1, 2, 3],
             "ENCRYPT_OR_DECRYPT": "ENCRYPT",
-            "ALSO_USE_STEGANOGRAPHY": True
+            "ALSO_USE_STEGANOGRAPHY": True,
         }
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_valid_config(self, mock_read_config):
         mock_read_config.return_value = self.valid_config
         result = _read_and_validate_config()
         self.assertEqual(result, (7, 10, [1, 2, 3], "ENCRYPT", True))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_missing_length_of_cube(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         del invalid_config["LENGTH_OF_CUBE"]
@@ -468,26 +468,27 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("LENGTH_OF_CUBE not found in config.json", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_incorrect_length_of_cube_type(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["LENGTH_OF_CUBE"] = "3"
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("LENGTH_OF_CUBE (in config.json) must have an integer value",
-                      str(context.exception))
+        self.assertIn("LENGTH_OF_CUBE (in config.json) must have an integer value", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_invalid_length_of_cube(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["LENGTH_OF_CUBE"] = 3
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12", str(context.exception))
+        self.assertIn(
+            "LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12", str(context.exception)
+        )
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_missing_num_rotors_to_make(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         del invalid_config["NUMBER_OF_ROTORS_TO_GENERATE"]
@@ -496,17 +497,18 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("NUMBER_OF_ROTORS_TO_GENERATE not found in config.json", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_incorrect_num_rotors_to_make_type(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["NUMBER_OF_ROTORS_TO_GENERATE"] = "3"
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value",
-                      str(context.exception))
+        self.assertIn(
+            "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value", str(context.exception)
+        )
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_invalid_num_rotors_to_make(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["NUMBER_OF_ROTORS_TO_GENERATE"] = -1
@@ -515,7 +517,7 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be greater than 0", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_missing_rotors_to_use(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         del invalid_config["ROTORS_TO_USE"]
@@ -524,37 +526,37 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("ROTORS_TO_USE not found in config.json", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_incorrect_rotors_to_use_type(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ROTORS_TO_USE"] = "[0, 1, 2]"
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("ROTORS_TO_USE (in config.json) must be a list of integers",
-                      str(context.exception))
+        self.assertIn("ROTORS_TO_USE (in config.json) must be a list of integers", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_incorrect_rotors_to_use_values_1(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ROTORS_TO_USE"] = [1, "0", 2]
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("ROTORS_TO_USE (in config.json) contains a non-integer value at index: 1",
-                      str(context.exception))
+        self.assertIn("ROTORS_TO_USE (in config.json) contains a non-integer value at index: 1", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_incorrect_rotors_to_use_values_2(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ROTORS_TO_USE"] = [2, 1, 42]
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("OTORS_TO_USE (in config.json) all rotor values must be between 0 & the number of rotors generated",
-                      str(context.exception))
+        self.assertIn(
+            "OTORS_TO_USE (in config.json) all rotor values must be between 0 & the number of rotors generated",
+            str(context.exception),
+        )
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_duplicate_rotors(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ROTORS_TO_USE"] = [1, 1, 3]
@@ -563,7 +565,7 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("ROTORS_TO_USE (in config.json) all rotor values must be unique", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_missing_mode(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         del invalid_config["ENCRYPT_OR_DECRYPT"]
@@ -572,26 +574,27 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("ENCRYPT_OR_DECRYPT not found in config.json", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_incorrect_mode_type(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ENCRYPT_OR_DECRYPT"] = True
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("ENCRYPT_OR_DECRYPT (in config.json) must be a string",
-                      str(context.exception))
+        self.assertIn("ENCRYPT_OR_DECRYPT (in config.json) must be a string", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_invalid_mode(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ENCRYPT_OR_DECRYPT"] = "INVALID_MODE"
         mock_read_config.return_value = invalid_config
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
-        self.assertIn("ENCRYPT_OR_DECRYPT (in config.json) must be either 'ENCRYPT' or 'DECRYPT'", str(context.exception))
+        self.assertIn(
+            "ENCRYPT_OR_DECRYPT (in config.json) must be either 'ENCRYPT' or 'DECRYPT'", str(context.exception)
+        )
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_missing_steganography(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         del invalid_config["ALSO_USE_STEGANOGRAPHY"]
@@ -600,7 +603,7 @@ class TestReadAndValidateConfig(unittest.TestCase):
             _read_and_validate_config()
         self.assertIn("ALSO_USE_STEGANOGRAPHY not found in config.json", str(context.exception))
 
-    @patch('cubigma.utils.read_config')
+    @patch("cubigma.utils.read_config")
     def test_invalid_steganography(self, mock_read_config):
         invalid_config = self.valid_config.copy()
         invalid_config["ALSO_USE_STEGANOGRAPHY"] = "true"
@@ -616,10 +619,7 @@ class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
         self.key_phrase_1 = "securekey1"
         self.key_phrase_2 = "differentkey"
 
-        self.orig_cube = [
-            [["a", "b", "c"], ["d", "e", "f"]],
-            [["g", "h", "i"], ["j", "k", "l"]]
-        ]
+        self.orig_cube = [[["a", "b", "c"], ["d", "e", "f"]], [["g", "h", "i"], ["j", "k", "l"]]]
 
     def test_consistent_shuffling_with_same_key(self):
         """Test that shuffling with the same key gives consistent results."""
@@ -801,10 +801,7 @@ class TestGenerateRotors(unittest.TestCase):
 
     def test_invalid_cube(self):
         """Test function raises error on invalid rotors_to_use."""
-        invalid_cube = [
-            ["AB", "CD"],
-            ["EF", "GH"]
-        ]
+        invalid_cube = [["AB", "CD"], ["EF", "GH"]]
         with self.assertRaises(ValueError):
             generate_rotors(self.valid_key, invalid_cube, self.num_rotors_to_make, self.rotors_to_use)
 
@@ -1149,7 +1146,9 @@ class TestParseArguments(unittest.TestCase):
         )
 
         # Call the function
-        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = parse_arguments()
+        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
+            parse_arguments()
+        )
 
         # Assertions
         self.assertEqual(key_phrase, "test_key")
@@ -1173,7 +1172,9 @@ class TestParseArguments(unittest.TestCase):
         )
 
         # Call the function
-        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = parse_arguments(mode="decrypt")
+        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
+            parse_arguments(mode="decrypt")
+        )
 
         # Assertions
         self.assertEqual(key_phrase, "test_key")
@@ -1358,7 +1359,7 @@ class TestQuartetToIndex(unittest.TestCase):
     def test_invalid_symbol_value(self):
         """Test that an exception is raised for invalid symbol values."""
         with self.assertRaises(ValueError):
-            quartet_to_index("123🇬🇵", self.symbols)  # Symbol is not present in cuboid.txt
+            quartet_to_index("123🇬🇵", self.symbols)  # Symbol is not present in cube.txt
 
 
 class TestReadConfig(unittest.TestCase):
