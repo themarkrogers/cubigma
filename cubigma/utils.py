@@ -5,6 +5,7 @@ from typing import Any
 import argparse
 import json
 import hashlib
+import hmac
 import numbers
 import os
 import random
@@ -50,7 +51,7 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
     return playfair_cuboid
 
 
-def _get_opposite_corners(
+def get_opposite_corners(
     point_1: tuple[int, int, int],
     point_2: tuple[int, int, int],
     point_3: tuple[int, int, int],
@@ -58,7 +59,8 @@ def _get_opposite_corners(
     num_blocks: int,
     lines_per_block: int,
     symbols_per_line: int,
-    num_quartets_encoded: int
+    key_phrase: str,
+    num_quartets_encoded: int,
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
     Given four corners of a rectangular cuboid, find the other four corners.
@@ -76,8 +78,8 @@ def _get_opposite_corners(
         A tuple of four tuples, each representing the coordinates of the remaining corners.
     """
     # Check for unique points
-    points = {point_1, point_2, point_3, point_4}
-    if len(points) != LENGTH_OF_QUARTET:
+    given_points = {point_1, point_2, point_3, point_4}
+    if len(given_points) != LENGTH_OF_QUARTET:
         raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cuboid.")
 
     x1, y1, z1 = point_1
@@ -93,7 +95,7 @@ def _get_opposite_corners(
     point_6 = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
     point_7 = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
     point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
-    points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
+    all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
     # ToDo: This is where some of the Enigma logic will happen.
     #  * Use each key third as a "dial". Combine all three dials and a reflector.
@@ -103,12 +105,11 @@ def _get_opposite_corners(
     #    * How do we reduce the key thirds to a small numeric space?
     #    * What is the deterministic algorithm by which we can drive the movement of the chosen corners?
 
-    indices_to_choose = [4,7,1,4]  # ToDo: How do we reduce the key_phrase into this?
-    chosen_point_1 = points[indices_to_choose[0]]
-    chosen_point_2 = points[indices_to_choose[1]]
-    chosen_point_3 = points[indices_to_choose[2]]
-    chosen_point_4 = points[indices_to_choose[3]]
-
+    indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+    chosen_point_1 = all_points[indices_to_choose[0]]
+    chosen_point_2 = all_points[indices_to_choose[1]]
+    chosen_point_3 = all_points[indices_to_choose[2]]
+    chosen_point_4 = all_points[indices_to_choose[3]]
     return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
 
 
@@ -125,9 +126,22 @@ def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) ->
     raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cuboid.")
 
 
-def _get_chars_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
-    x, y, z = coordinate
-    return rotor[x][y][z]
+def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list[int]:
+    """
+    Generates a deterministic quartet of 4 integers (0-7) based on a key phrase and the count of encoded quartets.
+
+    Args:
+        key_phrase (str): The key phrase used to seed the generator.
+        num_quartets_encoded (int): The number of quartets already encoded (used to vary output).
+
+    Returns:
+        list[int]: A list of 4 integers, each between 0-7 (inclusive).
+    """
+    key = key_phrase.encode("utf-8")  # Use the key phrase as the key for HMAC
+    message = str(num_quartets_encoded).encode("utf-8")  # Use num_quartets_encoded as part of the message
+    hmac_hash = hmac.new(key, message, hashlib.sha256).digest()  # Generate a secure hash using HMAC with SHA-256
+    quartet = [(byte % 8) for byte in hmac_hash[:4]]  # Extract 4 deterministic integers (0-7) from the hash
+    return quartet
 
 
 def _get_flat_index(x, y, z, size_x, size_y):
@@ -166,9 +180,11 @@ def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
 def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -> bool:
     inner_x, inner_y, inner_z = coord
     is_x_valid = 0 <= inner_x < len(inner_grid)
-    if not is_x_valid: return False
+    if not is_x_valid:
+        return False
     is_y_valid = 0 <= inner_y < len(inner_grid[0])
-    if not is_y_valid: return False
+    if not is_y_valid:
+        return False
     is_z_valid = 0 <= inner_z < len(inner_grid[0][0])
     return is_z_valid
 
@@ -192,9 +208,7 @@ def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[s
 
 
 def _move_symbol_in_3d_grid(
-    coord1: tuple[int, int, int],
-    coord2: tuple[int, int, int],
-    grid: list[list[list[str]]]
+    coord1: tuple[int, int, int], coord2: tuple[int, int, int], grid: list[list[list[str]]]
 ) -> list[list[list[str]]]:
     """
     Moves a symbol from `coord1` to `coord2` in a 3D grid and shifts intermediate elements accordingly.
@@ -210,12 +224,7 @@ def _move_symbol_in_3d_grid(
     if not (_is_valid_coord(coord1, grid) and _is_valid_coord(coord2, grid)):
         raise ValueError("One or both coordinates are out of grid bounds.")
     size_x, size_y, size_z = len(grid), len(grid[0]), len(grid[0][0])
-    flat_grid = [
-        grid[x][y][z]
-        for x in range(size_x)
-        for y in range(size_y)
-        for z in range(size_z)
-    ]
+    flat_grid = [grid[x][y][z] for x in range(size_x) for y in range(size_y) for z in range(size_z)]
 
     idx1 = _get_flat_index(*coord1, size_x, size_y)
     idx2 = _get_flat_index(*coord2, size_x, size_y)
@@ -223,17 +232,16 @@ def _move_symbol_in_3d_grid(
     symbol_to_move = flat_grid[idx1]
 
     # Shift elements and insert the moved symbol
+    idx_start = idx1 + 1
     if idx1 < idx2:
-        flat_grid = flat_grid[:idx1] + flat_grid[idx1 + 1:idx2 + 1] + [symbol_to_move] + flat_grid[idx2 + 1:]
+        idx_end = idx2 + 1
+        flat_grid = flat_grid[:idx1] + flat_grid[idx_start:idx_end] + [symbol_to_move] + flat_grid[idx_end:]
     else:
-        flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx1 + 1:]
+        flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx_start:]
 
     # Rebuild the 3D grid
     updated_grid = [
-        [
-            flat_grid[x * size_y * size_z + y * size_z : x * size_y * size_z + (y + 1) * size_z]
-            for y in range(size_y)
-        ]
+        [flat_grid[x * size_y * size_z + y * size_z : x * size_y * size_z + (y + 1) * size_z] for y in range(size_y)]
         for x in range(size_x)
     ]
     return updated_grid
@@ -318,7 +326,12 @@ def generate_rotors(
         raise ValueError("sanitized_key_phrase must be a non-empty string")
     if not num_rotors or not isinstance(num_rotors, numbers.Number):
         raise ValueError("num_rotors must be an integer great than zero.")
-    if (not prepared_playfair_cuboid or not isinstance(prepared_playfair_cuboid, list)) or (not prepared_playfair_cuboid[0] or not isinstance(prepared_playfair_cuboid[0], list)) or (not prepared_playfair_cuboid[0][0] or not isinstance(prepared_playfair_cuboid[0][0], list)) or (not prepared_playfair_cuboid[0][0][0] or not isinstance(prepared_playfair_cuboid[0][0][0], str)):
+    if (
+        (not prepared_playfair_cuboid or not isinstance(prepared_playfair_cuboid, list))
+        or (not prepared_playfair_cuboid[0] or not isinstance(prepared_playfair_cuboid[0], list))
+        or (not prepared_playfair_cuboid[0][0] or not isinstance(prepared_playfair_cuboid[0][0], list))
+        or (not prepared_playfair_cuboid[0][0][0] or not isinstance(prepared_playfair_cuboid[0][0][0], str))
+    ):
         raise ValueError("prepared_playfair_cuboid must be a 3-dimensional list of non-empty strings.")
     num_rotors = int(num_rotors)
     if num_rotors > len(sanitized_key_phrase):
@@ -339,6 +352,11 @@ def generate_rotors(
             cur_rotor = _move_letter_to_center(symbol, cur_rotor)
         finished_rotors.append(cur_rotor)
     return finished_rotors
+
+
+def get_chars_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
+    x, y, z = coordinate
+    return rotor[x][y][z]
 
 
 def index_to_quartet(index: int, symbols: list[str]) -> str:
@@ -513,47 +531,6 @@ def remove_duplicate_letters(orig: str) -> str:
         if letter not in unique_letters:
             unique_letters.append(letter)
     return "".join(list(unique_letters))
-
-
-def run_quartet_through_rotors(char_quartet: str, rotors: list[list[list[list[str]]]]) -> str:
-    indices_by_char = {}
-    cur_quartet = char_quartet
-    for rotor in rotors:
-        for frame_idx, cur_frame in enumerate(rotor):
-            for row_idx, cur_line in enumerate(cur_frame):
-                if any(char in cur_line for char in cur_quartet):
-                    if cur_quartet[0] in cur_line:
-                        indices_by_char[cur_quartet[0]] = (frame_idx, row_idx, cur_line.index(cur_quartet[0]))
-                    if cur_quartet[1] in cur_line:
-                        indices_by_char[cur_quartet[1]] = (frame_idx, row_idx, cur_line.index(cur_quartet[1]))
-                    if cur_quartet[2] in cur_line:
-                        indices_by_char[cur_quartet[2]] = (frame_idx, row_idx, cur_line.index(cur_quartet[2]))
-                    if cur_quartet[3] in cur_line:
-                        indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
-        orig_indices = []
-        for cur_char in cur_quartet:
-            orig_indices.append(indices_by_char[cur_char])
-        num_blocks = len(rotor)
-        lines_per_block = len(rotor[0])
-        symbols_per_line = len(rotor[0][0])
-        encrypted_indices = _get_opposite_corners(
-            orig_indices[0],
-            orig_indices[1],
-            orig_indices[2],
-            orig_indices[3],
-            num_blocks,
-            lines_per_block,
-            symbols_per_line,
-            num_quartets_encoded
-        )
-        num_quartets_encoded += 1
-        encrypted_char_1 = _get_chars_for_coordinates(encrypted_indices[0], rotor)
-        encrypted_char_2 = _get_chars_for_coordinates(encrypted_indices[1], rotor)
-        encrypted_char_3 = _get_chars_for_coordinates(encrypted_indices[2], rotor)
-        encrypted_char_4 = _get_chars_for_coordinates(encrypted_indices[3], rotor)
-        encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
-        cur_quartet = encrypted_quartet
-    return cur_quartet
 
 
 def sanitize(raw_input: str) -> str:

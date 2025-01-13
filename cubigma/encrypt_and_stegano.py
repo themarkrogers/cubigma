@@ -136,13 +136,13 @@ def encrypt_message_into_image(key_phrase: str, clear_text_message: str, origina
     padded_chunks = []
     for i in range(5):
         rotor_to_use = i % len(cubigma.rotors)
-        padded_chunk = pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_QUARTET, i+1, cubigma.rotors[rotor_to_use])
+        padded_chunk = pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_QUARTET, i + 1, cubigma.rotors[rotor_to_use])
         padded_chunks.append(padded_chunk)
 
     # Then encrypt each chunk
     encrypted_chunks = []
     for i in range(5):
-        encrypted_chunk = cubigma.encode_string(padded_chunks[i])
+        encrypted_chunk = cubigma.encode_string(padded_chunks[i], key_phrase)
         encrypted_chunks.append(encrypted_chunk)
     random.shuffle(encrypted_chunks)
 
@@ -167,7 +167,7 @@ def decrypt_message_from_image(key_phrase: str, stego_image_filepath: str) -> st
     chunk_by_order_number = {}
     for chunk in chunks:
         encrypted_order_number = chunk[0:LENGTH_OF_QUARTET]
-        decrypted_order_number = cubigma.decode_string(encrypted_order_number)
+        decrypted_order_number = cubigma.decode_string(encrypted_order_number, key_phrase)
         order_number = int(decrypted_order_number)
         chunk_by_order_number[order_number] = chunk
 
@@ -178,7 +178,7 @@ def decrypt_message_from_image(key_phrase: str, stego_image_filepath: str) -> st
         cur_chunk = chunk_by_order_number[i]
         encrypted_noisy_message += cur_chunk[LENGTH_OF_QUARTET:]
 
-    decrypted_message = cubigma.decrypt_message(encrypted_noisy_message)
+    decrypted_message = cubigma.decrypt_message(encrypted_noisy_message, key_phrase)
     return decrypted_message
 
 

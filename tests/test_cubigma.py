@@ -30,9 +30,10 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
         mock_run_quartet_through_reflector = MagicMock()
         mock_run_quartet_through_reflector.return_value = expected_middle_str
         cubigma._run_quartet_through_reflector = mock_run_quartet_through_reflector
+        test_key_phrase = "foo"
 
         # Act
-        result = cubigma._get_encrypted_letter_quartet(test_char_quartet)
+        result = cubigma._get_encrypted_letter_quartet(test_char_quartet, test_key_phrase)
 
         # Assert
         self.assertEqual(expected_result, result)
@@ -121,7 +122,7 @@ class TestRunQuartetThroughReflector(unittest.TestCase):
         cubigma._symbols = expected_symbols
         expected_quartet_index = 42
         expected_reflected_index = 9001
-        mock_reflector = { expected_quartet_index: expected_reflected_index }
+        mock_reflector = {expected_quartet_index: expected_reflected_index}
         cubigma.reflector = mock_reflector
 
         mock_quartet_to_index.return_value = expected_quartet_index
@@ -157,7 +158,7 @@ class TestDecodeString(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(ValueError):
-            cubigma.decode_string("foo")
+            cubigma.decode_string("foo", "bar")
 
     def test_decode_string_valid(self):
         # Arrange
@@ -169,11 +170,11 @@ class TestDecodeString(unittest.TestCase):
         cubigma.encode_string = mock_encode_string
 
         # Act
-        result = cubigma.decode_string("foo")
+        result = cubigma.decode_string("foo", "bar")
 
         # Assert
         self.assertEqual(expected_return_value, result, "return value is not the expected value")
-        mock_encode_string.assert_called_once_with("foo")
+        mock_encode_string.assert_called_once_with("foo", "bar")
 
 
 class TestEncryptMessage(unittest.TestCase):
@@ -184,7 +185,7 @@ class TestEncryptMessage(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(ValueError):
-            cubigma.encrypt_message("foo")
+            cubigma.encrypt_message("foo", "bar")
 
     @patch("cubigma.cubigma.prep_string_for_encrypting")
     def test_encrypt_message_valid(self, mock_prep_string_for_encrypting):
@@ -199,11 +200,11 @@ class TestEncryptMessage(unittest.TestCase):
         cubigma.encode_string = mock_encode_string
 
         # Act
-        result = cubigma.encrypt_message("foo")
+        result = cubigma.encrypt_message("foo", "baz")
 
         # Assert
         self.assertEqual(expected_return_value, result, "return value is not the expected value")
-        mock_encode_string.assert_called_once_with(expected_string)
+        mock_encode_string.assert_called_once_with(expected_string, "baz")
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring

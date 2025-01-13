@@ -11,10 +11,9 @@ from cubigma.utils import (
     LENGTH_OF_QUARTET,
     generate_reflector,
     generate_rotors,
-    _get_prefix_order_number_quartet,
-    _get_random_noise_chunk,
+    get_chars_for_coordinates,
     index_to_quartet,
-    _pad_chunk_with_rand_pad_symbols,
+    pad_chunk,
     parse_arguments,
     prep_string_for_encrypting,
     quartet_to_index,
@@ -22,11 +21,21 @@ from cubigma.utils import (
     remove_duplicate_letters,
     sanitize,
     split_to_human_readable_symbols,
-    strengthen_key, user_perceived_length
+    strengthen_key,
+    user_perceived_length,
 )
 from cubigma.utils import (
-    _find_symbol, _get_chars_for_coordinates, _get_flat_index, _is_valid_coord, _move_letter_to_center,
-    _move_letter_to_front, _move_symbol_in_3d_grid, _split_key_into_parts
+    _find_symbol,
+    _get_flat_index,
+    _get_next_corner_choices,
+    _get_prefix_order_number_quartet,
+    _get_random_noise_chunk,
+    _is_valid_coord,
+    _move_letter_to_center,
+    _move_letter_to_front,
+    _move_symbol_in_3d_grid,
+    _pad_chunk_with_rand_pad_symbols,
+    _split_key_into_parts,
 )
 
 
@@ -67,28 +76,24 @@ class TestGetCharsForCoordinates(unittest.TestCase):
 
     def test_get_chars_for_valid_coordinates(self):
         # Arrange
-        test_rotor = [
-            [["1","2",'3'], ["4","5","6"], ["7", "8", "9"]]
-        ]
+        test_rotor = [[["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"]]]
         coordinate = (0, 2, 1)
-        expected_result = '8'
+        expected_result = "8"
 
         # Act
-        result = _get_chars_for_coordinates(coordinate, test_rotor)
+        result = get_chars_for_coordinates(coordinate, test_rotor)
 
         # Assert
         self.assertEqual(expected_result, result)
 
     def test_get_chars_for_invalid_coordinates(self):
         # Arrange
-        test_rotor = [
-            [["1","2",'3'], ["4","5","6"], ["7", "8", "9"]]
-        ]
+        test_rotor = [[["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"]]]
         coordinate = (1, 0, 2)
 
         # Act & Assert
         with self.assertRaises(IndexError):
-            _get_chars_for_coordinates(coordinate, test_rotor)
+            get_chars_for_coordinates(coordinate, test_rotor)
 
 
 class TestGetFlatIndex(unittest.TestCase):
@@ -131,6 +136,138 @@ class TestGetFlatIndex(unittest.TestCase):
             _get_flat_index(1, 2, 3, 4, -5)
 
 
+class TestGetNextCornerChoices(unittest.TestCase):
+    def test_deterministic_output(self):
+        """Test that the function produces deterministic outputs for the same inputs."""
+        key_phrase = "test_key"
+        num_quartets_encoded = 5
+
+        result1 = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+        result2 = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+
+        self.assertEqual(result1, result2, "The function should produce the same output for the same inputs.")
+
+    def test_output_within_range(self):
+        """Test that the output values are within the range [0-7]."""
+        key_phrase = "range_test"
+        num_quartets_encoded = 10
+
+        result = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+
+        self.assertEqual(len(result), 4, "The function should return exactly 4 integers.")
+        self.assertTrue(all(0 <= x <= 7 for x in result), "All integers should be within the range 0-7.")
+
+    def test_different_inputs_produce_different_outputs(self):
+        """Test that different inputs produce different outputs."""
+        key_phrase = "unique_test"
+
+        result1 = _get_next_corner_choices(key_phrase, 1)
+        result2 = _get_next_corner_choices(key_phrase, 2)
+
+        self.assertNotEqual(result1, result2, "Different num_quartets_encoded values should produce different outputs.")
+
+    def test_different_key_phrases_produce_different_outputs(self):
+        """Test that different key phrases produce different outputs."""
+        num_quartets_encoded = 1
+
+        result1 = _get_next_corner_choices("key_phrase_1", num_quartets_encoded)
+        result2 = _get_next_corner_choices("key_phrase_2", num_quartets_encoded)
+
+        self.assertNotEqual(result1, result2, "Different key phrases should produce different outputs.")
+
+
+class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
+    def test_valid_order_number(self):
+        """Test that a valid single-digit order number returns a quartet of symbols including the order number."""
+        order_number = 5
+        result = _get_prefix_order_number_quartet(order_number)
+
+        # Check that the result has exactly 4 characters
+        self.assertEqual(len(result), 4, "Resulting string does not have 4 characters")
+
+        # Check that the result contains the order number
+        self.assertIn(str(order_number), result, f"Order number {order_number} is not in the result")
+
+        # Check that all expected padding symbols are included
+        pad_symbols = ["\x07", "\x16", "\x06", str(order_number)]
+        for symbol in pad_symbols:
+            self.assertIn(symbol, result, f"Symbol {symbol} is missing from the result")
+
+    def test_invalid_order_number(self):
+        """Test that an invalid order number raises an assertion error."""
+        with self.assertRaises(AssertionError):
+            _get_prefix_order_number_quartet(10)  # Not a single-digit number
+
+        with self.assertRaises(AssertionError):
+            _get_prefix_order_number_quartet(-1)  # Negative number
+
+        with self.assertRaises(AssertionError):
+            _get_prefix_order_number_quartet(123)  # Multiple digits
+
+    def test_randomness(self):
+        """Test that the function produces different outputs for the same input due to shuffling."""
+        order_number = 3
+        results = {_get_prefix_order_number_quartet(order_number) for _ in range(100)}
+
+        # Verify that we have multiple unique outputs, indicating randomness
+        self.assertGreater(len(results), 1, "Function does not produce randomized outputs")
+
+
+class TestGetRandomNoiseChunk(unittest.TestCase):
+    def setUp(self):
+        self.rotor = [
+            [
+                ["A", "B", "C"],
+                ["D", "E", "F"],
+                ["G", "H", "I"],
+            ],
+            [
+                ["J", "K", "L"],
+                ["M", "N", "O"],
+                ["P", "Q", "R"],
+            ],
+            [
+                ["S", "T", "U"],
+                ["V", "W", "X"],
+                ["Y", "Z", "0"],
+            ],
+        ]
+
+    @patch("random.randint")
+    @patch("random.shuffle", lambda x: None)  # Prevent shuffle for predictable output
+    def test_output_length(self, mock_randint):
+        """Test that the function output has the correct length."""
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]  # Mock coordinates
+        result = _get_random_noise_chunk(self.rotor)
+        self.assertEqual(len(result), LENGTH_OF_QUARTET)
+
+    @patch("random.randint")
+    def test_includes_noise_symbol(self, mock_randint):
+        """Test that the output includes the NOISE_SYMBOL."""
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        result = _get_random_noise_chunk(self.rotor)
+        self.assertIn(NOISE_SYMBOL, result)
+
+    @patch("random.randint")
+    def test_unique_symbols_in_output(self, mock_randint):
+        """Test that the output contains unique symbols."""
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        result = _get_random_noise_chunk(self.rotor)
+        self.assertEqual(len(set(result)), LENGTH_OF_QUARTET)
+
+    @patch("random.randint")
+    def test_handles_non_uniform_rotor(self, mock_randint):
+        """Test that the function handles a rotor with varying dimensions."""
+        non_uniform_rotor = [
+            [["A", "B"]],
+            [["C", "D", "E"]],
+            [["F"]],
+        ]
+        mock_randint.side_effect = [0, 0, 0, 1, 0, 0, 2, 0, 0]
+        result = _get_random_noise_chunk(non_uniform_rotor)
+        self.assertEqual(len(result), LENGTH_OF_QUARTET)
+
+
 class TestIsValidCoord(unittest.TestCase):
     def test_valid_coordinates(self):
         grid = [[[0 for _ in range(3)] for _ in range(4)] for _ in range(5)]  # 5x4x3 grid
@@ -160,7 +297,7 @@ class TestIsValidCoord(unittest.TestCase):
     def test_non_uniform_grid(self):
         grid = [
             [[0, 1], [2, 3]],  # 2x2x2 grid in first dimension
-            [[4, 5, 6], [7, 8, 9]]  # 2x2x3 grid in second dimension
+            [[4, 5, 6], [7, 8, 9]],  # 2x2x3 grid in second dimension
         ]
         self.assertTrue(_is_valid_coord((0, 0, 1), grid))  # Valid in first grid
         self.assertFalse(_is_valid_coord((1, 0, 2), grid))  # Invalid in second grid (z exceeds limit)
@@ -168,38 +305,23 @@ class TestIsValidCoord(unittest.TestCase):
 
 class TestMoveLetterToCenter(unittest.TestCase):
 
-    @patch('cubigma.utils._move_symbol_in_3d_grid')
+    @patch("cubigma.utils._move_symbol_in_3d_grid")
     def test_move_letter_to_center_with_even_dimensions(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
-            [
-                ['A', 'B', 'C', 'D'],
-                ['E', 'F', 'G', 'H'],
-                ['I', 'J', 'K', 'L'],
-                ['M', 'N', 'O', 'P']
-            ],
-            [
-                ['Q', 'R', 'S', 'T'],
-                ['U', 'V', 'W', 'X'],
-                ['Y', 'Z', '1', '2'],
-                ['3', '4', '5', '6']
-            ],
-            [
-                ['7', '8', '9', '0'],
-                ['a', 'b', 'c', 'd'],
-                ['e', 'f', 'g', 'h'],
-                ['i', 'j', 'k', 'l']
-            ],
-            [
-                ['m', 'n', 'o', 'p'],
-                ['q', 'r', 's', 't'],
-                ['u', 'v', 'w', 'x'],
-                ['y', 'z', '!', '@']
-            ]
+            [["A", "B", "C", "D"], ["E", "F", "G", "H"], ["I", "J", "K", "L"], ["M", "N", "O", "P"]],
+            [["Q", "R", "S", "T"], ["U", "V", "W", "X"], ["Y", "Z", "1", "2"], ["3", "4", "5", "6"]],
+            [["7", "8", "9", "0"], ["a", "b", "c", "d"], ["e", "f", "g", "h"], ["i", "j", "k", "l"]],
+            [["m", "n", "o", "p"], ["q", "r", "s", "t"], ["u", "v", "w", "x"], ["y", "z", "!", "@"]],
         ]
         mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
-        test_cuboid = [expected_return_value[3], expected_return_value[2], expected_return_value[1], expected_return_value[0]]
+        test_cuboid = [
+            expected_return_value[3],
+            expected_return_value[2],
+            expected_return_value[1],
+            expected_return_value[0],
+        ]
 
         # Act
         result = _move_letter_to_center(test_symbol, test_cuboid)
@@ -208,25 +330,13 @@ class TestMoveLetterToCenter(unittest.TestCase):
         self.assertEqual(expected_return_value, result)
         mock_move_symbol_in_3d_grid.assert_called_once_with((2, 0, 1), (2, 2, 2), test_cuboid)
 
-    @patch('cubigma.utils._move_symbol_in_3d_grid')
+    @patch("cubigma.utils._move_symbol_in_3d_grid")
     def test_move_letter_to_center_with_odd_dimensions(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '1']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "1"]],
         ]
         mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
@@ -242,25 +352,13 @@ class TestMoveLetterToCenter(unittest.TestCase):
 
 class TestMoveLetterToFront(unittest.TestCase):
 
-    @patch('cubigma.utils._move_symbol_in_3d_grid')
+    @patch("cubigma.utils._move_symbol_in_3d_grid")
     def test_move_letter_to_front(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '1']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "1"]],
         ]
         mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
@@ -543,11 +641,7 @@ class TestGenerateRotors(unittest.TestCase):
         """
         Test that the function raises an error when the playfair cuboid is invalid.
         """
-        invalid_cuboid = [
-            ["ABC", "DEF", "GHI"],
-            ["JKL", "MNO", "PQR"],
-            ["STU", "VWX", "YZ_"]
-        ]
+        invalid_cuboid = [["ABC", "DEF", "GHI"], ["JKL", "MNO", "PQR"], ["STU", "VWX", "YZ_"]]
         with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
             generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
 
@@ -569,98 +663,6 @@ class TestGenerateRotors(unittest.TestCase):
         result2 = generate_rotors(key_phrase_2, cuboid, self.num_rotors)
 
         self.assertNotEqual(result1, result2, "Different keys should produce different rotors.")
-
-
-class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
-    def test_valid_order_number(self):
-        """Test that a valid single-digit order number returns a quartet of symbols including the order number."""
-        order_number = 5
-        result = _get_prefix_order_number_quartet(order_number)
-
-        # Check that the result has exactly 4 characters
-        self.assertEqual(len(result), 4, "Resulting string does not have 4 characters")
-
-        # Check that the result contains the order number
-        self.assertIn(str(order_number), result, f"Order number {order_number} is not in the result")
-
-        # Check that all expected padding symbols are included
-        pad_symbols = ["\x07", "\x16", "\x06", str(order_number)]
-        for symbol in pad_symbols:
-            self.assertIn(symbol, result, f"Symbol {symbol} is missing from the result")
-
-    def test_invalid_order_number(self):
-        """Test that an invalid order number raises an assertion error."""
-        with self.assertRaises(AssertionError):
-            _get_prefix_order_number_quartet(10)  # Not a single-digit number
-
-        with self.assertRaises(AssertionError):
-            _get_prefix_order_number_quartet(-1)  # Negative number
-
-        with self.assertRaises(AssertionError):
-            _get_prefix_order_number_quartet(123)  # Multiple digits
-
-    def test_randomness(self):
-        """Test that the function produces different outputs for the same input due to shuffling."""
-        order_number = 3
-        results = {_get_prefix_order_number_quartet(order_number) for _ in range(100)}
-
-        # Verify that we have multiple unique outputs, indicating randomness
-        self.assertGreater(len(results), 1, "Function does not produce randomized outputs")
-
-
-class TestGetRandomNoiseChunk(unittest.TestCase):
-    def setUp(self):
-        self.rotor = [
-            [
-                ["A", "B", "C"],
-                ["D", "E", "F"],
-                ["G", "H", "I"],
-            ],
-            [
-                ["J", "K", "L"],
-                ["M", "N", "O"],
-                ["P", "Q", "R"],
-            ],
-            [
-                ["S", "T", "U"],
-                ["V", "W", "X"],
-                ["Y", "Z", "0"],
-            ],
-        ]
-
-    @patch("random.randint")
-    @patch("random.shuffle", lambda x: None)  # Prevent shuffle for predictable output
-    def test_output_length(self, mock_randint):
-        """Test that the function output has the correct length."""
-        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]  # Mock coordinates
-        result = _get_random_noise_chunk(self.rotor)
-        self.assertEqual(len(result), LENGTH_OF_QUARTET)
-
-    @patch("random.randint")
-    def test_includes_noise_symbol(self, mock_randint):
-        """Test that the output includes the NOISE_SYMBOL."""
-        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
-        result = _get_random_noise_chunk(self.rotor)
-        self.assertIn(NOISE_SYMBOL, result)
-
-    @patch("random.randint")
-    def test_unique_symbols_in_output(self, mock_randint):
-        """Test that the output contains unique symbols."""
-        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
-        result = _get_random_noise_chunk(self.rotor)
-        self.assertEqual(len(set(result)), LENGTH_OF_QUARTET)
-
-    @patch("random.randint")
-    def test_handles_non_uniform_rotor(self, mock_randint):
-        """Test that the function handles a rotor with varying dimensions."""
-        non_uniform_rotor = [
-            [["A", "B"]],
-            [["C", "D", "E"]],
-            [["F"]],
-        ]
-        mock_randint.side_effect = [0, 0, 0, 1, 0, 0, 2, 0, 0]
-        result = _get_random_noise_chunk(non_uniform_rotor)
-        self.assertEqual(len(result), LENGTH_OF_QUARTET)
 
 
 class TestIndexToQuartet(unittest.TestCase):
@@ -770,6 +772,58 @@ class TestIndexToQuartet(unittest.TestCase):
         self.assertEqual(index_to_quartet(42, special_symbols), "@$$$")
 
 
+class TestPadChunk(unittest.TestCase):
+    def setUp(self):
+        self.chunk_order_number = 2
+        self.rotor = [[['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']]]
+
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._get_random_noise_chunk")
+    @patch("cubigma.utils._get_prefix_order_number_quartet")
+    def test_pad_chunk_even_length(self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols):
+        # Arrange
+        mock_get_prefix_order_number_quartet.return_value = "ORDR"
+        mock_get_random_noise_chunk.return_value = "XXXX"
+        mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
+        test_chunk = "TEST"
+        expected_result = 'ORDRTESTXXXXXXXXXXXX'
+        padded_chunk_length = 16
+
+        # Act
+        result = pad_chunk(test_chunk, padded_chunk_length, self.chunk_order_number, self.rotor)
+
+        # Assert
+        self.assertTrue(result.startswith("ORDR"))
+        self.assertEqual(expected_result, result)
+        self.assertEqual(len(result[4:]), padded_chunk_length)
+        mock_get_prefix_order_number_quartet.assert_called_once_with(self.chunk_order_number)
+        mock_get_random_noise_chunk.assert_called()
+        mock_pad_chunk_with_rand_pad_symbols.assert_not_called()
+
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._get_random_noise_chunk")
+    @patch("cubigma.utils._get_prefix_order_number_quartet")
+    def test_pad_chunk_short_length(self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols):
+        # Arrange
+        mock_get_prefix_order_number_quartet.return_value = "ORDR"
+        mock_get_random_noise_chunk.return_value = "XXXX"
+        mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
+        test_chunk = "TES"
+        expected_result = 'ORDRTESPXXXXXXXXXXXX'
+        padded_chunk_length = 16
+
+        # Act
+        result = pad_chunk(test_chunk, padded_chunk_length, self.chunk_order_number, self.rotor)
+
+        # Assert
+        self.assertTrue(result.startswith("ORDR"))
+        self.assertEqual(expected_result, result)
+        self.assertEqual(len(result[4:]), padded_chunk_length)
+        mock_get_prefix_order_number_quartet.assert_called_once_with(self.chunk_order_number)
+        mock_get_random_noise_chunk.assert_called()
+        mock_pad_chunk_with_rand_pad_symbols.assert_called_once_with(test_chunk)
+
+
 class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     @patch("cubigma.utils.random")
     def test_pad_chunk_with_empty_input(self, mock_randint):
@@ -802,41 +856,41 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
 
 
 class TestParseArguments(unittest.TestCase):
-    @patch('builtins.print')
-    @patch('builtins.input', side_effect=["encrypt", "test_key", "This is a test message"])
+    @patch("builtins.print")
+    @patch("builtins.input", side_effect=["encrypt", "test_key", "This is a test message"])
     def test_interactive_mode_encrypt(self, mock_print, mock_input):
         """Test interactive mode for encryption."""
-        with patch('sys.argv', ["script_name"]):
+        with patch("sys.argv", ["script_name"]):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "encrypt")
             self.assertEqual(message, "This is a test message")
 
-    @patch('builtins.print')
-    @patch('builtins.input', side_effect=["decrypt", "test_key", "EncryptedMessage"])
+    @patch("builtins.print")
+    @patch("builtins.input", side_effect=["decrypt", "test_key", "EncryptedMessage"])
     def test_interactive_mode_decrypt(self, mock_print, mock_input):
         """Test interactive mode for decryption."""
-        with patch('sys.argv', ["script_name"]):
+        with patch("sys.argv", ["script_name"]):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "decrypt")
             self.assertEqual(message, "EncryptedMessage")
 
-    @patch('builtins.print')
-    @patch('builtins.input', side_effect=["both", "test_key", "EncryptedMessage"])
+    @patch("builtins.print")
+    @patch("builtins.input", side_effect=["both", "test_key", "EncryptedMessage"])
     def test_interactive_mode_both(self, mock_print, mock_input):
         """Test interactive mode for decryption."""
-        with patch('sys.argv', ["script_name"]):
+        with patch("sys.argv", ["script_name"]):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "both")
             self.assertEqual(message, "EncryptedMessage")
 
-    @patch('builtins.print')
-    @patch('builtins.input', side_effect=["rawr", "again", "encrypt", "test_key", "EncryptedMessage"])
+    @patch("builtins.print")
+    @patch("builtins.input", side_effect=["rawr", "again", "encrypt", "test_key", "EncryptedMessage"])
     def test_interactive_mode_invalid(self, mock_print, mock_input):
         """Test interactive mode for decryption."""
-        with patch('sys.argv', ["script_name"]):
+        with patch("sys.argv", ["script_name"]):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "encrypt")
@@ -844,7 +898,9 @@ class TestParseArguments(unittest.TestCase):
 
     def test_command_line_encrypt(self):
         """Test command-line arguments for encryption."""
-        with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--clear_text_message", "This is a test message"]):
+        with patch(
+            "sys.argv", ["script_name", "--key_phrase", "test_key", "--clear_text_message", "This is a test message"]
+        ):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "encrypt")
@@ -852,7 +908,7 @@ class TestParseArguments(unittest.TestCase):
 
     def test_command_line_decrypt(self):
         """Test command-line arguments for decryption."""
-        with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--encrypted_message", "EncryptedMessage"]):
+        with patch("sys.argv", ["script_name", "--key_phrase", "test_key", "--encrypted_message", "EncryptedMessage"]):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "decrypt")
@@ -860,44 +916,55 @@ class TestParseArguments(unittest.TestCase):
 
     def test_command_line_error_both_messages(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--clear_text_message", "Text", "--encrypted_message", "Encrypted"]):
+        with patch(
+            "sys.argv",
+            [
+                "script_name",
+                "--key_phrase",
+                "test_key",
+                "--clear_text_message",
+                "Text",
+                "--encrypted_message",
+                "Encrypted",
+            ],
+        ):
             # Redirect stderr to silence the argparse error message
             with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
                     parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
     def test_command_line_error_key_and_no_message(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch('sys.argv', ["script_name", "--key_phrase", "test_key"]):
+        with patch("sys.argv", ["script_name", "--key_phrase", "test_key"]):
             with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
                     parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
     def test_command_line_error_clear_message_and_no_key(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch('sys.argv', ["script_name", "--clear_text_message", "Text"]):
+        with patch("sys.argv", ["script_name", "--clear_text_message", "Text"]):
             with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
                     parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
     def test_command_line_error_encrypted_message_and_no_key(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
-        with patch('sys.argv', ["script_name", "--encrypted_message", "Text"]):
+        with patch("sys.argv", ["script_name", "--encrypted_message", "Text"]):
             with self.assertRaises(SystemExit) as cm:
-                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
                     parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_no_arguments_provided(self, mock_print):
         """Test behavior when no arguments are provided."""
-        with patch('sys.argv', ["script_name"]), patch('builtins.input', side_effect=KeyboardInterrupt):
+        with patch("sys.argv", ["script_name"]), patch("builtins.input", side_effect=KeyboardInterrupt):
             with self.assertRaises(KeyboardInterrupt):
                 # User interrupts interactive mode
-                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                with open(os.devnull, "w") as devnull, redirect_stderr(devnull):
                     parse_arguments()
 
 
@@ -909,10 +976,10 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         Adds '*' symbols to the chunk until its length is LENGTH_OF_QUARTET.
         """
         while len(chunk) < LENGTH_OF_QUARTET:
-            chunk += '*'
+            chunk += "*"
         return chunk
 
-    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_no_padding_needed(self, mock_pad):
         """Test when the input string is already a multiple of LENGTH_OF_QUARTET."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
@@ -921,7 +988,7 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 
-    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_padding_needed(self, mock_pad):
         """Test when the input string length is not a multiple of LENGTH_OF_QUARTET."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
@@ -930,7 +997,7 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 
-    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_repeating_characters(self, mock_pad):
         """Test when the input string contains repeating characters in a chunk."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
@@ -939,16 +1006,14 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 
-    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_empty_string(self, mock_pad):
         """Test when the input string is empty."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
-        input_message = ""
-        expected_output = ""
         with self.assertRaises(ValueError):
-            prep_string_for_encrypting(input_message)
+            prep_string_for_encrypting("")
 
-    @patch("cubigma.utils.pad_chunk_with_rand_pad_symbols")
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_long_string(self, mock_pad):
         """Test a longer string with multiple chunks."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
@@ -1339,8 +1404,6 @@ class TestUserPerceivedLength(unittest.TestCase):
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
-
-
 
 
 if __name__ == "__main__":

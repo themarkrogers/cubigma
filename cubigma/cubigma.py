@@ -6,17 +6,18 @@ This code implements the Cubigma encryption algorithm.
 import math
 
 from cubigma.utils import (
-# from utils import (
+    # from utils import (
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_reflector,
     generate_rotors,
+    get_chars_for_coordinates,
+    get_opposite_corners,
     index_to_quartet,
     parse_arguments,
     prep_string_for_encrypting,
     prepare_cuboid_with_key_phrase,
     quartet_to_index,
-    run_quartet_through_rotors,
     sanitize,
     strengthen_key,
     user_perceived_length,
@@ -54,11 +55,56 @@ class Cubigma:
         reflected_quartet = index_to_quartet(reflected_index, self._symbols)
         return reflected_quartet
 
-    def _get_encrypted_letter_quartet(self, char_quartet: str) -> str:
-        partially_encrypted_quartet_1 = run_quartet_through_rotors(char_quartet, self.rotors)
+    def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str) -> str:
+        partially_encrypted_quartet_1 = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase)
         partially_encrypted_quartet_2 = self._run_quartet_through_reflector(partially_encrypted_quartet_1)
-        encrypted_quartet = run_quartet_through_rotors(partially_encrypted_quartet_2, list(reversed(self.rotors)))
+        encrypted_quartet = self._run_quartet_through_rotors(
+            partially_encrypted_quartet_2, list(reversed(self.rotors)), key_phrase
+        )
         return encrypted_quartet
+
+    def _run_quartet_through_rotors(
+        self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str
+    ) -> str:
+        indices_by_char = {}
+        cur_quartet = char_quartet
+        for rotor in rotors:
+            for frame_idx, cur_frame in enumerate(rotor):
+                for row_idx, cur_line in enumerate(cur_frame):
+                    if any(char in cur_line for char in cur_quartet):
+                        if cur_quartet[0] in cur_line:
+                            indices_by_char[cur_quartet[0]] = (frame_idx, row_idx, cur_line.index(cur_quartet[0]))
+                        if cur_quartet[1] in cur_line:
+                            indices_by_char[cur_quartet[1]] = (frame_idx, row_idx, cur_line.index(cur_quartet[1]))
+                        if cur_quartet[2] in cur_line:
+                            indices_by_char[cur_quartet[2]] = (frame_idx, row_idx, cur_line.index(cur_quartet[2]))
+                        if cur_quartet[3] in cur_line:
+                            indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
+            orig_indices = []
+            for cur_char in cur_quartet:
+                orig_indices.append(indices_by_char[cur_char])
+            num_blocks = len(rotor)
+            lines_per_block = len(rotor[0])
+            symbols_per_line = len(rotor[0][0])
+            encrypted_indices = get_opposite_corners(
+                orig_indices[0],
+                orig_indices[1],
+                orig_indices[2],
+                orig_indices[3],
+                num_blocks,
+                lines_per_block,
+                symbols_per_line,
+                key_phrase,
+                self._num_quartets_encoded,
+            )
+            self._num_quartets_encoded += 1
+            encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], rotor)
+            encrypted_char_2 = get_chars_for_coordinates(encrypted_indices[1], rotor)
+            encrypted_char_3 = get_chars_for_coordinates(encrypted_indices[2], rotor)
+            encrypted_char_4 = get_chars_for_coordinates(encrypted_indices[3], rotor)
+            encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
+            cur_quartet = encrypted_quartet
+        return cur_quartet
 
     def _read_characters_file(self) -> list[str]:
         with open(self._characters_filepath, "r", encoding="utf-8") as line_count_file:
@@ -138,12 +184,13 @@ class Cubigma:
         with open(self._cuboid_filepath, "w", encoding="utf-8") as file:
             file.write("\n".join(output_lines))
 
-    def decode_string(self, encrypted_message: str) -> str:
+    def decode_string(self, encrypted_message: str, key_phrase: str) -> str:
         """
         Decrypt the message using the playfair cuboid
 
         Args:
             encrypted_message (str): Encrypted message
+            key_phrase (str): Secret key phrase
 
         Returns:
             str: Decrypted string
@@ -152,11 +199,11 @@ class Cubigma:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
-        raw_decrypted_message = self.encode_string(encrypted_message)
+        raw_decrypted_message = self.encode_string(encrypted_message, key_phrase)
         decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
         return decrypted_message
 
-    def decrypt_message(self, encrypted_message: str) -> str:
+    def decrypt_message(self, encrypted_message: str, key_phrase: str) -> str:
         """
         Decrypt the message using the playfair cuboid
 
@@ -176,17 +223,18 @@ class Cubigma:
         for i in range(0, len(encrypted_message), LENGTH_OF_QUARTET):
             end_idx = i + LENGTH_OF_QUARTET
             encrypted_chunk = encrypted_message[i:end_idx]
-            decrypted_chunk = self.decode_string(encrypted_chunk)
+            decrypted_chunk = self.decode_string(encrypted_chunk, key_phrase)
             if NOISE_SYMBOL not in decrypted_chunk:
                 decrypted_message += decrypted_chunk
         return decrypted_message
 
-    def encode_string(self, sanitized_message: str) -> str:
+    def encode_string(self, sanitized_message: str, key_phrase: str) -> str:
         """
         Encrypt the message using the playfair cuboid
 
         Args:
             sanitized_message (str): String prepared for encryption
+            key_phrase (str): Secret key phrase
 
         Returns:
             str: Encrypted string
@@ -200,11 +248,11 @@ class Cubigma:
         for i in range(0, len(sanitized_message), LENGTH_OF_QUARTET):
             end_idx = i + LENGTH_OF_QUARTET
             orig_chunk = sanitized_message[i:end_idx]
-            encrypted_chunk = self._get_encrypted_letter_quartet(orig_chunk)
+            encrypted_chunk = self._get_encrypted_letter_quartet(orig_chunk, key_phrase)
             encrypted_message += encrypted_chunk
         return encrypted_message
 
-    def encrypt_message(self, clear_text_message: str) -> str:
+    def encrypt_message(self, clear_text_message: str, key_phrase: str) -> str:
         """
         Decrypt the message using the playfair cuboid
 
@@ -219,7 +267,7 @@ class Cubigma:
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
             )
         sanitized_string = prep_string_for_encrypting(clear_text_message)
-        encrypted_message = self.encode_string(sanitized_string)
+        encrypted_message = self.encode_string(sanitized_string, key_phrase)
         return encrypted_message
 
     def prepare_machine(
@@ -236,7 +284,7 @@ class Cubigma:
         )
         raw_cuboid = self._read_cuboid_from_disk()
         cuboid = prepare_cuboid_with_key_phrase(key_phrase, raw_cuboid)
-        
+
         key_phrase_bytes, salt_used = strengthen_key(key_phrase)
         sanitized_key_phrase = key_phrase_bytes.decode("utf-8")
 
@@ -272,19 +320,19 @@ def main() -> None:
     if mode == "encrypt":
         clear_text_message = message
         print(f"{clear_text_message=}")
-        encrypted_message = cubigma.encrypt_message(message)
+        encrypted_message = cubigma.encrypt_message(message, key_phrase)
         print(f"{encrypted_message=}")
     elif mode == "decrypt":
         encrypted_message = message
         print(f"{encrypted_message=}")
-        decrypted_message = cubigma.decrypt_message(message)
+        decrypted_message = cubigma.decrypt_message(message, key_phrase)
         print(f"{decrypted_message=}")
     else:  # mode == "both":
         clear_text_message = message
         print(f"{clear_text_message=}")
-        encrypted_message = cubigma.encrypt_message(clear_text_message)
+        encrypted_message = cubigma.encrypt_message(clear_text_message, key_phrase)
         print(f"{encrypted_message=}")
-        decrypted_message = cubigma.decrypt_message(encrypted_message)
+        decrypted_message = cubigma.decrypt_message(encrypted_message, key_phrase)
         print(f"{decrypted_message=}")
 
 
