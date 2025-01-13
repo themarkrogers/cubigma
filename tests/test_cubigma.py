@@ -136,8 +136,9 @@ class TestReadCharactersFile(unittest.TestCase):
         expected_symbols = list(reversed(mock_data_array))
         self.assertEqual(result, expected_symbols)
 
+    @patch("builtins.print")
     @patch("builtins.open")
-    def test_invalid_file_symbol_length(self, mock_open_func):
+    def test_invalid_file_symbol_length(self, mock_open_func, mock_print):
         # Arrange
         num_of_symbols = self.cube_length * self.cube_length * self.cube_length
         mock_data = "\n".join(self.symbols[i] for i in range(len(self.symbols)))
@@ -542,7 +543,95 @@ class TestEncryptMessage(unittest.TestCase):
         mock_encode_string.assert_called_once_with(expected_string, "baz")
 
 
+class TestCubigma(unittest.TestCase):
 
+    @patch("cubigma.cubigma.generate_reflector")
+    @patch("cubigma.cubigma.generate_rotors")
+    @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    @patch("cubigma.cubigma.strengthen_key")
+    def test_prepare_machine_valid_inputs(self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_generate_reflector):
+        cubigma = Cubigma()
+        mock_read_characters_file = MagicMock()
+        mock_symbols = ["a", "b"]
+        mock_read_characters_file.return_value = mock_symbols
+        cubigma._read_characters_file = mock_read_characters_file
+        mock_write_cube_file = MagicMock()
+        cubigma._write_cube_file = mock_write_cube_file
+        mock_read_cube_from_disk = MagicMock()
+        mock_cube = ["A", "C"]
+        mock_read_cube_from_disk.return_value = mock_cube
+        cubigma._read_cube_from_disk = mock_read_cube_from_disk
+        mock_encoded_strengthened_key = "1"
+        mock_encoded_strengthened_key_encoded = mock_encoded_strengthened_key.encode("utf-8")
+        mock_salt_encoded = "2".encode("utf-8")
+        mock_strengthen_key.return_value = mock_encoded_strengthened_key_encoded, mock_salt_encoded
+        test_char_in_symbols = mock_symbols[0]
+        mock_split.return_value = test_char_in_symbols
+        mock_rotors = [1, 2, 3, 4]
+        mock_generate_rotors.return_value = mock_rotors
+        expected_num_unique_quartets = 17550
+
+        key_phrase = "validKey123"
+        cube_length = 3
+        num_rotors_to_make = 3
+        rotors_to_use = [2, 0]
+        should_use_steganography = True
+
+        cubigma.prepare_machine(
+            key_phrase,
+            cube_length,
+            num_rotors_to_make,
+            rotors_to_use,
+            should_use_steganography
+        )
+
+        self.assertTrue(cubigma._is_machine_prepared)
+        self.assertTrue(cubigma._is_using_steganography)
+        self.assertEqual(cubigma._is_using_steganography, should_use_steganography)
+        mock_read_characters_file.assert_called_once_with(cube_length)
+        mock_write_cube_file.assert_called_once_with(mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length)
+        mock_read_cube_from_disk.assert_called_once_with(cube_length)
+        mock_strengthen_key.assert_called_once_with(key_phrase)
+        mock_split.assert_called_once_with(mock_encoded_strengthened_key)
+        mock_generate_rotors.assert_called_once_with(mock_encoded_strengthened_key, mock_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use)
+        mock_generate_reflector.assert_called_once_with(mock_encoded_strengthened_key, expected_num_unique_quartets)
+
+    @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    @patch("cubigma.cubigma.strengthen_key")
+    def test_prepare_machine_invalid_key_character(self, mock_strengthen_key, mock_split):
+        cubigma = Cubigma()
+        mock_read_characters_file = MagicMock()
+        mock_symbols = ["a", "b"]
+        mock_read_characters_file.return_value = mock_symbols
+        cubigma._read_characters_file = mock_read_characters_file
+        mock_write_cube_file = MagicMock()
+        cubigma._write_cube_file = mock_write_cube_file
+        mock_read_cube_from_disk = MagicMock()
+        mock_cube = ["A", "C"]
+        mock_read_cube_from_disk.return_value = mock_cube
+        cubigma._read_cube_from_disk = mock_read_cube_from_disk
+        mock_encoded_strengthened_key = "1"
+        mock_encoded_strengthened_key_encoded = mock_encoded_strengthened_key.encode("utf-8")
+        mock_salt_encoded = "2".encode("utf-8")
+        mock_strengthen_key.return_value = mock_encoded_strengthened_key_encoded, mock_salt_encoded
+        test_char_not_in_symbols = "7"
+        mock_split.return_value = test_char_not_in_symbols
+
+        key_phrase = "invalidKey#@!"
+        cube_length = 3
+        num_rotors_to_make = 2
+        rotors_to_use = [0, 1]
+        should_use_steganography = False
+
+        with self.assertRaises(ValueError) as context:
+            cubigma.prepare_machine(
+                key_phrase,
+                cube_length,
+                num_rotors_to_make,
+                rotors_to_use,
+                should_use_steganography
+            )
+        self.assertIn("Key was strengthened to include an invalid character", str(context.exception))
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
