@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any
+import base64
 import json
 import hashlib
 import hmac
@@ -296,7 +297,7 @@ def generate_rotors(
     if not rotors_to_use or not isinstance(rotors_to_use, list):
         raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a non-empty list of integers")
     seen_rotor_values: list[int] = []
-    for index, rotor_item in enumerate(rotors_to_use):
+    for rotor_item in rotors_to_use:
         if (
             not isinstance(rotor_item, int)
             or rotor_item < 0
@@ -310,7 +311,7 @@ def generate_rotors(
     random.seed(sanitized_key_phrase)  # Seed the random generator with the key
 
     generated_rotors = []
-    for i in range(num_rotors_to_make):
+    for _ in range(num_rotors_to_make):
         raw_rotor = raw_cube.copy()
         shuffled_rotor = _shuffle_cube_with_key_phrase(sanitized_key_phrase, raw_rotor)
         generated_rotors.append(shuffled_rotor)
@@ -576,6 +577,7 @@ def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | 
 
     Args:
         s (str): The input string, guaranteed to have a user_perceived_length of 4.
+        expected_number_of_graphemes (int): Optional. The number of graphemes to enforce
 
     Returns:
         list[str]: A list of 4 human-readable symbols, each as a separate string.
@@ -591,7 +593,7 @@ def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | 
 
 def strengthen_key(
     key_phrase: str, salt: None | bytes = None, iterations: int = 100_000, key_length: int = 32
-) -> tuple[bytes, bytes]:
+) -> tuple[str, str]:
     """
     Strengthen a user-provided key using Argon2 key derivation.
 
@@ -611,7 +613,9 @@ def strengthen_key(
     # Derive the key
     key_phrase_bytes = key_phrase.encode("utf-8")
     key = hashlib.pbkdf2_hmac("sha256", key_phrase_bytes, salt, iterations, dklen=key_length)  # Derived key length
-    return key, salt
+    b64_key = base64.b64encode(key).decode("utf-8")
+    b64_salt = base64.b64encode(salt).decode("utf-8")
+    return b64_key, b64_salt
 
 
 def user_perceived_length(s: str) -> int:

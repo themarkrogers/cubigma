@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from unittest.mock import patch
+import base64
 import json
 import os
 import unittest
@@ -1106,6 +1107,7 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             _pad_chunk_with_rand_pad_symbols("")
         self.assertIn("Chunk cannot be empty", str(context.exception))
+        mock_randint.assert_not_called()
 
     @patch("random.randint")
     def test_pad_chunk_with_one_length_input(self, mock_randint):
@@ -1129,6 +1131,7 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     def test_pad_chunk_with_full_length_input(self, mock_randint):
         result = _pad_chunk_with_rand_pad_symbols("ABCD")
         self.assertEqual(result, "ABCD")
+        mock_randint.assert_not_called()
 
 
 class TestParseArguments(unittest.TestCase):
@@ -1158,6 +1161,7 @@ class TestParseArguments(unittest.TestCase):
         self.assertEqual(num_rotors_to_make, 3)
         self.assertEqual(rotors_to_use, [1, 2, 3])
         self.assertTrue(should_use_steganography)
+        assert mock_input.call_count == 2
 
     @patch("builtins.input", side_effect=["test_key", "test_encrypted_message"])
     @patch("cubigma.utils._read_and_validate_config")
@@ -1184,6 +1188,7 @@ class TestParseArguments(unittest.TestCase):
         self.assertEqual(num_rotors_to_make, 2)
         self.assertEqual(rotors_to_use, [0, 1])
         self.assertFalse(should_use_steganography)
+        assert mock_input.call_count == 2
 
     @patch("builtins.input", side_effect=["cryptid", "message"])
     @patch("cubigma.utils._read_and_validate_config")
@@ -1195,6 +1200,7 @@ class TestParseArguments(unittest.TestCase):
             parse_arguments()
 
         self.assertEqual(str(context.exception), "Unknown mode")
+        mock_input.assert_called_once_with("Enter your key phrase: ")
 
 
 class TestPrepStringForEncrypting(unittest.TestCase):
@@ -1542,22 +1548,27 @@ class TestStrengthenKey(unittest.TestCase):
     def test_key_generation_with_salt(self):
         """Test that strengthen_key generates a key when a salt is provided."""
         key_phrase = "test-key"
-        salt = os.urandom(16)
+        raw_salt = "foo"
+        salt = raw_salt.encode("utf-8")
         key, returned_salt = strengthen_key(key_phrase, salt=salt)
+        salt_decoded_bytes = base64.b64decode(returned_salt)
+        found_plaintext_salt = salt_decoded_bytes.decode("utf-8")
 
-        self.assertIsInstance(key, bytes)
-        self.assertIsInstance(returned_salt, bytes)
-        self.assertEqual(len(returned_salt), 16)
-        self.assertEqual(returned_salt, salt)
+        self.assertIsInstance(key, str)
+        self.assertIsInstance(returned_salt, str)
+        self.assertEqual("D8QofLkX4FdRLdsq69mAr+Y9g2nfwPqnc7EX4kZaY3c=", key)
+        self.assertEqual("Zm9v", returned_salt)
+        self.assertEqual(len(returned_salt), 4)
+        self.assertEqual(raw_salt, found_plaintext_salt)
 
     def test_key_generation_without_salt(self):
         """Test that strengthen_key generates a key and random salt when no salt is provided."""
         key_phrase = "test-key"
         key, salt = strengthen_key(key_phrase)
 
-        self.assertIsInstance(key, bytes)
-        self.assertIsInstance(salt, bytes)
-        self.assertEqual(len(salt), 16)
+        self.assertIsInstance(key, str)
+        self.assertIsInstance(salt, str)
+        self.assertEqual(len(salt), 24)
 
     def test_key_derivation_is_consistent(self):
         """Test that the same key phrase and salt produce the same key."""
@@ -1571,8 +1582,8 @@ class TestStrengthenKey(unittest.TestCase):
     def test_different_salts_produce_different_keys(self):
         """Test that different salts produce different keys."""
         key_phrase = "test-key"
-        salt1 = os.urandom(16)
-        salt2 = os.urandom(16)
+        salt1 = "foo1".encode("utf-8")
+        salt2 = "foo2".encode("utf-8")
         key1, _ = strengthen_key(key_phrase, salt=salt1)
         key2, _ = strengthen_key(key_phrase, salt=salt2)
 
@@ -1582,9 +1593,10 @@ class TestStrengthenKey(unittest.TestCase):
         """Test that the derived key length matches the specified key_length."""
         key_phrase = "test-key"
         key_length = 64
-        key, _ = strengthen_key(key_phrase, key_length=key_length)
+        returned_key, _ = strengthen_key(key_phrase, key_length=key_length)
+        key_decoded_bytes = base64.b64decode(returned_key)
 
-        self.assertEqual(len(key), key_length)
+        self.assertEqual(len(key_decoded_bytes), key_length)
 
     def test_invalid_key_phrase_type(self):
         """Test that passing a non-string key phrase raises a TypeError."""

@@ -25,6 +25,9 @@ from cubigma.utils import (
 
 
 class Cubigma:
+    """
+    This class is used to encrypt and decrypt messages (with or without additional steganography)
+    """
     _characters_filepath: str
     _cube_filepath: str
     _is_machine_prepared: bool = False
@@ -283,7 +286,22 @@ class Cubigma:
         num_rotors_to_make: int,
         rotors_to_use: list[int],
         should_use_steganography: bool,
-    ) -> None:
+        salt: str | None = None,
+    ) -> str:
+        """
+        This function must be called before encrypting or decrypting messages. This readies the machine for use.
+
+        Args:
+            key_phrase: (str), secret key phrase in its original form
+            cube_length: (int), the length of one side of the playfair cube
+            num_rotors_to_make: (int), number of rotors to generate
+            rotors_to_use: (list[int]), which of the generated rotors to use
+            should_use_steganography: (bool), encryption or encryption+steganography
+            salt: (str | None), plain text salt. Only needed for decrypting
+
+        Returns:
+            (str): the plain text salt used to strengthen the key
+        """
         # Set up user-configurable parameters (similar to configuring the plug board on an Enigma machine)
         self._symbols = self._read_characters_file(cube_length)
         self._write_cube_file(
@@ -291,23 +309,23 @@ class Cubigma:
         )
         raw_cube = self._read_cube_from_disk(cube_length)
 
-        key_phrase_bytes, salt_used = strengthen_key(key_phrase)
-        sanitized_key_phrase = key_phrase_bytes.decode("utf-8")
-        for character in split_to_human_readable_symbols(sanitized_key_phrase):
+        strengthened_key_phrase, salt_used = strengthen_key(key_phrase, salt=salt)
+        for character in split_to_human_readable_symbols(strengthened_key_phrase):
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
 
         # Set up the rotors and the reflector
         rotors = generate_rotors(
-            sanitized_key_phrase, raw_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use
+            strengthened_key_phrase, raw_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use
         )
         num_total_symbols = cube_length * cube_length * cube_length
         num_unique_quartets = math.comb(num_total_symbols, LENGTH_OF_QUARTET)
-        reflector = generate_reflector(sanitized_key_phrase, num_unique_quartets)
+        reflector = generate_reflector(strengthened_key_phrase, num_unique_quartets)
         self.rotors = rotors
         self.reflector = reflector
         self._is_using_steganography = should_use_steganography
         self._is_machine_prepared = True
+        return salt_used
 
 
 def main() -> None:
@@ -322,33 +340,32 @@ def main() -> None:
     # ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
     # the encrypted message AND THE CLEARTEXT SALT to Bob.
     # Maybe:
-    # Don't confuse the users with the notion of a salt
     # Encrypting: The salt is always 16-bytes long, and always prepended to the encrypted message
     # Steganography: Account for an extra 16-bits when calculating the sum_of_squares
 
-    # key_phrase = "Rumpelstiltskin"
-    # clear_text_message = "This is cool!"
     tuple_result = parse_arguments()
     key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = tuple_result
-    cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
 
     if mode == "encrypt":
+        salt = cubigma.prepare_machine(
+            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=None
+        )
         clear_text_message = message
         print(f"{clear_text_message=}")
-        encrypted_message = cubigma.encrypt_message(message, key_phrase)
+        raw_encrypted_message = cubigma.encrypt_message(message, key_phrase)
+        encrypted_message = salt + raw_encrypted_message  # ToDo: Fix this
         print(f"{encrypted_message=}")
     elif mode == "decrypt":
+        found_salt = ""  # ToDo: Extract the first 16 bytes from the encrypted message
+        cubigma.prepare_machine(
+            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=found_salt
+        )
         encrypted_message = message
         print(f"{encrypted_message=}")
         decrypted_message = cubigma.decrypt_message(message, key_phrase)
         print(f"{decrypted_message=}")
-    else:  # mode == "both":
-        clear_text_message = message
-        print(f"{clear_text_message=}")
-        encrypted_message = cubigma.encrypt_message(clear_text_message, key_phrase)
-        print(f"{encrypted_message=}")
-        decrypted_message = cubigma.decrypt_message(encrypted_message, key_phrase)
-        print(f"{decrypted_message=}")
+    else:
+        raise ValueError("Unexpected mode!")
 
 
 if __name__ == "__main__":
