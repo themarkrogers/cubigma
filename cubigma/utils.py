@@ -140,10 +140,15 @@ def _move_symbol_in_3d_grid(
         flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx_start:]
 
     # Rebuild the 3D grid
-    updated_grid = [
-        [flat_grid[x * size_y * size_z + y * size_z : x * size_y * size_z + (y + 1) * size_z] for y in range(size_y)]
-        for x in range(size_x)
-    ]
+    updated_grid = []
+    for x in range(size_x):
+        cur_elements = []
+        for y in range(size_y):
+            idx_start = x * size_y * size_z + y * size_z
+            idx_end = x * size_y * size_z + (y + 1) * size_z
+            cur_element = flat_grid[idx_start:idx_end]
+            cur_elements.append(cur_element)
+        updated_grid.append(cur_elements)
     return updated_grid
 
 
@@ -281,6 +286,8 @@ def get_opposite_corners(
         num_blocks (int): How tall in the cuboid (x).
         lines_per_block (int): How long in the cuboid (y).
         symbols_per_line (int): How wide in the cuboid (z).
+        key_phrase (str): Secret key phrase
+        num_quartets_encoded (int): Number of quartet encodings performed thus far
 
     Returns:
         A tuple of four tuples, each representing the coordinates of the remaining corners.

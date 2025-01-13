@@ -209,6 +209,7 @@ class Cubigma:
 
         Args:
             encrypted_message (str): Encrypted message
+            key_phrase (str): Secret key phrase
 
         Returns:
             str: Decrypted string
@@ -258,6 +259,7 @@ class Cubigma:
 
         Args:
             clear_text_message (str): Message to encrypt
+            key_phrase (str): Secret key phrase
 
         Returns:
             str: Encrypted string

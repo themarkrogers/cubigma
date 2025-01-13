@@ -682,9 +682,15 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_4 = (0, 1, 1)
 
         result = get_opposite_corners(
-            point_1, point_2, point_3, point_4,
-            self.num_blocks, self.lines_per_block, self.symbols_per_line,
-            self.key_phrase, self.num_quartets_encoded
+            point_1,
+            point_2,
+            point_3,
+            point_4,
+            self.num_blocks,
+            self.lines_per_block,
+            self.symbols_per_line,
+            self.key_phrase,
+            self.num_quartets_encoded,
         )
 
         self.assertEqual(len(result), 4)
@@ -700,9 +706,15 @@ class TestGetOppositeCorners(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             get_opposite_corners(
-                point_1, point_2, point_3, point_4,
-                self.num_blocks, self.lines_per_block, self.symbols_per_line,
-                self.key_phrase, self.num_quartets_encoded
+                point_1,
+                point_2,
+                point_3,
+                point_4,
+                self.num_blocks,
+                self.lines_per_block,
+                self.symbols_per_line,
+                self.key_phrase,
+                self.num_quartets_encoded,
             )
 
     # def test_points_outside_bounds(self):
@@ -725,15 +737,27 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_4 = (0, 1, 1)
 
         result_1 = get_opposite_corners(
-            point_1, point_2, point_3, point_4,
-            self.num_blocks, self.lines_per_block, self.symbols_per_line,
-            "key1", self.num_quartets_encoded
+            point_1,
+            point_2,
+            point_3,
+            point_4,
+            self.num_blocks,
+            self.lines_per_block,
+            self.symbols_per_line,
+            "key1",
+            self.num_quartets_encoded,
         )
 
         result_2 = get_opposite_corners(
-            point_1, point_2, point_3, point_4,
-            self.num_blocks, self.lines_per_block, self.symbols_per_line,
-            "key2", self.num_quartets_encoded
+            point_1,
+            point_2,
+            point_3,
+            point_4,
+            self.num_blocks,
+            self.lines_per_block,
+            self.symbols_per_line,
+            "key2",
+            self.num_quartets_encoded,
         )
 
         self.assertNotEqual(result_1, result_2)
@@ -849,18 +873,20 @@ class TestIndexToQuartet(unittest.TestCase):
 class TestPadChunk(unittest.TestCase):
     def setUp(self):
         self.chunk_order_number = 2
-        self.rotor = [[['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']]]
+        self.rotor = [[["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]]]
 
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     @patch("cubigma.utils._get_random_noise_chunk")
     @patch("cubigma.utils._get_prefix_order_number_quartet")
-    def test_pad_chunk_even_length(self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols):
+    def test_pad_chunk_even_length(
+        self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
+    ):
         # Arrange
         mock_get_prefix_order_number_quartet.return_value = "ORDR"
         mock_get_random_noise_chunk.return_value = "XXXX"
         mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
         test_chunk = "TEST"
-        expected_result = 'ORDRTESTXXXXXXXXXXXX'
+        expected_result = "ORDRTESTXXXXXXXXXXXX"
         padded_chunk_length = 16
 
         # Act
@@ -877,13 +903,15 @@ class TestPadChunk(unittest.TestCase):
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     @patch("cubigma.utils._get_random_noise_chunk")
     @patch("cubigma.utils._get_prefix_order_number_quartet")
-    def test_pad_chunk_short_length(self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols):
+    def test_pad_chunk_short_length(
+        self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
+    ):
         # Arrange
         mock_get_prefix_order_number_quartet.return_value = "ORDR"
         mock_get_random_noise_chunk.return_value = "XXXX"
         mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
         test_chunk = "TES"
-        expected_result = 'ORDRTESPXXXXXXXXXXXX'
+        expected_result = "ORDRTESPXXXXXXXXXXXX"
         padded_chunk_length = 16
 
         # Act
@@ -1101,41 +1129,17 @@ class TestPrepareCuboidWithKeyPhrase(unittest.TestCase):
     def setUp(self):
         # Initial playfair cuboid setup
         self.playfair_cuboid = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '-']
-            ]
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "-"]],
         ]
 
     def test_valid_key_phrase(self):
         key_phrase = "HELLO"
         expected_cuboid = [
-            [
-                ['H', 'E', 'L'],
-                ['O', 'A', 'B'],
-                ['C', 'D', 'F']
-            ],
-            [
-                ['G', 'I', 'J'],
-                ['K', 'M', 'N'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '-']
-            ]
+            [["H", "E", "L"], ["O", "A", "B"], ["C", "D", "F"]],
+            [["G", "I", "J"], ["K", "M", "N"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "-"]],
         ]
         result = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
         self.assertEqual(result, expected_cuboid)
@@ -1149,21 +1153,9 @@ class TestPrepareCuboidWithKeyPhrase(unittest.TestCase):
     def test_key_phrase_with_duplicates(self):
         key_phrase = "BALLOON"
         expected_cuboid = [
-            [
-                ['B', 'A', 'L'],
-                ['O', 'N', 'C'],
-                ['D', 'E', 'F']
-            ],
-            [
-                ['G', 'H', 'I'],
-                ['J', 'K', 'M'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '-']
-            ]
+            [["B", "A", "L"], ["O", "N", "C"], ["D", "E", "F"]],
+            [["G", "H", "I"], ["J", "K", "M"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "-"]],
         ]
         result = prepare_cuboid_with_key_phrase(key_phrase, self.playfair_cuboid)
         self.assertEqual(result, expected_cuboid)
