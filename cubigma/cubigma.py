@@ -6,7 +6,8 @@ This code implements the Cubigma encryption algorithm.
 import math
 import random
 
-from cubigma.utils import (
+# from cubigma.utils import (
+from utils import (
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_reflector,

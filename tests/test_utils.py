@@ -8,8 +8,11 @@ import unittest
 from cubigma.utils import (
     get_prefix_order_number_quartet,
     generate_reflector,
+    generate_rotors,
     index_to_quartet,
+    move_symbol_in_3d_grid,
     pad_chunk_with_rand_pad_symbols,
+    parse_arguments,
     prep_string_for_encrypting,
     quartet_to_index,
     read_config,
@@ -20,88 +23,12 @@ from cubigma.utils import (
     user_perceived_length,
 )
 from cubigma.utils import (
-    _cascade_gap, _find_symbol, _move_letter_to_center, _move_letter_to_front, _move_letter_to_position,
-    _split_key_into_parts
+    _find_symbol, _move_letter_to_center, _move_letter_to_front, _split_key_into_parts
 )
 
 LENGTH_OF_QUARTET = 4
 
 # Testing Private Functions
-
-
-class TestCascadeGap(unittest.TestCase):
-    def setUp(self):
-        self.playfair_cuboid = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
-        ]
-
-    def test_cascade_gap_forward_front(self):
-        # Test cascading forward
-        expected_cuboid = [
-            [["A", "B"], ["C", "D", "E"], ["F", "G", "H"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
-        ]
-        letter_i = self.playfair_cuboid[0][2].pop(2)  # pylint:disable=W0612 # noqa: F841
-        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 2, direction="to-front")
-        self.assertEqual(expected_cuboid, resultant_cuboid)
-
-    def test_cascade_gap_forward_middle(self):
-        expected_cuboid = [
-            [["A", "B"], ["C", "D", "E"], ["F", "G", "H"]],
-            [["I", "J", "K"], ["L", "M", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
-        ]
-        letter_n = self.playfair_cuboid[1][1].pop(1)  # pylint:disable=W0612 # noqa: F841
-        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-front")
-        self.assertEqual(expected_cuboid, resultant_cuboid)
-
-    def test_cascade_gap_forward_back(self):
-        expected_cuboid = [
-            [["A", "B"], ["C", "D", "E"], ["F", "G", "H"]],
-            [["I", "J", "K"], ["L", "M", "N"], ["O", "P", "Q"]],
-            [["R", "S", "T"], ["U", "V", "W"], ["X", "Y", "Z"]],
-        ]
-        letter_zero = self.playfair_cuboid[2][2].pop(2)  # pylint:disable=W0612 # noqa: F841
-        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 2, direction="to-front")
-        self.assertEqual(expected_cuboid, resultant_cuboid)
-
-    def test_cascade_gap_reverse_back(self):
-        expected_cuboid = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
-        ]
-        letter_s = self.playfair_cuboid[2][0].pop(0)  # pylint:disable=W0612 # noqa: F841
-        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 2, 0, direction="to-back")
-        self.assertEqual(expected_cuboid, resultant_cuboid)
-
-    def test_cascade_gap_reverse_middle(self):
-        expected_cuboid = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "O", "P"], ["Q", "R", "S"]],
-            [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
-        ]
-        letter_n = self.playfair_cuboid[1][1].pop(1)  # pylint:disable=W0612 # noqa: F841
-        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 1, 1, direction="to-back")
-        self.assertEqual(expected_cuboid, resultant_cuboid)
-
-    def test_cascade_gap_reverse_front(self):
-        expected_cuboid = [
-            [["B", "C", "D"], ["E", "F", "G"], ["H", "I", "J"]],
-            [["K", "L", "M"], ["N", "O", "P"], ["Q", "R", "S"]],
-            [["T", "U", "V"], ["W", "X", "Y"], ["Z", "0"]],
-        ]
-        letter_a = self.playfair_cuboid[0][0].pop(0)  # pylint:disable=W0612 # noqa: F841
-        resultant_cuboid = _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-back")
-        self.assertEqual(expected_cuboid, resultant_cuboid)
-
-    def test_invalid_direction(self):
-        # Test invalid direction
-        with self.assertRaises(ValueError):
-            _cascade_gap(self.playfair_cuboid, 0, 0, direction="to-the-left")
 
 
 class TestFindSymbol(unittest.TestCase):
@@ -136,8 +63,8 @@ class TestFindSymbol(unittest.TestCase):
 
 class TestMoveLetterToCenter(unittest.TestCase):
 
-    @patch('cubigma.utils._move_letter_to_position')
-    def test_move_letter_to_center_with_even_dimensions(self, mock_move_letter_to_position):
+    @patch('cubigma.utils.move_symbol_in_3d_grid')
+    def test_move_letter_to_center_with_even_dimensions(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
             [
@@ -165,7 +92,7 @@ class TestMoveLetterToCenter(unittest.TestCase):
                 ['y', 'z', '!', '@']
             ]
         ]
-        mock_move_letter_to_position.return_value = expected_return_value
+        mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
         test_cuboid = [expected_return_value[3], expected_return_value[2], expected_return_value[1], expected_return_value[0]]
 
@@ -174,10 +101,10 @@ class TestMoveLetterToCenter(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_return_value, result)
-        mock_move_letter_to_position.assert_called_once_with(test_symbol, test_cuboid, (2, 2, 2))
+        mock_move_symbol_in_3d_grid.assert_called_once_with((2, 0, 1), (2, 2, 2), test_cuboid)
 
-    @patch('cubigma.utils._move_letter_to_position')
-    def test_move_letter_to_center_with_odd_dimensions(self, mock_move_letter_to_position):
+    @patch('cubigma.utils.move_symbol_in_3d_grid')
+    def test_move_letter_to_center_with_odd_dimensions(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
             [
@@ -196,7 +123,7 @@ class TestMoveLetterToCenter(unittest.TestCase):
                 ['Y', 'Z', '1']
             ]
         ]
-        mock_move_letter_to_position.return_value = expected_return_value
+        mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
         test_cuboid = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
 
@@ -205,13 +132,13 @@ class TestMoveLetterToCenter(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_return_value, result)
-        mock_move_letter_to_position.assert_called_once_with(test_symbol, test_cuboid, (1, 1, 1))
+        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (1, 1, 1), test_cuboid)
 
 
 class TestMoveLetterToFront(unittest.TestCase):
 
-    @patch('cubigma.utils._move_letter_to_position')
-    def test_move_letter_to_front(self, mock_move_letter_to_position):
+    @patch('cubigma.utils.move_symbol_in_3d_grid')
+    def test_move_letter_to_front(self, mock_move_symbol_in_3d_grid):
         # Arrange
         expected_return_value = [
             [
@@ -230,7 +157,7 @@ class TestMoveLetterToFront(unittest.TestCase):
                 ['Y', 'Z', '1']
             ]
         ]
-        mock_move_letter_to_position.return_value = expected_return_value
+        mock_move_symbol_in_3d_grid.return_value = expected_return_value
         test_symbol = "R"
         test_cuboid = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
 
@@ -239,86 +166,7 @@ class TestMoveLetterToFront(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_return_value, result)
-        mock_move_letter_to_position.assert_called_once_with(test_symbol, test_cuboid, (0, 0, 0))
-
-
-class TestMoveLetterToPosition(unittest.TestCase):
-    def setUp(self):
-        # Setup a sample playfair cuboid for testing
-        self.cuboid = [
-            [
-                ['A', 'B', 'C'],
-                ['D', 'E', 'F'],
-                ['G', 'H', 'I']
-            ],
-            [
-                ['J', 'K', 'L'],
-                ['M', 'N', 'O'],
-                ['P', 'Q', 'R']
-            ],
-            [
-                ['S', 'T', 'U'],
-                ['V', 'W', 'X'],
-                ['Y', 'Z', '1']
-            ]
-        ]
-
-    @patch('cubigma.utils._find_symbol')
-    @patch('cubigma.utils._cascade_gap')
-    def test_move_letter_to_position_to_front(self, mock_cascade_gap, mock_find_symbol):
-        # Mock the _find_symbol to return a specific position
-        mock_find_symbol.return_value = (1, 1, 1)  # 'N' at position (1, 1, 1)
-
-        # Call the function
-        updated_cuboid = _move_letter_to_position(
-            symbol_to_move='N',
-            playfair_cuboid=self.cuboid,
-            target_position=(0, 0, 1),
-            direction='to-front'
-        )
-
-        # Assertions
-        self.assertEqual(updated_cuboid[0][0][1], 'N')  # 'N' is at the new position
-        self.assertNotIn('N', self.cuboid[1][1])  # 'N' removed from the original position
-        mock_find_symbol.assert_called_once_with('N', self.cuboid)  # Ensure the symbol search was called
-        mock_cascade_gap.assert_called_once_with(self.cuboid, 1, 1, direction='to-front')  # Ensure cascading called
-
-    @patch('cubigma.utils._find_symbol')
-    @patch('cubigma.utils._cascade_gap')
-    def test_move_letter_to_position_to_back(self, mock_cascade_gap, mock_find_symbol):
-        # Mock the _find_symbol to return a specific position
-        mock_find_symbol.return_value = (2, 2, 2)  # '1' at position (2, 2, 2)
-
-        # Call the function
-        updated_cuboid = _move_letter_to_position(
-            symbol_to_move='1',
-            playfair_cuboid=self.cuboid,
-            target_position=(1, 0, 0),
-            direction='to-back'
-        )
-
-        # Assertions
-        self.assertEqual(updated_cuboid[1][0][0], '1')  # '1' is at the new position
-        self.assertNotIn('1', self.cuboid[2][2])  # '1' removed from the original position
-        mock_find_symbol.assert_called_once_with('1', self.cuboid)  # Ensure the symbol search was called
-        mock_cascade_gap.assert_called_once_with(self.cuboid, 2, 2, direction='to-back')  # Ensure cascading called
-
-    @patch('cubigma.utils._find_symbol')
-    @patch('cubigma.utils._cascade_gap')
-    def test_invalid_symbol(self, mock_cascade_gap, mock_find_symbol):
-        # Mock _find_symbol to raise an exception if the symbol is not found
-        mock_find_symbol.side_effect = ValueError("Symbol not found")
-
-        # Call the function and expect an exception
-        with self.assertRaises(ValueError):
-            _move_letter_to_position(
-                symbol_to_move='Z',
-                playfair_cuboid=self.cuboid,
-                target_position=(0, 0, 0)
-            )
-
-        # Ensure cascading was not called
-        mock_cascade_gap.assert_not_called()
+        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (0, 0, 0), test_cuboid)
 
 
 class TestSplitKeyIntoParts(unittest.TestCase):
@@ -417,6 +265,137 @@ class TestGenerateReflector(unittest.TestCase):
         self.assertEqual(len(reflector), num_quartets)
         for key, value in reflector.items():
             self.assertEqual(reflector[value], key)
+
+
+class TestGenerateRotors(unittest.TestCase):
+    def setUp(self):
+        """
+        Set up reusable test data for the tests.
+        """
+        self.sanitized_key_phrase = "TESTKEY"
+        self.prepared_playfair_cuboid = [
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "_"]],
+        ]
+        self.num_rotors = 3
+
+    @patch("random.seed")
+    @patch("cubigma.utils._split_key_into_parts")
+    @patch("cubigma.utils._move_letter_to_center")
+    def test_generate_rotors_valid(self, mock_move_letter, mock_split_key, mock_seed):
+        """
+        Test that the function generates the correct number of rotors with deterministic output.
+        """
+        mock_seed.return_value = None
+        mock_split_key.return_value = ["TE", "ST", "KEY"]
+        mock_move_letter.side_effect = lambda symbol, rotor: rotor  # Mocking as identity for simplicity
+
+        result = generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, self.num_rotors)
+
+        self.assertEqual(len(result), self.num_rotors, "Should create the correct number of rotors.")
+        for rotor in result:
+            self.assertEqual(rotor, self.prepared_playfair_cuboid, "Each rotor should match the mock-adjusted input.")
+
+    def test_generate_rotors_empty_key(self):
+        """
+        Test that the function raises an error when the key is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors("", self.prepared_playfair_cuboid, self.num_rotors)
+
+    def test_generate_rotors_null_key(self):
+        """
+        Test that the function raises an error when the key is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors(None, self.prepared_playfair_cuboid, self.num_rotors)
+
+    def test_generate_rotors_non_string_key(self):
+        """
+        Test that the function raises an error when the key is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors(420, self.prepared_playfair_cuboid, self.num_rotors)
+
+    def test_generate_rotors_zero_rotors(self):
+        """
+        Test that the function raises an error when the key is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, 0)
+
+    def test_generate_rotors_null_rotors(self):
+        """
+        Test that the function raises an error when the key is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, None)
+
+    def test_generate_rotors_non_number_num_rotors(self):
+        """
+        Test that the function raises an error when the key is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors(self.sanitized_key_phrase, self.prepared_playfair_cuboid, "3")
+
+    def test_generate_rotors_too_many_rotors(self):
+        """
+        Test that the function raises an error when the playfair cuboid is invalid.
+        """
+        with self.assertRaises(ValueError):
+            generate_rotors("1234", self.prepared_playfair_cuboid, 5)
+
+    def test_generate_rotors_invalid_cuboid_string(self):
+        """
+        Test that the function raises an error when the playfair cuboid is invalid.
+        """
+        invalid_cuboid = "InvalidCuboid"
+        with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
+            generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
+
+    def test_generate_rotors_invalid_cuboid_number(self):
+        """
+        Test that the function raises an error when the playfair cuboid is invalid.
+        """
+        invalid_cuboid = [
+            [[4, "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "_"]],
+        ]
+        with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
+            generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
+
+    def test_generate_rotors_invalid_cuboid_2d_array(self):
+        """
+        Test that the function raises an error when the playfair cuboid is invalid.
+        """
+        invalid_cuboid = [
+            ["ABC", "DEF", "GHI"],
+            ["JKL", "MNO", "PQR"],
+            ["STU", "VWX", "YZ_"]
+        ]
+        with self.assertRaises(ValueError, msg="Should raise a TypeError if the cuboid is not a 3D list."):
+            generate_rotors(self.sanitized_key_phrase, invalid_cuboid, self.num_rotors)
+
+    @patch("random.seed")
+    def test_generate_rotors_different_seeds(self, mock_seed):
+        """
+        Test that the function generates different outputs for different keys.
+        """
+        mock_seed.return_value = None
+        cuboid = [
+            [["K", "E", "Y"], ["_", "A", "B"], ["C", "D", "F"]],
+            [["G", "H", "I"], ["J", "L", "M"], ["N", "O", "P"]],
+            [["Q", "R", "S"], ["T", "U", "V"], ["W", "X", "Z"]],
+        ]
+        key_phrase_1 = "KEY_A"
+        key_phrase_2 = "KEY_B"
+
+        result1 = generate_rotors(key_phrase_1, cuboid, self.num_rotors)
+        result2 = generate_rotors(key_phrase_2, cuboid, self.num_rotors)
+
+        self.assertNotEqual(result1, result2, "Different keys should produce different rotors.")
 
 
 class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
@@ -563,6 +542,21 @@ class TestIndexToQuartet(unittest.TestCase):
         self.assertEqual(index_to_quartet(42, special_symbols), "@$$$")
 
 
+class TestMoveSymbolIn3DSpace(unittest.TestCase):
+
+    def test_move_symbol_in_3d_grid_with_valid_coords(self):
+        # Arrange
+        cuboid = [
+            [["K", "E", "Y"], ["_", "A", "B"], ["C", "D", "F"]],
+            [["G", "H", "I"], ["J", "L", "M"], ["N", "O", "P"]],
+            [["Q", "R", "S"], ["T", "U", "V"], ["W", "X", "Z"]],
+        ]
+
+        result = move_symbol_in_3d_grid((0,0,0), (1,1,1), cuboid)
+
+        self.assertNotEqual(cuboid, result, "Failed to manipulate cube")
+
+
 class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     @patch("cubigma.utils.random")
     def test_pad_chunk_with_empty_input(self, mock_randint):
@@ -592,6 +586,76 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     def test_pad_chunk_with_full_length_input(self, mock_randint):
         result = pad_chunk_with_rand_pad_symbols("ABCD")
         self.assertEqual(result, "ABCD")
+
+
+class TestParseArguments(unittest.TestCase):
+    @patch('builtins.input', side_effect=["encrypt", "test_key", "This is a test message"])
+    def test_interactive_mode_encrypt(self, mock_input):
+        """Test interactive mode for encryption."""
+        with patch('sys.argv', ["script_name"]):
+            key_phrase, mode, message = parse_arguments()
+            self.assertEqual(key_phrase, "test_key")
+            self.assertEqual(mode, "encrypt")
+            self.assertEqual(message, "This is a test message")
+
+    @patch('builtins.input', side_effect=["decrypt", "test_key", "EncryptedMessage"])
+    def test_interactive_mode_decrypt(self, mock_input):
+        """Test interactive mode for decryption."""
+        with patch('sys.argv', ["script_name"]):
+            key_phrase, mode, message = parse_arguments()
+            self.assertEqual(key_phrase, "test_key")
+            self.assertEqual(mode, "decrypt")
+            self.assertEqual(message, "EncryptedMessage")
+
+    def test_command_line_encrypt(self):
+        """Test command-line arguments for encryption."""
+        with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--clear_text_message", "This is a test message"]):
+            key_phrase, mode, message = parse_arguments()
+            self.assertEqual(key_phrase, "test_key")
+            self.assertEqual(mode, "encrypt")
+            self.assertEqual(message, "This is a test message")
+
+    def test_command_line_decrypt(self):
+        """Test command-line arguments for decryption."""
+        with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--encrypted_message", "EncryptedMessage"]):
+            key_phrase, mode, message = parse_arguments()
+            self.assertEqual(key_phrase, "test_key")
+            self.assertEqual(mode, "decrypt")
+            self.assertEqual(message, "EncryptedMessage")
+
+    def test_command_line_error_both_messages(self):
+        """Test error when both --clear_text_message and --encrypted_message are provided."""
+        with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--clear_text_message", "Text", "--encrypted_message", "Encrypted"]):
+            with self.assertRaises(SystemExit) as cm:
+                parse_arguments()
+            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
+
+    def test_command_line_error_key_and_no_message(self):
+        """Test error when both --clear_text_message and --encrypted_message are provided."""
+        with patch('sys.argv', ["script_name", "--key_phrase", "test_key"]):
+            with self.assertRaises(SystemExit) as cm:
+                parse_arguments()
+            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
+
+    def test_command_line_error_clear_message_and_no_key(self):
+        """Test error when both --clear_text_message and --encrypted_message are provided."""
+        with patch('sys.argv', ["script_name", "--clear_text_message", "Text"]):
+            with self.assertRaises(SystemExit) as cm:
+                parse_arguments()
+            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
+
+    def test_command_line_error_encrypted_message_and_no_key(self):
+        """Test error when both --clear_text_message and --encrypted_message are provided."""
+        with patch('sys.argv', ["script_name", "--encrypted_message", "Text"]):
+            with self.assertRaises(SystemExit) as cm:
+                parse_arguments()
+            self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
+
+    def test_no_arguments_provided(self):
+        """Test behavior when no arguments are provided."""
+        with patch('sys.argv', ["script_name"]), patch('builtins.input', side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                parse_arguments()  # User interrupts interactive mode
 
 
 class TestPrepStringForEncrypting(unittest.TestCase):

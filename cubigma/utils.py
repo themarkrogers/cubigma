@@ -5,6 +5,7 @@ from typing import Any, Iterator
 import argparse
 import json
 import hashlib
+import numbers
 import os
 import random
 
@@ -47,39 +48,6 @@ def prepare_cuboid_with_key_phrase(key_phrase: str, playfair_cuboid: list[list[l
 
     # ToDo: See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
     return playfair_cuboid
-
-
-def generate_rotors(
-    sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3
-) -> list[list[list[list[str]]]]:
-    """
-    Generate a deterministic, key-dependent reflector for quartets.
-
-    Args:
-        sanitized_key_phrase (str): The encryption key used to seed the random generator.
-        prepared_playfair_cuboid (list[list[list[str]]]): The playfair cuboid with the key phrase pulled to the front
-        num_rotors (int): Number of "rotors" to use
-
-    Returns:
-        list[list[list[list[str]]]]: A list of three "rotors", where each "rotor" is a 3-dimensional cuboid representing
-          a playfair cuboid. These are each unique, and each based on the key_phrase provided
-    """
-    # Seed the random generator with the key
-    random.seed(sanitized_key_phrase)
-
-    raw_rotors = []
-    for i in range(num_rotors):
-        raw_rotor = prepared_playfair_cuboid.copy()
-        raw_rotors.append(raw_rotor)
-
-    key_parts = _split_key_into_parts(sanitized_key_phrase, num_rotors=num_rotors)
-    finished_rotors: list[list[list[list[str]]]] = []
-    for rotor_num, key_part in enumerate(key_parts):
-        cur_rotor = raw_rotors[rotor_num]
-        for symbol in key_part:
-            cur_rotor = _move_letter_to_center(symbol, cur_rotor)
-        finished_rotors[rotor_num] = cur_rotor
-    return finished_rotors
 
 
 def get_opposite_corners(
@@ -145,119 +113,69 @@ def get_opposite_corners(
     return point_five, point_six, point_seven, point_eight
 
 
-def parse_arguments() -> tuple[str, str, str]:
+def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -> bool:
+    inner_x, inner_y, inner_z = coord
+    is_x_valid = 0 <= inner_x < len(inner_grid)
+    if not is_x_valid: return False
+    is_y_valid = 0 <= inner_y < len(inner_grid[0])
+    if not is_y_valid: return False
+    is_z_valid = 0 <= inner_z < len(inner_grid[0][0])
+    return is_z_valid
+
+
+def get_flat_index(x, y, z, size_x, size_y):
+    return x * size_y * size_x + y * size_x + z
+
+
+def move_symbol_in_3d_grid(
+    coord1: tuple[int, int, int],
+    coord2: tuple[int, int, int],
+    grid: list[list[list[str]]]
+) -> list[list[list[str]]]:
     """
-    Parses runtime arguments or prompts the user for input interactively.
+    Moves a symbol from `coord1` to `coord2` in a 3D grid and shifts intermediate elements accordingly.
+
+    Args:
+        coord1 (tuple[int, int, int]): The (x, y, z) coordinate of the symbol to move.
+        coord2 (tuple[int, int, int]): The (x, y, z) coordinate where the symbol is to be moved.
+        grid (list[list[list[str]]]): A 3D grid of symbols.
 
     Returns:
-        tuple[str, str, str]: A tuple containing key_phrase, mode ('encrypt' or 'decrypt'), and the message.
+        list[list[list[str]]]: The updated grid after moving the symbol.
     """
-    parser = argparse.ArgumentParser(description="Encrypt or decrypt a message using a key phrase.")
-    parser.add_argument("key_phrase", type=str, help="The key phrase for encryption/decryption.")
-    parser.add_argument("--clear_text_message", type=str, help="The plaintext message to encrypt.")
-    parser.add_argument("--encrypted_message", type=str, help="The encrypted message to decrypt.")
+    if not (_is_valid_coord(coord1, grid) and _is_valid_coord(coord2, grid)):
+        raise ValueError("One or both coordinates are out of grid bounds.")
+    size_x, size_y, size_z = len(grid), len(grid[0]), len(grid[0][0])
+    flat_grid = [
+        grid[x][y][z]
+        for x in range(size_x)
+        for y in range(size_y)
+        for z in range(size_z)
+    ]
 
-    args = parser.parse_args()
+    idx1 = get_flat_index(*coord1, size_x, size_y)
+    idx2 = get_flat_index(*coord2, size_x, size_y)
 
-    if not args.clear_text_message and not args.encrypted_message:
-        print("No runtime arguments provided. Switching to interactive mode.")
-        mode = input("Are you encrypting or decrypting? (encrypt/decrypt/both): ").strip().lower()
-        while mode not in {"encrypt", "decrypt", "both"}:
-            mode = input("Invalid choice. Please enter 'encrypt', 'decrypt', or 'both': ").strip().lower()
+    symbol_to_move = flat_grid[idx1]
 
-        key_phrase = input("Enter your key phrase: ").strip()
-        if mode in ("encrypt", "both"):
-            message = input("Enter your plaintext message: ").strip()
-        else:
-            message = input("Enter your encrypted message: ").strip()
+    # Shift elements and insert the moved symbol
+    if idx1 < idx2:
+        flat_grid = flat_grid[:idx1] + flat_grid[idx1 + 1:idx2 + 1] + [symbol_to_move] + flat_grid[idx2 + 1:]
+    else:
+        flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx1 + 1:]
 
-        return key_phrase, mode, message
-
-    if args.clear_text_message and args.encrypted_message:
-        parser.error("Provide only one of --clear_text_message or --encrypted_message, not both.")
-
-    key_phrase = args.key_phrase
-    if args.clear_text_message:
-        return key_phrase, "encrypt", args.clear_text_message
-    return key_phrase, "decrypt", args.encrypted_message
+    # Rebuild the 3D grid
+    updated_grid = [
+        [
+            flat_grid[x * size_y * size_z + y * size_z : x * size_y * size_z + (y + 1) * size_z]
+            for y in range(size_y)
+        ]
+        for x in range(size_x)
+    ]
+    return updated_grid
 
 
 # The below functions are under test
-
-
-def _cascade_gap(
-    playfair_cuboid: list[list[list[str]]], start_frame: int, start_row: int, direction: str = "to-front"
-) -> list[list[list[str]]]:
-    """
-    Cascades the gap caused by removing a symbol, shifting elements to fill the gap.
-
-    Args:
-        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
-        start_frame (int): The frame where the gap starts.
-        start_row (int): The row within the frame where the gap starts.
-        direction (str): The direction to cascade ('to-front' or 'to-back').
-
-    Returns:
-        list[list[list[str]]]: Modified 3D cuboid
-    """
-    char_to_move = ""
-    range_blocks: range | Iterator[int]
-    if direction == "to-front":
-        range_blocks = range(0, start_frame + 1)  # Push chars from the front into the hole
-    elif direction == "to-back":
-        range_blocks = reversed(range(start_frame, len(playfair_cuboid)))  # Push chars the back into the hole
-    else:
-        raise ValueError("direction can only be either 'to-front' or 'to-back'")
-    new_cuboid = playfair_cuboid.copy()
-    for frame_idx in range_blocks:
-        cur_frame = playfair_cuboid[frame_idx].copy()
-
-        range_rows: range | Iterator[int]
-        if direction == "to-front":
-            if frame_idx == start_frame:
-                row_limit = start_row + 1
-            else:
-                row_limit = len(playfair_cuboid[frame_idx])
-            range_rows = range(0, row_limit)
-        else:
-            max_rows_in_frame = len(playfair_cuboid[frame_idx])
-            if frame_idx == start_frame:
-                row_limit = start_row
-            else:
-                row_limit = 0
-            range_rows = reversed(range(row_limit, max_rows_in_frame))
-        for row_idx in range_rows:
-            cur_row = cur_frame[row_idx]
-            if char_to_move:
-                if direction == "to-front":
-                    # Put last popped char at the start of this line, since we're pushing to the back
-                    new_row = [char_to_move] + cur_row[:-1]
-                else:
-                    # Put last popped char at the end of this line, since we're pushing to the front
-                    new_row = cur_row[1:] + [char_to_move]
-            else:
-                if direction == "to-front":
-                    # Drop the last char, since we're pushing the hole to the back
-                    new_row = cur_row[:-1]
-                else:
-                    # Drop the first char, since we're pushing the hole to the front
-                    new_row = cur_row[1:]
-            if direction == "to-front":
-                # Grab the last char, since it just got dropped
-                char_to_move = cur_row[-1]
-            else:
-                # Grab the first char, since it just got dropped
-                char_to_move = cur_row[0]
-            if frame_idx == start_frame and row_idx == start_row:
-                if direction == "to-front":
-                    # Drop the last char, since we're pushing the hole to the back
-                    new_row = new_row + [char_to_move]
-                else:
-                    # Drop the first char, since we're pushing the hole to the front
-                    new_row = [char_to_move] + new_row
-            cur_frame[row_idx] = new_row
-        new_cuboid[frame_idx] = cur_frame
-    return new_cuboid
 
 
 def _find_symbol(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> tuple[int, int, int]:
@@ -276,38 +194,16 @@ def _move_letter_to_center(symbol_to_move: str, playfair_cuboid: list[list[list[
     lines_per_block = len(playfair_cuboid[0])
     symbols_per_line = len(playfair_cuboid[0][0])
     center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
-    return _move_letter_to_position(symbol_to_move, playfair_cuboid, center_position)
+    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
+    updated_cuboid = move_symbol_in_3d_grid(start_position, center_position, playfair_cuboid)
+    return updated_cuboid
 
 
 def _move_letter_to_front(symbol_to_move: str, playfair_cuboid: list[list[list[str]]]) -> list[list[list[str]]]:
     """Moves the symbol to the front of the playfair cuboid."""
-    return _move_letter_to_position(symbol_to_move, playfair_cuboid, (0, 0, 0))
-
-
-def _move_letter_to_position(
-    symbol_to_move: str,
-    playfair_cuboid: list[list[list[str]]],
-    target_position: tuple[int, int, int],
-    direction: str = "to-front",
-) -> list[list[list[str]]]:
-    """
-    Generalized function to move a letter to a specific position in the playfair cuboid.
-
-    Args:
-        symbol_to_move (str): The ASCII character to move.
-        playfair_cuboid (list[list[list[str]]]): The 3D cuboid to modify.
-        target_position (tuple[int, int, int]): The target frame, row, and column to move the symbol to.
-        direction (str): The direction to cascade ('to-front' or 'to-back').
-
-    Returns:
-        list[list[list[str]]]: The modified playfair cuboid.
-    """
-    frame_idx, row_idx, col_idx = _find_symbol(symbol_to_move, playfair_cuboid)
-    playfair_cuboid[frame_idx][row_idx].pop(col_idx)  # result of pop == symbol_to_move
-    _cascade_gap(playfair_cuboid, frame_idx, row_idx, direction=direction)
-    target_x, target_y, target_z = target_position
-    playfair_cuboid[target_x][target_y].insert(target_z, symbol_to_move)
-    return playfair_cuboid
+    start_position = _find_symbol(symbol_to_move, playfair_cuboid)
+    updated_cuboid = move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cuboid)
+    return updated_cuboid
 
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
@@ -357,6 +253,48 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
     return reflector
 
 
+def generate_rotors(
+    sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3
+) -> list[list[list[list[str]]]]:
+    """
+    Generate a deterministic, key-dependent reflector for quartets.
+
+    Args:
+        sanitized_key_phrase (str): The encryption key used to seed the random generator.
+        prepared_playfair_cuboid (list[list[list[str]]]): The playfair cuboid with the key phrase pulled to the front
+        num_rotors (int): Number of "rotors" to use
+
+    Returns:
+        list[list[list[list[str]]]]: A list of three "rotors", where each "rotor" is a 3-dimensional cuboid representing
+          a playfair cuboid. These are each unique, and each based on the key_phrase provided
+    """
+    if not sanitized_key_phrase or not isinstance(sanitized_key_phrase, str):
+        raise ValueError("sanitized_key_phrase must be a non-empty string")
+    if not num_rotors or not isinstance(num_rotors, numbers.Number):
+        raise ValueError("num_rotors must be an integer great than zero.")
+    if (not prepared_playfair_cuboid or not isinstance(prepared_playfair_cuboid, list)) or (not prepared_playfair_cuboid[0] or not isinstance(prepared_playfair_cuboid[0], list)) or (not prepared_playfair_cuboid[0][0] or not isinstance(prepared_playfair_cuboid[0][0], list)) or (not prepared_playfair_cuboid[0][0][0] or not isinstance(prepared_playfair_cuboid[0][0][0], str)):
+        raise ValueError("prepared_playfair_cuboid must be a 3-dimensional list of non-empty strings.")
+    num_rotors = int(num_rotors)
+    if num_rotors > len(sanitized_key_phrase):
+        raise ValueError("Cannot generate more rotors than key is long")
+    # Seed the random generator with the key
+    random.seed(sanitized_key_phrase)
+
+    raw_rotors = []
+    for i in range(num_rotors):
+        raw_rotor = prepared_playfair_cuboid.copy()
+        raw_rotors.append(raw_rotor)
+
+    key_parts = _split_key_into_parts(sanitized_key_phrase, num_rotors=num_rotors)
+    finished_rotors: list[list[list[list[str]]]] = []
+    for rotor_num, key_part in enumerate(key_parts):
+        cur_rotor = raw_rotors[rotor_num]
+        for symbol in key_part:
+            cur_rotor = _move_letter_to_center(symbol, cur_rotor)
+        finished_rotors.append(cur_rotor)
+    return finished_rotors
+
+
 def get_prefix_order_number_quartet(order_number: int) -> str:
     order_number_str = str(order_number)
     assert len(order_number_str) == 1, "Invalid order number"
@@ -401,6 +339,54 @@ def pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
         if random_pad_symbol not in chunk:
             chunk += random_pad_symbol
     return chunk
+
+
+def parse_arguments() -> tuple[str, str, str]:
+    """
+    Parses runtime arguments or prompts the user for input interactively.
+
+    Returns:
+        tuple[str, str, str]: A tuple containing key_phrase, mode ('encrypt' or 'decrypt'), and the message.
+    """
+    parser = argparse.ArgumentParser(description="Encrypt or decrypt a message using a key phrase.")
+    parser.add_argument("--key_phrase", type=str, help="The key phrase for encryption/decryption.")
+    parser.add_argument("--clear_text_message", type=str, help="The plaintext message to encrypt.")
+    parser.add_argument("--encrypted_message", type=str, help="The encrypted message to decrypt.")
+
+    args = parser.parse_args()
+
+    has_key_phrase = bool(args.key_phrase)
+    has_clear_text_message = bool(args.clear_text_message)
+    has_encrypted_message = bool(args.encrypted_message)
+    has_message = has_clear_text_message or has_encrypted_message
+    has_all_parts_from_cli = has_key_phrase and has_message
+    if has_clear_text_message and has_encrypted_message:
+        parser.error("Provide only one of --clear_text_message or --encrypted_message, not both.")
+    if has_key_phrase and not has_message:
+        parser.error("You must provide either --clear_text_message or --encrypted_message with the --key_phrase.")
+    if has_clear_text_message and not has_key_phrase:
+        parser.error("You must provide --key_phrase with the --clear_text_message.")
+    if has_encrypted_message and not has_key_phrase:
+        parser.error("You must provide --key_phrase with the --encrypted_message.")
+
+    if not has_all_parts_from_cli:  # If only partial CLI args, then CLI error is returned above
+        print("No runtime arguments provided. Switching to interactive mode.")
+        mode = input("Are you encrypting or decrypting? (encrypt/decrypt/both): ").strip().lower()
+        while mode not in {"encrypt", "decrypt", "both"}:
+            mode = input("Invalid choice. Please enter 'encrypt', 'decrypt', or 'both': ").strip().lower()
+
+        key_phrase = input("Enter your key phrase: ").strip()
+        if mode in ("encrypt", "both"):
+            message = input("Enter your plaintext message: ").strip()
+        else:
+            message = input("Enter your encrypted message: ").strip()
+
+        return key_phrase, mode, message
+
+    key_phrase = args.key_phrase
+    if args.clear_text_message:
+        return key_phrase, "encrypt", args.clear_text_message
+    return key_phrase, "decrypt", args.encrypted_message
 
 
 def prep_string_for_encrypting(orig_message: str) -> str:
