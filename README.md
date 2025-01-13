@@ -50,6 +50,10 @@ ASCII frequency:
 
 # Maintenance
 
+## Unit Tests
+
+`coverage run -m unittest discover`
+
 ## Linting
 
 ```

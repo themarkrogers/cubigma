@@ -1,5 +1,6 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
+from contextlib import redirect_stderr
 from unittest.mock import patch
 import json
 import os
@@ -18,8 +19,7 @@ from cubigma.utils import (
     remove_duplicate_letters,
     sanitize,
     split_to_human_readable_symbols,
-    strengthen_key,
-    user_perceived_length,
+    strengthen_key,user_perceived_length
 )
 from cubigma.utils import (
     _find_symbol, _get_flat_index, _is_valid_coord, _move_letter_to_center, _move_letter_to_front,
@@ -717,8 +717,9 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
 
 
 class TestParseArguments(unittest.TestCase):
+    @patch('builtins.print')
     @patch('builtins.input', side_effect=["encrypt", "test_key", "This is a test message"])
-    def test_interactive_mode_encrypt(self, mock_input):
+    def test_interactive_mode_encrypt(self, mock_print, mock_input):
         """Test interactive mode for encryption."""
         with patch('sys.argv', ["script_name"]):
             key_phrase, mode, message = parse_arguments()
@@ -726,13 +727,34 @@ class TestParseArguments(unittest.TestCase):
             self.assertEqual(mode, "encrypt")
             self.assertEqual(message, "This is a test message")
 
+    @patch('builtins.print')
     @patch('builtins.input', side_effect=["decrypt", "test_key", "EncryptedMessage"])
-    def test_interactive_mode_decrypt(self, mock_input):
+    def test_interactive_mode_decrypt(self, mock_print, mock_input):
         """Test interactive mode for decryption."""
         with patch('sys.argv', ["script_name"]):
             key_phrase, mode, message = parse_arguments()
             self.assertEqual(key_phrase, "test_key")
             self.assertEqual(mode, "decrypt")
+            self.assertEqual(message, "EncryptedMessage")
+
+    @patch('builtins.print')
+    @patch('builtins.input', side_effect=["both", "test_key", "EncryptedMessage"])
+    def test_interactive_mode_both(self, mock_print, mock_input):
+        """Test interactive mode for decryption."""
+        with patch('sys.argv', ["script_name"]):
+            key_phrase, mode, message = parse_arguments()
+            self.assertEqual(key_phrase, "test_key")
+            self.assertEqual(mode, "both")
+            self.assertEqual(message, "EncryptedMessage")
+
+    @patch('builtins.print')
+    @patch('builtins.input', side_effect=["rawr", "again", "encrypt", "test_key", "EncryptedMessage"])
+    def test_interactive_mode_invalid(self, mock_print, mock_input):
+        """Test interactive mode for decryption."""
+        with patch('sys.argv', ["script_name"]):
+            key_phrase, mode, message = parse_arguments()
+            self.assertEqual(key_phrase, "test_key")
+            self.assertEqual(mode, "encrypt")
             self.assertEqual(message, "EncryptedMessage")
 
     def test_command_line_encrypt(self):
@@ -754,36 +776,44 @@ class TestParseArguments(unittest.TestCase):
     def test_command_line_error_both_messages(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
         with patch('sys.argv', ["script_name", "--key_phrase", "test_key", "--clear_text_message", "Text", "--encrypted_message", "Encrypted"]):
+            # Redirect stderr to silence the argparse error message
             with self.assertRaises(SystemExit) as cm:
-                parse_arguments()
+                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                    parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
     def test_command_line_error_key_and_no_message(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
         with patch('sys.argv', ["script_name", "--key_phrase", "test_key"]):
             with self.assertRaises(SystemExit) as cm:
-                parse_arguments()
+                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                    parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
     def test_command_line_error_clear_message_and_no_key(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
         with patch('sys.argv', ["script_name", "--clear_text_message", "Text"]):
             with self.assertRaises(SystemExit) as cm:
-                parse_arguments()
+                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                    parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
     def test_command_line_error_encrypted_message_and_no_key(self):
         """Test error when both --clear_text_message and --encrypted_message are provided."""
         with patch('sys.argv', ["script_name", "--encrypted_message", "Text"]):
             with self.assertRaises(SystemExit) as cm:
-                parse_arguments()
+                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                    parse_arguments()
             self.assertEqual(cm.exception.code, 2)  # argparse exits with code 2 for errors
 
-    def test_no_arguments_provided(self):
+    @patch('builtins.print')
+    def test_no_arguments_provided(self, mock_print):
         """Test behavior when no arguments are provided."""
         with patch('sys.argv', ["script_name"]), patch('builtins.input', side_effect=KeyboardInterrupt):
             with self.assertRaises(KeyboardInterrupt):
-                parse_arguments()  # User interrupts interactive mode
+                # User interrupts interactive mode
+                with open(os.devnull, 'w') as devnull, redirect_stderr(devnull):
+                    parse_arguments()
 
 
 class TestPrepStringForEncrypting(unittest.TestCase):

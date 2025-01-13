@@ -6,8 +6,8 @@ This code implements the Cubigma encryption algorithm.
 import math
 import random
 
-# from cubigma.utils import (
-from utils import (
+from cubigma.utils import (
+# from utils import (
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_reflector,
@@ -47,9 +47,9 @@ class Cubigma:
         self.cuboid_filepath = cuboid_filepath
         self.is_machine_prepared = False
 
-    def _get_chars_for_coordinates(self, coordinate: tuple[int, int, int]) -> str:
+    def _get_chars_for_coordinates(self, coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
         x, y, z = coordinate
-        return self.playfair_cuboid[x][y][z]
+        return rotor[x][y][z]
 
     def _run_quartet_through_rotors(self, char_quartet: str, rotors: list[list[list[list[str]]]]) -> str:
         indices_by_char = {}
@@ -78,10 +78,10 @@ class Cubigma:
                 LINES_PER_BLOCK,
                 SYMBOLS_PER_LINE,
             )
-            encrypted_char_1 = self._get_chars_for_coordinates(encrypted_indices[0])
-            encrypted_char_2 = self._get_chars_for_coordinates(encrypted_indices[1])
-            encrypted_char_3 = self._get_chars_for_coordinates(encrypted_indices[2])
-            encrypted_char_4 = self._get_chars_for_coordinates(encrypted_indices[3])
+            encrypted_char_1 = self._get_chars_for_coordinates(encrypted_indices[0], rotor)
+            encrypted_char_2 = self._get_chars_for_coordinates(encrypted_indices[1], rotor)
+            encrypted_char_3 = self._get_chars_for_coordinates(encrypted_indices[2], rotor)
+            encrypted_char_4 = self._get_chars_for_coordinates(encrypted_indices[3], rotor)
             encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
             cur_quartet = encrypted_quartet
         return cur_quartet

@@ -4,7 +4,9 @@
 .idea
 .ipynb_checkpoints
 .cache
+.coverage
 __pycache__
 venv
+htmlcov
 
 cubigma/cuboid.txt
