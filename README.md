@@ -1,5 +1,7 @@
 # Cubigma
 
+[![Python application](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml/badge.svg)](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml)
+
 # Introduction
 
 This is an encryption & steganography tool. The encryption algorithm implemented here is a modification to the Playfair 
