@@ -213,50 +213,52 @@ def generate_reflector(sanitized_key_phrase: str, num_quartets: int = -1) -> dic
 
 
 def generate_rotors(
-    sanitized_key_phrase: str, prepared_playfair_cuboid: list[list[list[str]]], num_rotors: int = 3
+    sanitized_key_phrase: str, raw_cube: list[list[list[str]]], num_rotors_to_make: int = 5, rotors_to_use: list[int] = [0, 4, 5],
 ) -> list[list[list[list[str]]]]:
     """
     Generate a deterministic, key-dependent reflector for quartets.
 
     Args:
-        sanitized_key_phrase (str): The encryption key used to seed the random generator.
-        prepared_playfair_cuboid (list[list[list[str]]]): The playfair cuboid with the key phrase pulled to the front
-        num_rotors (int): Number of "rotors" to use
+        sanitized_key_phrase (str): The encryption key (strengthened & sanitized) used to seed the random generator.
+        raw_cube (list[list[list[str]]]): The playfair cuboid with the key phrase pulled to the front
+        num_rotors_to_make (int): Number of "rotors" to generate
+        rotors_to_use (list[int]): Indices of which "rotors" to actually use
 
     Returns:
-        list[list[list[list[str]]]]: A list of three "rotors", where each "rotor" is a 3-dimensional cuboid representing
-          a playfair cuboid. These are each unique, and each based on the key_phrase provided
+        list[list[list[list[str]]]]: A list of "rotors", where each "rotor" is a 3-dimensional cuboid representing a
+          playfair cube. These have been shuffled (based on the key_phrase provided)
     """
     if not sanitized_key_phrase or not isinstance(sanitized_key_phrase, str):
         raise ValueError("sanitized_key_phrase must be a non-empty string")
-    if not num_rotors or not isinstance(num_rotors, numbers.Number):
-        raise ValueError("num_rotors must be an integer great than zero.")
     if (
-        (not prepared_playfair_cuboid or not isinstance(prepared_playfair_cuboid, list))
-        or (not prepared_playfair_cuboid[0] or not isinstance(prepared_playfair_cuboid[0], list))
-        or (not prepared_playfair_cuboid[0][0] or not isinstance(prepared_playfair_cuboid[0][0], list))
-        or (not prepared_playfair_cuboid[0][0][0] or not isinstance(prepared_playfair_cuboid[0][0][0], str))
+        (not raw_cube or not isinstance(raw_cube, list))
+        or (not raw_cube[0] or not isinstance(raw_cube[0], list))
+        or (not raw_cube[0][0] or not isinstance(raw_cube[0][0], list))
+        or (not raw_cube[0][0][0] or not isinstance(raw_cube[0][0][0], str))
     ):
         raise ValueError("prepared_playfair_cuboid must be a 3-dimensional list of non-empty strings.")
-    num_rotors = int(num_rotors)
-    if num_rotors > len(sanitized_key_phrase):
-        raise ValueError("Cannot generate more rotors than key is long")
-    # Seed the random generator with the key
-    random.seed(sanitized_key_phrase)
+    if not num_rotors_to_make or not isinstance(num_rotors_to_make, numbers.Number) or num_rotors_to_make < 1:
+        raise ValueError("num_rotors must be an integer great than zero.")
+    if not rotors_to_use or not isinstance(rotors_to_use, list):
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a non-empty list of integers")
+    seen_rotor_values = set()
+    for index, rotor_item in enumerate(rotors_to_use):
+        if not isinstance(rotor_item, int) or rotor_item < 1 or rotor_item >= num_rotors_to_make or rotor_item in seen_rotor_values:
+            raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be unique integers between 0 & the number of rotors generated")
+    num_rotors = len(rotors_to_use)
 
-    raw_rotors = []
+    random.seed(sanitized_key_phrase)  # Seed the random generator with the key
+
+    generated_rotors = []
     for i in range(num_rotors):
-        raw_rotor = prepared_playfair_cuboid.copy()
-        raw_rotors.append(raw_rotor)
+        raw_rotor = raw_cube.copy()
+        shuffled_rotor = shuffle_cube_with_key_phrase(sanitized_key_phrase, raw_rotor)
+        generated_rotors.append(shuffled_rotor)
 
-    key_parts = _split_key_into_parts(sanitized_key_phrase, num_rotors=num_rotors)
-    finished_rotors: list[list[list[list[str]]]] = []
-    for rotor_num, key_part in enumerate(key_parts):
-        cur_rotor = raw_rotors[rotor_num]
-        for symbol in key_part:
-            cur_rotor = _move_letter_to_center(symbol, cur_rotor)
-        finished_rotors.append(cur_rotor)
-    return finished_rotors
+    rotors_ready_for_use: list[list[list[list[str]]]] = []
+    for desired_rotor_index in rotors_to_use:
+        rotors_ready_for_use.append(generated_rotors[desired_rotor_index])
+    return rotors_ready_for_use
 
 
 def get_chars_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
@@ -369,52 +371,83 @@ def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rot
     return result
 
 
-def parse_arguments() -> tuple[str, str, str]:
+def read_and_validate_config() -> tuple[int, int, list[int], str, bool]:
+    config = read_config()
+    cube_length = config.get("LENGTH_OF_CUBE", None)
+    if cube_length is None:
+        raise ValueError("LENGTH_OF_CUBE not found in config.json")
+    if not isinstance(cube_length, int):
+        raise ValueError("LENGTH_OF_CUBE (in config.json) must have an integer value")
+    if cube_length < 5 or cube_length > 11:
+        raise ValueError("LENGTH_OF_CUBE (in config.json) must be greater than 4 and lower than 12")
+
+    num_rotors_to_make = config.get("NUMBER_OF_ROTORS_TO_GENERATE", None)
+    if num_rotors_to_make in None:
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE not found in config.json")
+    if not isinstance(num_rotors_to_make, int):
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must have an integer value")
+    if num_rotors_to_make < 1:
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be greater than 0")
+
+    rotors_to_use = config.get("ROTORS_TO_USE", None)
+    if rotors_to_use is None:
+        raise ValueError("ROTORS_TO_USE not found in config.json")
+    if not isinstance(rotors_to_use, list):
+        raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a list of integers")
+    seen_rotor_values = set()
+    for index, rotor_item in enumerate(rotors_to_use):
+        if not isinstance(rotor_item, int):
+            raise ValueError(
+                f"NUMBER_OF_ROTORS_TO_GENERATE (in config.json) contains a non-integer value at index: {index}")
+        if rotor_item < 1 or rotor_item >= num_rotors_to_make:
+            raise ValueError(
+                "NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be between 0 & the number of rotors generated")
+        if rotor_item in seen_rotor_values:
+            raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) all rotor values must be unique")
+
+    mode = config.get("ENCRYPT_OR_DECRYPT", None)
+    if mode is None:
+        raise ValueError("ENCRYPT_OR_DECRYPT not found in config.json")
+    if not isinstance(mode, str):
+        raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be a string")
+    if mode.upper() not in ["ENCRYPT", "DECRYPT"]:
+        raise ValueError("ENCRYPT_OR_DECRYPT (in config.json) must be either 'ENCRYPT' or 'DECRYPT'")
+
+    should_use_steganography = config.get("ALSO_USE_STEGANOGRAPHY", None)
+    if should_use_steganography is None:
+        raise ValueError("ALSO_USE_STEGANOGRAPHY not found in config.json")
+    if not isinstance(should_use_steganography, bool):
+        raise ValueError("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value (e.g. true or false)")
+
+    return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography
+
+
+def parse_arguments() -> tuple[str, str, str, int, int, list[int], bool]:
     """
-    Parses runtime arguments or prompts the user for input interactively.
+    Parses config and prompts the user for input interactively.
 
     Returns:
-        tuple[str, str, str]: A tuple containing key_phrase, mode ('encrypt' or 'decrypt'), and the message.
+        tuple[str, str, str, int, int, list[int], bool]: A tuple containing:
+          * key_phrase
+          * mode ('encrypt' or 'decrypt')
+          * the message
+          * length of playfair cube
+          * number of rotors to generate
+          * which rotors to use
+          * whether to use steganography in addition to encryption
     """
-    parser = argparse.ArgumentParser(description="Encrypt or decrypt a message using a key phrase.")
-    parser.add_argument("--key_phrase", type=str, help="The key phrase for encryption/decryption.")
-    parser.add_argument("--clear_text_message", type=str, help="The plaintext message to encrypt.")
-    parser.add_argument("--encrypted_message", type=str, help="The encrypted message to decrypt.")
 
-    args = parser.parse_args()
+    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = read_and_validate_config()
 
-    has_key_phrase = bool(args.key_phrase)
-    has_clear_text_message = bool(args.clear_text_message)
-    has_encrypted_message = bool(args.encrypted_message)
-    has_message = has_clear_text_message or has_encrypted_message
-    has_all_parts_from_cli = has_key_phrase and has_message
-    if has_clear_text_message and has_encrypted_message:
-        parser.error("Provide only one of --clear_text_message or --encrypted_message, not both.")
-    if has_key_phrase and not has_message:
-        parser.error("You must provide either --clear_text_message or --encrypted_message with the --key_phrase.")
-    if has_clear_text_message and not has_key_phrase:
-        parser.error("You must provide --key_phrase with the --clear_text_message.")
-    if has_encrypted_message and not has_key_phrase:
-        parser.error("You must provide --key_phrase with the --encrypted_message.")
+    key_phrase = input("Enter your key phrase: ").strip()
+    if mode.lower() == "encrypt":
+        message = input("Enter your plaintext message: ").strip()
+    elif mode.lower() == "decrypt":
+        message = input("Enter your encrypted message: ").strip()
+    else:
+        raise ValueError("Unknown mode")
 
-    if not has_all_parts_from_cli:  # If only partial CLI args, then CLI error is returned above
-        print("No runtime arguments provided. Switching to interactive mode.")
-        mode = input("Are you encrypting or decrypting? (encrypt/decrypt/both): ").strip().lower()
-        while mode not in {"encrypt", "decrypt", "both"}:
-            mode = input("Invalid choice. Please enter 'encrypt', 'decrypt', or 'both': ").strip().lower()
-
-        key_phrase = input("Enter your key phrase: ").strip()
-        if mode in ("encrypt", "both"):
-            message = input("Enter your plaintext message: ").strip()
-        else:
-            message = input("Enter your encrypted message: ").strip()
-
-        return key_phrase, mode, message
-
-    key_phrase = args.key_phrase
-    if args.clear_text_message:
-        return key_phrase, "encrypt", args.clear_text_message
-    return key_phrase, "decrypt", args.encrypted_message
+    return key_phrase, mode.lower(), message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
 
 
 def prep_string_for_encrypting(orig_message: str) -> str:
@@ -517,6 +550,28 @@ def sanitize(raw_input: str) -> str:
     if raw_input.startswith("\\"):
         return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
     return raw_input.replace("\n", "")
+
+
+def shuffle_cube_with_key_phrase(sanitized_key_phrase: str, orig_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+    """
+    Shuffles the elements of a 3-dimensional list in-place for cryptographic use.
+
+    Args:
+        sanitized_key_phrase (str): stengthened, sanitized key
+        orig_cube (list[list[list[str]]]): A 3-dimensional list of strings to shuffle.
+
+    Returns:
+        list[list[list[str]]]: The shuffled 3-dimensional list.
+    """
+    random.seed(sanitized_key_phrase)
+    cube = orig_cube.copy()
+    for outer in cube:
+        for inner in outer:
+            random.shuffle(inner)
+    for outer in cube:
+        random.shuffle(outer)
+    random.shuffle(cube)
+    return cube
 
 
 def split_to_human_readable_symbols(s: str) -> list[str]:

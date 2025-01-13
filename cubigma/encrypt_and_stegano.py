@@ -7,12 +7,7 @@ import random
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
 from cubigma.steganography import embed_chunks, get_chunks_from_image, get_image_size
-from cubigma.utils import LENGTH_OF_QUARTET, pad_chunk, read_config
-
-config = read_config()
-SYMBOLS_PER_LINE = config["SYMBOLS_PER_LINE"]
-LINES_PER_BLOCK = config["LINES_PER_BLOCK"]
-NUM_BLOCKS = config["NUM_BLOCKS"]
+from cubigma.utils import LENGTH_OF_QUARTET, pad_chunk
 
 NUM_SQUARES = 5
 

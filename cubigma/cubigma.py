@@ -19,16 +19,10 @@ from cubigma.utils import (
     prepare_cuboid_with_key_phrase,
     quartet_to_index,
     sanitize,
+    split_to_human_readable_symbols,
     strengthen_key,
     user_perceived_length,
 )
-
-NUM_BLOCKS = 7  # X
-LINES_PER_BLOCK = 7  # Y
-SYMBOLS_PER_LINE = 7  # Z
-
-NUM_TOTAL_SYMBOLS = NUM_BLOCKS * LINES_PER_BLOCK * SYMBOLS_PER_LINE
-NUM_UNIQUE_QUARTETS = math.comb(NUM_TOTAL_SYMBOLS, LENGTH_OF_QUARTET)
 
 
 class Cubigma:
@@ -106,11 +100,14 @@ class Cubigma:
             cur_quartet = encrypted_quartet
         return cur_quartet
 
-    def _read_characters_file(self) -> list[str]:
+    def _read_characters_file(self, cube_length: int) -> list[str]:
         with open(self._characters_filepath, "r", encoding="utf-8") as line_count_file:
             num_symbols_prepared = sum(1 for _ in line_count_file)
 
-        symbols_to_load = SYMBOLS_PER_LINE * LINES_PER_BLOCK * NUM_BLOCKS
+        num_blocks = cube_length
+        line_per_block = cube_length
+        symbols_per_line = cube_length
+        symbols_to_load = symbols_per_line * line_per_block * num_blocks
         symbols_loaded = 0
         if symbols_to_load > num_symbols_prepared:
             raise ValueError(
@@ -129,8 +126,8 @@ class Cubigma:
                 symbols_loaded += 1
                 if symbols_loaded >= symbols_to_load:
                     break
-        symbols_per_block = SYMBOLS_PER_LINE * LINES_PER_BLOCK
-        total_num_of_symbols = symbols_per_block * NUM_BLOCKS
+        symbols_per_block = symbols_per_line * line_per_block
+        total_num_of_symbols = symbols_per_block * num_blocks
 
         if len(symbols) != total_num_of_symbols:
             raise ValueError(
@@ -141,7 +138,9 @@ class Cubigma:
         symbols = list(reversed(symbols))
         return symbols
 
-    def _read_cuboid_from_disk(self) -> list[list[list[str]]]:
+    def _read_cuboid_from_disk(self, cube_length: int) -> list[list[list[str]]]:
+        line_per_block = cube_length
+        symbols_per_line = cube_length
         playfair_cuboid = []
         current_frame = []
         with open(self._cuboid_filepath, "r", encoding="utf-8-sig") as cuboid_file:
@@ -152,12 +151,12 @@ class Cubigma:
                         trimmed_line = sanitized_line[0:-1]
                     else:
                         trimmed_line = sanitized_line
-                    if user_perceived_length(trimmed_line) > SYMBOLS_PER_LINE:
+                    if user_perceived_length(trimmed_line) > symbols_per_line:
                         raise ValueError(
                             "String have already been formatted to a length of 6. This error is unexpected."
                         )
                     current_frame.append(list(trimmed_line))
-                if len(current_frame) >= LINES_PER_BLOCK:
+                if len(current_frame) >= line_per_block:
                     playfair_cuboid.append(current_frame)
                     current_frame = []
         return playfair_cuboid
@@ -165,9 +164,9 @@ class Cubigma:
     def _write_cuboid_file(
         self,
         symbols: list[str],
-        num_blocks: int = NUM_BLOCKS,
-        lines_per_block: int = LINES_PER_BLOCK,
-        symbols_per_line: int = SYMBOLS_PER_LINE,
+        num_blocks: int = -1,
+        lines_per_block: int = -1,
+        symbols_per_line: int = -1,
     ) -> None:
         symbols_per_block = symbols_per_line * lines_per_block
         output_lines = []
@@ -275,26 +274,33 @@ class Cubigma:
     def prepare_machine(
         self,
         key_phrase: str,
-        cuboid_height: int = NUM_BLOCKS,
-        cuboid_length: int = LINES_PER_BLOCK,
-        cuboid_width: int = SYMBOLS_PER_LINE,
+        cube_length: int,
+        num_rotors_to_make: int,
+        rotors_to_use: list[int],
+        should_use_steganography: bool
     ) -> None:
         # Set up user-configurable parameters (like the plug board)
-        self._symbols = self._read_characters_file()
+        self._symbols = self._read_characters_file(cube_length)
         self._write_cuboid_file(
-            self._symbols, num_blocks=cuboid_height, lines_per_block=cuboid_length, symbols_per_line=cuboid_width
+            self._symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
-        raw_cuboid = self._read_cuboid_from_disk()
-        # ToDo: Instead of floating the key phrase, simply use the key phrase to seed random, and then generate 5 random
-        #  cuboids, then allow the user to select which 3 rotors to use
-        cuboid = prepare_cuboid_with_key_phrase(key_phrase, raw_cuboid)
+        raw_cube = self._read_cuboid_from_disk(cube_length)
 
         key_phrase_bytes, salt_used = strengthen_key(key_phrase)
         sanitized_key_phrase = key_phrase_bytes.decode("utf-8")
+        for character in split_to_human_readable_symbols(sanitized_key_phrase):
+            if character not in self._symbols:
+                raise ValueError("Key was strengthened to include an invalid character")
+
+        # ToDo: Instead of floating the key phrase, simply use the key phrase to seed random, and then generate 5 random
+        #  cuboids, then allow the user to select which 3 rotors to use
+        cube = prepare_cuboid_with_key_phrase(key_phrase, raw_cube)
 
         # Set up the rotors and the reflector
-        rotors = generate_rotors(sanitized_key_phrase, cuboid)
-        reflector = generate_reflector(sanitized_key_phrase, NUM_UNIQUE_QUARTETS)
+        rotors = generate_rotors(sanitized_key_phrase, cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use)
+        num_total_symbols = cube_length * cube_length * cube_length
+        num_unique_quartets = math.comb(num_total_symbols, LENGTH_OF_QUARTET)
+        reflector = generate_reflector(sanitized_key_phrase, num_unique_quartets)
         self.rotors = rotors
         self.reflector = reflector
         self._is_machine_prepared = True
@@ -318,8 +324,9 @@ def main() -> None:
 
     # key_phrase = "Rumpelstiltskin"
     # clear_text_message = "This is cool!"
-    key_phrase, mode, message = parse_arguments()
-    cubigma.prepare_machine(key_phrase)
+    tuple_result = parse_arguments()
+    key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = tuple_result
+    cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
 
     if mode == "encrypt":
         clear_text_message = message
