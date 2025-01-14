@@ -37,10 +37,7 @@ class TestGenerateCubeFromSymbols(unittest.TestCase):
         lines_per_block = 2
         symbols_per_line = 3
 
-        expected_output = [
-            [["a", "b", "c"], ["d", "e", "f"]],
-            [["g", "h", "i"], ["j", "k", "l"]]
-        ]
+        expected_output = [[["a", "b", "c"], ["d", "e", "f"]], [["g", "h", "i"], ["j", "k", "l"]]]
 
         result = generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
         self.assertEqual(result, expected_output)
@@ -74,10 +71,7 @@ class TestGenerateCubeFromSymbols(unittest.TestCase):
         lines_per_block = 2
         symbols_per_line = 3
 
-        expected_output = [
-            [["a", "\\\\", "\\n"], ["b", "\\t", "c"]],
-            [["d", "e", "f"], ["g", "h", "i"]]
-        ]
+        expected_output = [[["a", "\\\\", "\\n"], ["b", "\\t", "c"]], [["d", "e", "f"], ["g", "h", "i"]]]
 
         result = generate_cube_from_symbols(symbols_with_escape, num_blocks, lines_per_block, symbols_per_line)
         self.assertEqual(result, expected_output)

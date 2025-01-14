@@ -3,8 +3,10 @@ This file is used to encrypt and decrypt messages using the prepared cube.txt fi
 This code implements the Cubigma encryption algorithm.
 """
 
-from cubigma.utils import (  # Used in packaging & unit testing
-    # from utils import (  # Used in local debugging
+from base64 import b64decode
+
+# from cubigma.utils import (  # Used in packaging & unit testing
+from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
@@ -68,7 +70,7 @@ class Cubigma:
                         if cur_quartet[3] in cur_line:
                             indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
             orig_indices = []
-            for cur_char in cur_quartet:
+            for cur_char in split_to_human_readable_symbols(cur_quartet):
                 orig_indices.append(indices_by_char[cur_char])
             num_blocks = len(stepped_rotor)
             lines_per_block = len(stepped_rotor[0])
@@ -167,7 +169,7 @@ class Cubigma:
         Decrypt the message using the playfair cube
 
         Args:
-            encrypted_message (str): Encrypted message
+            encrypted_message (str): Salt + Encrypted message
             key_phrase (str): Secret key phrase
 
         Returns:
@@ -260,12 +262,13 @@ class Cubigma:
             self._symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
 
-        encoded_salt: bytes | None
+        salt_bytes: bytes | None
         if salt is None:
-            encoded_salt = salt
+            salt_bytes = salt
         else:
-            encoded_salt = salt.encode("utf-8")
-        strengthened_key_phrase, bases64_encoded_salt = strengthen_key(key_phrase, salt=encoded_salt)
+            # salt_bytes = salt.encode("utf-8")
+            salt_bytes = b64decode(salt)
+        strengthened_key_phrase, bases64_encoded_salt = strengthen_key(key_phrase, salt=salt_bytes)
         for character in split_to_human_readable_symbols(strengthened_key_phrase, expected_number_of_graphemes=44):
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
@@ -310,15 +313,20 @@ def main() -> None:
         print(f"{clear_text_message=}")
         raw_encrypted_message = cubigma.encrypt_message(message, key_phrase)
         encrypted_message = salt + raw_encrypted_message  # ToDo: Fix this
+        # ToDo Now: Need to print '\x06' as 1 character, not 4
         print(f"{encrypted_message=}")
     elif mode == "decrypt":
-        found_salt = ""  # ToDo: Extract the first 16 bytes from the encrypted message
-        cubigma.prepare_machine(
-            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=found_salt
-        )
-        encrypted_message = message
+        encrypted_content = message
+        # ToDo Now: Need to read '\x06' as 1 character, not 4
+        print(f"{encrypted_content=}")
+        length_of_salt = 24
+        salt = message[0:length_of_salt]
+        encrypted_message = message[length_of_salt:]
         print(f"{encrypted_message=}")
-        decrypted_message = cubigma.decrypt_message(message, key_phrase)
+        cubigma.prepare_machine(
+            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=salt
+        )
+        decrypted_message = cubigma.decrypt_message(encrypted_message, key_phrase)
         print(f"{decrypted_message=}")
     else:
         raise ValueError("Unexpected mode!")

@@ -1,7 +1,6 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
 from unittest.mock import patch, mock_open, MagicMock
-import os
 import unittest
 
 from cubigma.cubigma import NOISE_SYMBOL, Cubigma, main
@@ -561,11 +560,12 @@ class TestPrepareMachine(unittest.TestCase):
             orig_key_length=len(key_phrase),
         )
 
+    @patch("cubigma.cubigma.b64decode")
     @patch("cubigma.cubigma.generate_cube_from_symbols")
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
-    def test_prepare_machine_valid_inputs(self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube):
+    def test_prepare_machine_valid_inputs(self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_b64_encode):
         # Arrange
         (
             cubigma,
@@ -578,7 +578,7 @@ class TestPrepareMachine(unittest.TestCase):
             mock_read_characters_file,
             mock_symbols,
             mock_encoded_strengthened_key,
-            mock_cube
+            mock_cube,
         ) = self.configure(mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube)
 
         # Act
@@ -604,13 +604,19 @@ class TestPrepareMachine(unittest.TestCase):
             key_phrase,
         )
         mock_strengthen_key.assert_called_once_with(key_phrase, salt=None)
-        mock_gen_cube.assert_called_once_with(mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length)
+        mock_gen_cube.assert_called_once_with(
+            mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
+        )
+        mock_b64_encode.assert_not_called()
 
+    @patch("cubigma.cubigma.b64decode")
     @patch("cubigma.cubigma.generate_cube_from_symbols")
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
-    def test_prepare_machine_valid_inputs_and_salt(self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube):
+    def test_prepare_machine_valid_inputs_and_salt(
+        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_b64_encode
+    ):
         # Arrange
         (
             cubigma,
@@ -625,6 +631,7 @@ class TestPrepareMachine(unittest.TestCase):
             mock_encoded_strengthened_key,
             mock_cube,
         ) = self.configure(mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube)
+        mock_b64_encode.return_value = b"2"
 
         # Act
         result_salt = cubigma.prepare_machine(
@@ -649,7 +656,10 @@ class TestPrepareMachine(unittest.TestCase):
             key_phrase,
         )
         mock_strengthen_key.assert_called_once_with(key_phrase, salt=expected_salt.encode("utf-8"))
-        mock_gen_cube.assert_called_once_with(mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length)
+        mock_gen_cube.assert_called_once_with(
+            mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
+        )
+        mock_b64_encode.assert_called_once_with("2")
 
     @patch("cubigma.cubigma.generate_cube_from_symbols")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
@@ -678,7 +688,9 @@ class TestPrepareMachine(unittest.TestCase):
                 key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
             )
         self.assertIn("Key was strengthened to include an invalid character", str(context.exception))
-        mock_gen_cube.assert_called_once_with(mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length)
+        mock_gen_cube.assert_called_once_with(
+            mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
+        )
 
 
 class TestMainFunction(unittest.TestCase):
@@ -719,7 +731,7 @@ class TestMainFunction(unittest.TestCase):
         mock_parse_arguments.return_value = (
             "test_key",  # key_phrase
             "decrypt",  # mode
-            "test_encrypted_message",  # message
+            "test_encrypted_message_that_is_quite_very_long",  # message
             3,  # cube_length
             5,  # num_rotors_to_make
             [1, 2],  # rotors_to_use
@@ -735,9 +747,10 @@ class TestMainFunction(unittest.TestCase):
             main()
 
         # Assert
-        mock_cubigma_instance.prepare_machine.assert_called_once_with("test_key", 3, 5, [1, 2], True, salt="")
-        mock_cubigma_instance.decrypt_message.assert_called_once_with("test_encrypted_message", "test_key")
-        mock_print.assert_any_call("encrypted_message='test_encrypted_message'")
+        mock_cubigma_instance.prepare_machine.assert_called_once_with("test_key", 3, 5, [1, 2], True, salt="test_encrypted_message_t")
+        mock_cubigma_instance.decrypt_message.assert_called_once_with("hat_is_quite_very_long", "test_key")
+        mock_print.assert_any_call("encrypted_content='test_encrypted_message_that_is_quite_very_long'")
+        mock_print.assert_any_call("encrypted_message='hat_is_quite_very_long'")
         mock_print.assert_any_call(f"decrypted_message='{expected_decrypted_message}'")
 
     def test_main_unexpected_mode(self):

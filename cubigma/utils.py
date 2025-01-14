@@ -53,7 +53,19 @@ def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list
     key = key_phrase.encode("utf-8")  # Use the key phrase as the key for HMAC
     message = str(num_quartets_encoded).encode("utf-8")  # Use num_quartets_encoded as part of the message
     hmac_hash = hmac.new(key, message, hashlib.sha256).digest()  # Generate a secure hash using HMAC with SHA-256
-    quartet = [(byte % 8) for byte in hmac_hash[:4]]  # Extract 4 deterministic integers (0-7) from the hash
+    # quartet = [(byte % 8) for byte in hmac_hash[:4]]  # Extract 4 deterministic integers (0-7) from the hash
+    quartet = []
+    for byte in hmac_hash:
+        cur_number = byte % 8
+        if cur_number not in quartet:
+            quartet.append(cur_number)
+        if len(quartet) >= LENGTH_OF_QUARTET:
+            break
+    if len(quartet) < LENGTH_OF_QUARTET:
+        print("Ran out!")
+    num_unique = len(set(quartet))
+    if len(quartet) != num_unique:
+        print("found it")
     return quartet
 
 
@@ -350,8 +362,7 @@ def generate_cube_from_symbols(
             if _user_perceived_length("".join(raw_symbols)) != symbols_per_line:
                 raise ValueError("Something has failed")
             new_row = [i.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t") for i in raw_symbols]
-            if len(new_row) != symbols_per_line:
-                raise ValueError("Something has failed.")
+            assert len(new_row) == symbols_per_line, "Something else has failed."
             new_frame.append(new_row)
         cube.append(new_frame)
     return cube
@@ -478,6 +489,9 @@ def get_opposite_corners(
     all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
     indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+    num_unique_points_to_chose = len(set(indices_to_choose))
+    if num_unique_points_to_chose != len(indices_to_choose):
+        raise ValueError("Dagnabbit")
     chosen_point_1 = all_points[indices_to_choose[0]]
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]
