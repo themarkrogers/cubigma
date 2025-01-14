@@ -6,10 +6,8 @@ This code implements the Cubigma encryption algorithm.
 from base64 import b64decode
 import hashlib
 
-from setuptools.command.sdist import sdist
-
-# from cubigma.utils import (  # Used in packaging & unit testing
-from utils import (  # Used in local debugging
+from cubigma.utils import (  # Used in packaging & unit testing
+    # from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
@@ -21,7 +19,6 @@ from utils import (  # Used in local debugging
     parse_arguments,
     prep_string_for_encrypting,
     rotate_slice_of_cube,
-    run_quartet_through_reflector,
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
@@ -39,14 +36,17 @@ class Cubigma:
     _is_using_steganography: bool = False
     _num_quartets_encoded = 0
     _symbols: list[str]
-    reflector: dict[str, str]
     plugboard: dict[str, str]
+    reflector: dict[str, str]
     rotors: list[list[list[list[str]]]]
 
     def __init__(self, characters_filepath: str = "characters.txt", cube_filepath: str = "cube.txt"):
         self._characters_filepath = characters_filepath
         self._cube_filepath = cube_filepath
         self._is_machine_prepared = False
+        self.plugboard = {}
+        self.reflector = {}
+        self.rotors = []
 
     def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str) -> str:
         rev_rotors = list(reversed(self.rotors))
@@ -84,14 +84,14 @@ class Cubigma:
             reflected_quartet += reflected_symbol
 
         # Hash the quartet to determine the reordering
-        hash_input = f"{char_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
+        hash_input = f"{reflected_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
         quartet_hash = hashlib.sha256(hash_input.encode()).digest()
 
         # Determine the reordering using the first 4 bytes of the hash
         order = sorted(range(4), key=lambda i: quartet_hash[i])
 
         # Reorder the quartet based on the computed order
-        reordered_reflected_quartet = "".join(char_quartet[i] for i in order)
+        reordered_reflected_quartet = "".join(reflected_quartet[i] for i in order)
 
         return reordered_reflected_quartet
 
@@ -336,10 +336,10 @@ class Cubigma:
         )
         reflector = generate_reflector(strengthened_key_phrase, self._symbols)
         plugboard = generate_plugboard(plugboard_values)
+        self.plugboard = plugboard
+        self.reflector = reflector
         self.rotors = rotors
         self._is_using_steganography = should_use_steganography
-        self.reflector = reflector
-        self.plugbobard = plugboard
         self._is_machine_prepared = True
         return bases64_encoded_salt
 
@@ -390,7 +390,13 @@ def main() -> None:
         encrypted_message = message[length_of_salt:]
         print(f"{encrypted_message=}")
         cubigma.prepare_machine(
-            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=salt
+            key_phrase,
+            cube_length,
+            num_rotors_to_make,
+            rotors_to_use,
+            should_use_steganography,
+            plugboard_values,
+            salt=salt,
         )
         decrypted_message = cubigma.decrypt_message(encrypted_message, key_phrase)
         print(f"{decrypted_message=}")

@@ -11,8 +11,7 @@ from cubigma.cubigma import NOISE_SYMBOL, Cubigma, main
 
 class TestGetEncryptedLetterQuartet(unittest.TestCase):
 
-    @patch("cubigma.cubigma.run_quartet_through_reflector")
-    def test_get_encrypted_letter_quartet(self, mock_run_reflector):
+    def test_get_encrypted_letter_quartet(self):
         # Arrange
         cubigma = Cubigma()
         expected_rotors = [
@@ -28,7 +27,9 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
         mock_run_quartet_through_rotors = MagicMock()
         mock_run_quartet_through_rotors.side_effect = [expected_str_1, expected_result]
         cubigma._run_quartet_through_rotors = mock_run_quartet_through_rotors  # pylint:disable=W0212
-        mock_run_reflector.return_value = expected_middle_str
+        mock_run_quartet_through_reflector = MagicMock()
+        mock_run_quartet_through_reflector.return_value = expected_middle_str
+        cubigma._run_quartet_through_reflector = mock_run_quartet_through_reflector  # pylint:disable=W0212
         test_key_phrase = "foo"
         cubigma._num_quartets_encoded = 42  # pylint:disable=W0212
 
@@ -37,7 +38,12 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_result, result)
-        mock_run_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
+        mock_run_quartet_through_rotors.assert_any_call(test_char_quartet, expected_rotors, test_key_phrase)
+        mock_run_quartet_through_rotors.assert_any_call(
+            expected_middle_str, list(reversed(expected_rotors)), test_key_phrase
+        )
+        assert mock_run_quartet_through_rotors.call_count == 2
+        mock_run_quartet_through_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
 
 
 class TestReadCharactersFile(unittest.TestCase):
@@ -219,6 +225,103 @@ class TestReadCharactersFile(unittest.TestCase):
         # Assert
         expected_symbols = list(reversed(mock_data_array))
         self.assertEqual(result, expected_symbols)
+
+
+class TestRunQuartetThroughReflector(unittest.TestCase):
+
+    def test_deterministic_output(self):
+        """Test that the function produces deterministic output for the same inputs."""
+        char_quartet = "abcd"
+        expected_result = "WZYX"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets = 42
+        cubigma = Cubigma()
+        mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+        cubigma.reflector = mock_reflector
+
+        result1 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        )
+        result2 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        )
+        self.assertEqual(result1, result2, "The function should produce consistent output for the same inputs.")
+        self.assertEqual(expected_result, result1)
+
+    def test_different_inputs_produce_different_outputs(self):
+        """Test that different inputs produce different outputs."""
+        char_quartet = "abcd"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets1 = 42
+        num_of_encoded_quartets2 = 43
+        cubigma = Cubigma()
+        mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+        cubigma.reflector = mock_reflector
+
+        result1 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+            char_quartet, strengthened_key_phrase, num_of_encoded_quartets1
+        )
+        result2 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+            char_quartet, strengthened_key_phrase, num_of_encoded_quartets2
+        )
+        self.assertNotEqual(result1, result2, "Different inputs should produce different outputs.")
+
+    def test_output_is_permutation_of_input(self):
+        """Test that the output is a permutation of the input quartet."""
+        char_quartet = "abcd"
+        expected_result = "WXYZ"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets = 42
+        cubigma = Cubigma()
+        mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+        cubigma.reflector = mock_reflector
+
+        result = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        )
+        self.assertEqual(
+            sorted(expected_result), sorted(result), "Output should be a permutation of the input quartet."
+        )
+
+    def test_edge_case_empty_key_phrase(self):
+        """Test the function with an empty key phrase."""
+        char_quartet = "abcd"
+        expected_result = "WXYZ"
+        strengthened_key_phrase = ""
+        num_of_encoded_quartets = 42
+        cubigma = Cubigma()
+        mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+        cubigma.reflector = mock_reflector
+
+        result = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        )
+        self.assertEqual(
+            sorted(expected_result), sorted(result), "Output should still be a permutation of the input quartet."
+        )
+
+    def test_invalid_input_length(self):
+        """Test the function with an invalid quartet length."""
+        cubigma = Cubigma()
+        mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+        cubigma.reflector = mock_reflector
+
+        with self.assertRaises(ValueError):
+            cubigma._run_quartet_through_reflector("abc", "key", 42)  # pylint:disable=W0212
+
+    def test_invalid_characters_in_quartet(self):
+        """Test the function with invalid characters in the quartet."""
+        char_quartet = "ab1$"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets = 42
+        cubigma = Cubigma()
+        mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+        cubigma.reflector = mock_reflector
+
+        with self.assertRaises(KeyError):
+            cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
+                char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+            )
 
 
 class TestRunQuartetThroughRotors(unittest.TestCase):
@@ -515,6 +618,7 @@ class TestPrepareMachine(unittest.TestCase):
         rotors_to_use = [2, 0]
         should_use_steganography = True
         mock_gen_cube.return_value = mock_cube
+        plugboard_values = ["AB", "CD", "EF"]
         return (
             cubigma,
             key_phrase,
@@ -527,6 +631,7 @@ class TestPrepareMachine(unittest.TestCase):
             mock_symbols,
             mock_encoded_strengthened_key,
             mock_cube,
+            plugboard_values,
         )
 
     def validate(
@@ -537,7 +642,6 @@ class TestPrepareMachine(unittest.TestCase):
         result_salt,
         mock_read_characters_file,
         cube_length,
-        mock_symbols,
         mock_split,
         mock_encoded_strengthened_key,
         mock_generate_rotors,
@@ -545,6 +649,8 @@ class TestPrepareMachine(unittest.TestCase):
         num_rotors_to_make,
         rotors_to_use,
         key_phrase,
+        mock_gen_plugboard,
+        plugboard_values,
     ):
         self.assertTrue(cubigma._is_machine_prepared)  # pylint:disable=W0212
         self.assertTrue(cubigma._is_using_steganography)  # pylint:disable=W0212
@@ -559,14 +665,16 @@ class TestPrepareMachine(unittest.TestCase):
             rotors_to_use=rotors_to_use,
             orig_key_length=len(key_phrase),
         )
+        mock_gen_plugboard.assert_called_once_with(plugboard_values)
 
     @patch("cubigma.cubigma.b64decode")
+    @patch("cubigma.cubigma.generate_plugboard")
     @patch("cubigma.cubigma.generate_cube_from_symbols")
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
     def test_prepare_machine_valid_inputs(
-        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_b64_encode
+        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_gen_plugboard, mock_b64_encode
     ):
         # Arrange
         (
@@ -581,11 +689,12 @@ class TestPrepareMachine(unittest.TestCase):
             mock_symbols,
             mock_encoded_strengthened_key,
             mock_cube,
+            plugboard_values,
         ) = self.configure(mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube)
 
         # Act
         result_salt = cubigma.prepare_machine(
-            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
+            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, plugboard_values
         )
 
         # Assert
@@ -596,7 +705,6 @@ class TestPrepareMachine(unittest.TestCase):
             result_salt,
             mock_read_characters_file,
             cube_length,
-            mock_symbols,
             mock_split,
             mock_encoded_strengthened_key,
             mock_generate_rotors,
@@ -604,6 +712,8 @@ class TestPrepareMachine(unittest.TestCase):
             num_rotors_to_make,
             rotors_to_use,
             key_phrase,
+            mock_gen_plugboard,
+            plugboard_values,
         )
         mock_strengthen_key.assert_called_once_with(key_phrase, salt=None)
         mock_gen_cube.assert_called_once_with(
@@ -612,12 +722,13 @@ class TestPrepareMachine(unittest.TestCase):
         mock_b64_encode.assert_not_called()
 
     @patch("cubigma.cubigma.b64decode")
+    @patch("cubigma.cubigma.generate_plugboard")
     @patch("cubigma.cubigma.generate_cube_from_symbols")
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
     def test_prepare_machine_valid_inputs_and_salt(
-        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_b64_encode
+        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_gen_plugboard, mock_b64_encode
     ):
         # Arrange
         (
@@ -632,12 +743,19 @@ class TestPrepareMachine(unittest.TestCase):
             mock_symbols,
             mock_encoded_strengthened_key,
             mock_cube,
+            plugboard_values,
         ) = self.configure(mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube)
         mock_b64_encode.return_value = b"2"
 
         # Act
         result_salt = cubigma.prepare_machine(
-            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=expected_salt
+            key_phrase,
+            cube_length,
+            num_rotors_to_make,
+            rotors_to_use,
+            should_use_steganography,
+            plugboard_values,
+            salt=expected_salt,
         )
 
         # Assert
@@ -648,7 +766,6 @@ class TestPrepareMachine(unittest.TestCase):
             result_salt,
             mock_read_characters_file,
             cube_length,
-            mock_symbols,
             mock_split,
             mock_encoded_strengthened_key,
             mock_generate_rotors,
@@ -656,6 +773,8 @@ class TestPrepareMachine(unittest.TestCase):
             num_rotors_to_make,
             rotors_to_use,
             key_phrase,
+            mock_gen_plugboard,
+            plugboard_values,
         )
         mock_strengthen_key.assert_called_once_with(key_phrase, salt=expected_salt.encode("utf-8"))
         mock_gen_cube.assert_called_once_with(
@@ -678,16 +797,16 @@ class TestPrepareMachine(unittest.TestCase):
         mock_strengthen_key.return_value = mock_encoded_strengthened_key_encoded, mock_salt_encoded
         test_char_not_in_symbols = "7"
         mock_split.return_value = test_char_not_in_symbols
-
         key_phrase = "invalidKey#@!"
         cube_length = 3
         num_rotors_to_make = 2
         rotors_to_use = [0, 1]
         should_use_steganography = False
+        plugboard_values = ["AB", "BC"]
 
         with self.assertRaises(ValueError) as context:
             cubigma.prepare_machine(
-                key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
+                key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, plugboard_values
             )
         self.assertIn("Key was strengthened to include an invalid character", str(context.exception))
         mock_gen_cube.assert_called_once_with(
@@ -708,6 +827,7 @@ class TestMainFunction(unittest.TestCase):
             5,  # num_rotors_to_make
             [1, 2],  # rotors_to_use
             True,  # should_use_steganography
+            ["AB", "CD"],  # plugboard_values
         )
         mock_cubigma_instance = MagicMock()
         mock_cubigma.return_value = mock_cubigma_instance
@@ -720,7 +840,9 @@ class TestMainFunction(unittest.TestCase):
             main()
 
         # Assert
-        mock_cubigma_instance.prepare_machine.assert_called_once_with("test_key", 3, 5, [1, 2], True, salt=None)
+        mock_cubigma_instance.prepare_machine.assert_called_once_with(
+            "test_key", 3, 5, [1, 2], True, ["AB", "CD"], salt=None
+        )
         mock_cubigma_instance.encrypt_message.assert_called_once_with("test_message", "test_key")
         mock_print.assert_any_call("clear_text_message='test_message'")
         mock_print.assert_any_call(f"encrypted_message='mock_salt{expected_encrypted_message}'")
@@ -738,6 +860,7 @@ class TestMainFunction(unittest.TestCase):
             5,  # num_rotors_to_make
             [1, 2],  # rotors_to_use
             True,  # should_use_steganography
+            ["AB", "CD"],  # plugboard_values
         )
         mock_cubigma_instance = MagicMock()
         mock_cubigma.return_value = mock_cubigma_instance
@@ -750,7 +873,7 @@ class TestMainFunction(unittest.TestCase):
 
         # Assert
         mock_cubigma_instance.prepare_machine.assert_called_once_with(
-            "test_key", 3, 5, [1, 2], True, salt="test_encrypted_message_t"
+            "test_key", 3, 5, [1, 2], True, ["AB", "CD"], salt="test_encrypted_message_t"
         )
         mock_cubigma_instance.decrypt_message.assert_called_once_with("hat_is_quite_very_long", "test_key")
         mock_print.assert_any_call("encrypted_content='test_encrypted_message_that_is_quite_very_long'")
@@ -767,6 +890,7 @@ class TestMainFunction(unittest.TestCase):
                 5,  # num_rotors_to_make
                 [1, 2],  # rotors_to_use
                 True,  # should_use_steganography
+                ["AB", "CD"],  # plugboard_values
             )
 
             with self.assertRaises(ValueError) as context:

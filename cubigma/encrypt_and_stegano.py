@@ -129,7 +129,15 @@ def encrypt_message_into_image(
         should_use_steganography,
         plugboard_values,
     ) = tuple_result
-    cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
+    cubigma.prepare_machine(
+        key_phrase,
+        cube_length,
+        num_rotors_to_make,
+        rotors_to_use,
+        should_use_steganography,
+        plugboard_values,
+        salt=None,
+    )
     clear_text_message_after_plugboard = cubigma._run_message_through_plugboard(clear_text_message)
     sanitized_string = prep_string_for_encrypting(clear_text_message_after_plugboard)
 
@@ -184,7 +192,16 @@ def decrypt_message_from_image(stego_image_filepath: str, key_phrase: str = "", 
         should_use_steganography,
         plugboard_values,
     ) = tuple_result
-    cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
+    salt = "Coming soon..."  # ToDo: actually get the salt from the chunks
+    cubigma.prepare_machine(
+        key_phrase,
+        cube_length,
+        num_rotors_to_make,
+        rotors_to_use,
+        should_use_steganography,
+        plugboard_values,
+        salt=salt,
+    )
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
     for chunk in chunks:

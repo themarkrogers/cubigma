@@ -19,16 +19,6 @@ LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
 
 
-# def deterministic_randbelow(max_value: int, key_iter: iter) -> int:
-#     """
-#     Generate a deterministic, cryptographically secure random number below max_value.
-#     """
-#     random_byte = next(key_iter, None)
-#     if random_byte is None:
-#         raise ValueError("Key iterator exhausted, possibly insufficient entropy in the key phrase.")
-#     return int(random_byte) % max_value
-
-
 def _find_symbol(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> tuple[int, int, int]:
     """Finds the frame, row, and column of the given symbol in the playfair cube."""
     for frame_idx, frame in enumerate(playfair_cube):
@@ -61,11 +51,12 @@ def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list
             quartet.append(cur_number)
         if len(quartet) >= LENGTH_OF_QUARTET:
             break
-    if len(quartet) < LENGTH_OF_QUARTET:
-        print("Ran out!")
-    num_unique = len(set(quartet))
-    if len(quartet) != num_unique:
-        print("found it")
+    # ToDo: Remove debug comments
+    # if len(quartet) < LENGTH_OF_QUARTET:
+    #     print("Ran out!")
+    # num_unique = len(set(quartet))
+    # if len(quartet) != num_unique:
+    #     print("found it")
     return quartet
 
 
@@ -112,69 +103,6 @@ def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -
         return False
     is_z_valid = 0 <= inner_z < len(inner_grid[0][0])
     return is_z_valid
-
-
-def _move_letter_to_center(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the center of the playfair cube."""
-    num_blocks = len(playfair_cube)
-    lines_per_block = len(playfair_cube[0])
-    symbols_per_line = len(playfair_cube[0][0])
-    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
-    start_position = _find_symbol(symbol_to_move, playfair_cube)
-    updated_cube = _move_symbol_in_3d_grid(start_position, center_position, playfair_cube)
-    return updated_cube
-
-
-def _move_letter_to_front(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the front of the playfair cube."""
-    start_position = _find_symbol(symbol_to_move, playfair_cube)
-    updated_cube = _move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cube)
-    return updated_cube
-
-
-def _move_symbol_in_3d_grid(
-    coord1: tuple[int, int, int], coord2: tuple[int, int, int], grid: list[list[list[str]]]
-) -> list[list[list[str]]]:
-    """
-    Moves a symbol from `coord1` to `coord2` in a 3D grid and shifts intermediate elements accordingly.
-
-    Args:
-        coord1 (tuple[int, int, int]): The (x, y, z) coordinate of the symbol to move.
-        coord2 (tuple[int, int, int]): The (x, y, z) coordinate where the symbol is to be moved.
-        grid (list[list[list[str]]]): A 3D grid of symbols.
-
-    Returns:
-        list[list[list[str]]]: The updated grid after moving the symbol.
-    """
-    if not (_is_valid_coord(coord1, grid) and _is_valid_coord(coord2, grid)):
-        raise ValueError("One or both coordinates are out of grid bounds.")
-    size_x, size_y, size_z = len(grid), len(grid[0]), len(grid[0][0])
-    flat_grid = [grid[x][y][z] for x in range(size_x) for y in range(size_y) for z in range(size_z)]
-
-    idx1 = _get_flat_index(*coord1, size_x, size_y)
-    idx2 = _get_flat_index(*coord2, size_x, size_y)
-
-    symbol_to_move = flat_grid[idx1]
-
-    # Shift elements and insert the moved symbol
-    idx_start = idx1 + 1
-    if idx1 < idx2:
-        idx_end = idx2 + 1
-        flat_grid = flat_grid[:idx1] + flat_grid[idx_start:idx_end] + [symbol_to_move] + flat_grid[idx_end:]
-    else:
-        flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx_start:]
-
-    # Rebuild the 3D grid
-    updated_grid = []
-    for x in range(size_x):
-        cur_elements = []
-        for y in range(size_y):
-            idx_start = x * size_y * size_z + y * size_z
-            idx_end = x * size_y * size_z + (y + 1) * size_z
-            cur_element = flat_grid[idx_start:idx_end]
-            cur_elements.append(cur_element)
-        updated_grid.append(cur_elements)
-    return updated_grid
 
 
 def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
@@ -250,15 +178,12 @@ def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str,
         if not isinstance(raw_plugboard_val, str):
             raise ValueError(f"PLUGBOARD (in config.json) contains a non-string value at index: {index}")
         if _user_perceived_length(raw_plugboard_val) != 2:
-            first_half = "PLUGBOARD (in config.json) all plugboard"
-            raise ValueError(
-                f"{first_half} values must be pairs of symbols.index {index} has length of {_user_perceived_length(raw_plugboard_val)}"
-            )
-        for plugboard_symbol in split_to_human_readable_symbols(raw_plugboard_val):
-            if raw_plugboard_val in seen_plugboard_symbols:
-                raise ValueError(
-                    f"PLUGBOARD (in config.json) all PLUGBOARD symbols must be unique. {plugboard_symbol} appears more than once"
-                )
+            first_half = "PLUGBOARD (in config.json) all plugboard values must be pairs of symbols."
+            raise ValueError(f"{first_half} index {index} has length of {_user_perceived_length(raw_plugboard_val)}")
+        for plugboard_symbol in split_to_human_readable_symbols(raw_plugboard_val, expected_number_of_graphemes=2):
+            if plugboard_symbol in seen_plugboard_symbols:
+                first_half = "PLUGBOARD (in config.json) all plugboard symbols must be unique."
+                raise ValueError(f"{first_half} {plugboard_symbol} appears more than once")
             seen_plugboard_symbols.append(plugboard_symbol)
 
     return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography, plugboard_values
@@ -352,24 +277,6 @@ def _shuffle_cube_with_key_phrase(
     return reshaped_cube
 
 
-def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
-    if len(sanitized_key_phrase) < num_rotors:
-        raise ValueError("Message length must be at least the number of rotors")
-    if num_rotors <= 0:
-        raise ValueError("Invalid number of rotors. Must be at least 1.")
-    key_third_length = len(sanitized_key_phrase) // num_rotors
-    key_parts = []
-    for i in range(num_rotors):
-        idx_start = key_third_length * i
-        idx_end = key_third_length * (i + 1)
-        if i == num_rotors - 1:
-            key_part = sanitized_key_phrase[idx_start:]
-        else:
-            key_part = sanitized_key_phrase[idx_start:idx_end]
-        key_parts.append(key_part)
-    return key_parts
-
-
 def generate_cube_from_symbols(
     symbols: list[str], num_blocks: int = -1, lines_per_block: int = -1, symbols_per_line: int = -1
 ) -> list[list[list[str]]]:
@@ -401,13 +308,17 @@ def generate_plugboard(plugboard_values: list[str]) -> dict[str, str]:
         a dictionary of one symbol to another
     """
     plugboard = {}
+    seen_plugboard_symbols = []
     for index, symbol_pair in enumerate(plugboard_values):
-        symbols = split_to_human_readable_symbols(symbol_pair)
+        symbols = split_to_human_readable_symbols(symbol_pair, expected_number_of_graphemes=None)
         if len(symbols) != 2:
             first_half = "Plugboard values are expected to all be pairs of symbols."
             raise ValueError(f"{first_half} Something else is the case at index {index}")
         symbol_1 = symbols[0]
         symbol_2 = symbols[1]
+        if symbol_1 in seen_plugboard_symbols or symbol_2 in seen_plugboard_symbols:
+            raise ValueError("Cannot create a plugboard with duplicate symbols")
+        seen_plugboard_symbols += [symbol_1, symbol_2]
         plugboard[symbol_1] = symbol_2
         plugboard[symbol_2] = symbol_1
     return plugboard
@@ -424,8 +335,21 @@ def generate_reflector(strengthened_key_phrase: str, symbols: list[str]) -> dict
     Returns:
         a dictionary of one symbol to another
     """
+    # Create a list of all possible symbols
+    new_symbols = symbols.copy()
+
+    # Seed the random generator with the key
+    random.seed(strengthened_key_phrase)
+
+    # Shuffle the quartets
+    random.shuffle(new_symbols)
+
+    # Create pairs and map them bidirectionally
     reflector = {}
-    # ToDo: Implement this function
+    for i in range(0, len(new_symbols), 2):
+        q1, q2 = new_symbols[i], new_symbols[i + 1]
+        reflector[q1] = q2
+        reflector[q2] = q1
     return reflector
 
 
@@ -550,9 +474,10 @@ def get_opposite_corners(
     all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
     indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
-    num_unique_points_to_chose = len(set(indices_to_choose))
-    if num_unique_points_to_chose != len(indices_to_choose):
-        raise ValueError("Dagnabbit")
+    # ToDo: Remove debug comments
+    # num_unique_points_to_chose = len(set(indices_to_choose))
+    # if num_unique_points_to_chose != len(indices_to_choose):
+    #     raise ValueError("Dagnabbit")
     chosen_point_1 = all_points[indices_to_choose[0]]
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]
@@ -677,14 +602,6 @@ def read_config(config_file: str = "config.json") -> dict[str, Any]:
         return json.load(file)
 
 
-def remove_duplicate_letters(orig: str) -> str:
-    unique_letters = []
-    for letter in orig:
-        if letter not in unique_letters:
-            unique_letters.append(letter)
-    return "".join(list(unique_letters))
-
-
 def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> list[list[list[str]]]:
     """
     Rotate a slice of a 3D cube (3-dimensional array of chars) along a chosen axis.
@@ -731,19 +648,6 @@ def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> lis
     return new_cube
 
 
-def run_quartet_through_reflector(char_quartet: str, strengthened_key_phrase: str, num_of_encoded_quartets: int) -> str:
-
-    # Hash the quartet to determine the reordering
-    hash_input = f"{char_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
-    quartet_hash = hashlib.sha256(hash_input.encode()).digest()
-
-    # Determine the reordering using the first 4 bytes of the hash
-    order = sorted(range(4), key=lambda i: quartet_hash[i])
-
-    # Reorder the quartet based on the computed order
-    return "".join(char_quartet[i] for i in order)
-
-
 def sanitize(raw_input: str) -> str:
     if raw_input.startswith("\\"):
         return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
@@ -766,7 +670,7 @@ def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | 
     # Ensure the string has exactly 4 human-discernible symbols
     if expected_number_of_graphemes:
         if len(graphemes) != expected_number_of_graphemes:
-            raise ValueError("The input string must have a user-perceived length of 4.")
+            raise ValueError(f"The input string must have a user-perceived length of {expected_number_of_graphemes}.")
     return graphemes
 
 
@@ -809,3 +713,95 @@ def _user_perceived_length(s: str) -> int:
     # Match grapheme clusters
     graphemes = regex.findall(r"\X", s)
     return len(graphemes)
+
+
+# Functions below are Deprecated
+
+
+def _move_letter_to_center(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the center of the playfair cube."""
+    num_blocks = len(playfair_cube)
+    lines_per_block = len(playfair_cube[0])
+    symbols_per_line = len(playfair_cube[0][0])
+    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
+    start_position = _find_symbol(symbol_to_move, playfair_cube)
+    updated_cube = _move_symbol_in_3d_grid(start_position, center_position, playfair_cube)
+    return updated_cube
+
+
+def _move_letter_to_front(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+    """Moves the symbol to the front of the playfair cube."""
+    start_position = _find_symbol(symbol_to_move, playfair_cube)
+    updated_cube = _move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cube)
+    return updated_cube
+
+
+def _move_symbol_in_3d_grid(
+    coord1: tuple[int, int, int], coord2: tuple[int, int, int], grid: list[list[list[str]]]
+) -> list[list[list[str]]]:
+    """
+    Moves a symbol from `coord1` to `coord2` in a 3D grid and shifts intermediate elements accordingly.
+
+    Args:
+        coord1 (tuple[int, int, int]): The (x, y, z) coordinate of the symbol to move.
+        coord2 (tuple[int, int, int]): The (x, y, z) coordinate where the symbol is to be moved.
+        grid (list[list[list[str]]]): A 3D grid of symbols.
+
+    Returns:
+        list[list[list[str]]]: The updated grid after moving the symbol.
+    """
+    if not (_is_valid_coord(coord1, grid) and _is_valid_coord(coord2, grid)):
+        raise ValueError("One or both coordinates are out of grid bounds.")
+    size_x, size_y, size_z = len(grid), len(grid[0]), len(grid[0][0])
+    flat_grid = [grid[x][y][z] for x in range(size_x) for y in range(size_y) for z in range(size_z)]
+
+    idx1 = _get_flat_index(*coord1, size_x, size_y)
+    idx2 = _get_flat_index(*coord2, size_x, size_y)
+
+    symbol_to_move = flat_grid[idx1]
+
+    # Shift elements and insert the moved symbol
+    idx_start = idx1 + 1
+    if idx1 < idx2:
+        idx_end = idx2 + 1
+        flat_grid = flat_grid[:idx1] + flat_grid[idx_start:idx_end] + [symbol_to_move] + flat_grid[idx_end:]
+    else:
+        flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx_start:]
+
+    # Rebuild the 3D grid
+    updated_grid = []
+    for x in range(size_x):
+        cur_elements = []
+        for y in range(size_y):
+            idx_start = x * size_y * size_z + y * size_z
+            idx_end = x * size_y * size_z + (y + 1) * size_z
+            cur_element = flat_grid[idx_start:idx_end]
+            cur_elements.append(cur_element)
+        updated_grid.append(cur_elements)
+    return updated_grid
+
+
+def remove_duplicate_letters(orig: str) -> str:
+    unique_letters = []
+    for letter in orig:
+        if letter not in unique_letters:
+            unique_letters.append(letter)
+    return "".join(list(unique_letters))
+
+
+def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
+    if len(sanitized_key_phrase) < num_rotors:
+        raise ValueError("Message length must be at least the number of rotors")
+    if num_rotors <= 0:
+        raise ValueError("Invalid number of rotors. Must be at least 1.")
+    key_third_length = len(sanitized_key_phrase) // num_rotors
+    key_parts = []
+    for i in range(num_rotors):
+        idx_start = key_third_length * i
+        idx_end = key_third_length * (i + 1)
+        if i == num_rotors - 1:
+            key_part = sanitized_key_phrase[idx_start:]
+        else:
+            key_part = sanitized_key_phrase[idx_start:idx_end]
+        key_parts.append(key_part)
+    return key_parts

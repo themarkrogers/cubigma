@@ -445,13 +445,14 @@ class TestReadAndValidateConfig(unittest.TestCase):
             "ROTORS_TO_USE": [1, 2, 3],
             "ENCRYPT_OR_DECRYPT": "ENCRYPT",
             "ALSO_USE_STEGANOGRAPHY": True,
+            "PLUGBOARD": ["AB", "CD"],
         }
 
     @patch("cubigma.utils.read_config")
     def test_valid_config(self, mock_read_config):
         mock_read_config.return_value = self.valid_config
         result = _read_and_validate_config()
-        self.assertEqual(result, (7, 10, [1, 2, 3], "ENCRYPT", True))
+        self.assertEqual(result, (7, 10, [1, 2, 3], "ENCRYPT", True, ["AB", "CD"]))
 
     @patch("cubigma.utils.read_config")
     def test_missing_length_of_cube(self, mock_read_config):
@@ -546,7 +547,7 @@ class TestReadAndValidateConfig(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
         self.assertIn(
-            "OTORS_TO_USE (in config.json) all rotor values must be between 0 & the number of rotors generated",
+            "ROTORS_TO_USE (in config.json) all rotor values must be between 0 & the number of rotors generated",
             str(context.exception),
         )
 
@@ -605,6 +606,57 @@ class TestReadAndValidateConfig(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
         self.assertIn("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value", str(context.exception))
+
+    @patch("cubigma.utils.read_config")
+    def test_missing_plugboard(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        del invalid_config["PLUGBOARD"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("PLUGBOARD not found in config.json", str(context.exception))
+
+    @patch("cubigma.utils.read_config")
+    def test_incorrect_plugboard(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["PLUGBOARD"] = "['AB', 'CD', 'EF']"
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("PLUGBOARD (in config.json) must be a list of symbol pairs", str(context.exception))
+
+    @patch("cubigma.utils.read_config")
+    def test_incorrect_plugboard_values_1(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["PLUGBOARD"] = ["AB", 1, "CD", 2]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn("PLUGBOARD (in config.json) contains a non-string value at index: 1", str(context.exception))
+
+    @patch("cubigma.utils.read_config")
+    def test_incorrect_plugboard_values_2(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["PLUGBOARD"] = ["ABC", "DE"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn(
+            "PLUGBOARD (in config.json) all plugboard values must be pairs of symbols.",
+            str(context.exception),
+        )
+
+    @patch("cubigma.utils.read_config")
+    def test_incorrect_plugboard_values_3(self, mock_read_config):
+        invalid_config = self.valid_config.copy()
+        invalid_config["PLUGBOARD"] = ["AB", "BC"]
+        mock_read_config.return_value = invalid_config
+        with self.assertRaises(ValueError) as context:
+            _read_and_validate_config()
+        self.assertIn(
+            "PLUGBOARD (in config.json) all plugboard symbols must be unique",
+            str(context.exception),
+        )
 
 
 class TestRotate2DArray(unittest.TestCase):

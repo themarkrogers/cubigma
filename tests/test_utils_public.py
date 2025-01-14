@@ -9,6 +9,7 @@ import unittest
 from cubigma.utils import (
     LENGTH_OF_QUARTET,
     generate_cube_from_symbols,
+    generate_plugboard,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -18,7 +19,6 @@ from cubigma.utils import (
     read_config,
     remove_duplicate_letters,
     rotate_slice_of_cube,
-    run_quartet_through_reflector,
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
@@ -87,6 +87,37 @@ class TestGenerateCubeFromSymbols(unittest.TestCase):
 
         result = generate_cube_from_symbols(symbols, num_blocks, lines_per_block, symbols_per_line)
         self.assertEqual(result, expected_output)
+
+
+class TestGeneratePlugboard(unittest.TestCase):
+
+    def test_valid_plugboard_values(self):
+        plugboard_values = ["AB", "CD", "EF"]
+        expected_output = {"A": "B", "B": "A", "C": "D", "D": "C", "E": "F", "F": "E"}
+        result = generate_plugboard(plugboard_values)
+        self.assertEqual(result, expected_output)
+
+    def test_empty_plugboard_values(self):
+        plugboard_values = []
+        expected_output = {}
+        result = generate_plugboard(plugboard_values)
+        self.assertEqual(result, expected_output)
+
+    def test_invalid_plugboard_value_length(self):
+        plugboard_values = ["A", "BCD", "EF"]
+        with self.assertRaises(ValueError) as context:
+            generate_plugboard(plugboard_values)
+        self.assertIn("Plugboard values are expected to all be pairs of symbols.", str(context.exception))
+
+    def test_duplicate_symbols(self):
+        plugboard_values = ["AB", "AC"]
+        with self.assertRaises(ValueError):
+            generate_plugboard(plugboard_values)
+
+    def test_non_string_symbols(self):
+        plugboard_values = [123, "AB"]
+        with self.assertRaises(TypeError):
+            generate_plugboard(plugboard_values)
 
 
 class TestGenerateRotors(unittest.TestCase):
@@ -401,10 +432,11 @@ class TestParseArguments(unittest.TestCase):
             [1, 2, 3],  # rotors_to_use
             "encrypt",  # mode
             True,  # should_use_steganography
+            ["AB"],  # plugboard values
         )
 
         # Call the function
-        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
+        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steg, plugboard = (
             parse_arguments()
         )
 
@@ -415,7 +447,8 @@ class TestParseArguments(unittest.TestCase):
         self.assertEqual(cube_length, 5)
         self.assertEqual(num_rotors_to_make, 3)
         self.assertEqual(rotors_to_use, [1, 2, 3])
-        self.assertTrue(should_use_steganography)
+        self.assertTrue(should_use_steg)
+        self.assertTrue(plugboard, ["AB", "CD"])
         assert mock_input.call_count == 2
 
     @patch("builtins.input", side_effect=["test_key", "test_encrypted_message"])
@@ -428,10 +461,11 @@ class TestParseArguments(unittest.TestCase):
             [0, 1],  # rotors_to_use
             "decrypt",  # mode
             False,  # should_use_steganography
+            ["AB"],  # plugboard values
         )
 
         # Call the function
-        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
+        key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steg, plugboard = (
             parse_arguments(mode="decrypt")
         )
 
@@ -442,14 +476,15 @@ class TestParseArguments(unittest.TestCase):
         self.assertEqual(cube_length, 4)
         self.assertEqual(num_rotors_to_make, 2)
         self.assertEqual(rotors_to_use, [0, 1])
-        self.assertFalse(should_use_steganography)
+        self.assertFalse(should_use_steg)
+        self.assertTrue(plugboard, ["AB", "CD"])
         assert mock_input.call_count == 2
 
     @patch("builtins.input", side_effect=["cryptid", "message"])
     @patch("cubigma.utils._read_and_validate_config")
     def test_parse_arguments_invalid_mode(self, mock_read_and_validate_config, mock_input):
         """Test parse_arguments function with an invalid mode."""
-        mock_read_and_validate_config.return_value = (0, 0, [], "invalid_mode", False)
+        mock_read_and_validate_config.return_value = (0, 0, [], "invalid_mode", False, ["AB"])
 
         with self.assertRaises(ValueError) as context:
             parse_arguments()
@@ -707,64 +742,6 @@ class TestRotateSliceOfCube(unittest.TestCase):
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
-
-
-class TestRunQuartetThroughReflector(unittest.TestCase):
-
-    def test_deterministic_output(self):
-        """Test that the function produces deterministic output for the same inputs."""
-        char_quartet = "abcd"
-        strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets = 42
-
-        result1 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
-        result2 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
-        self.assertEqual(result1, result2, "The function should produce consistent output for the same inputs.")
-
-    def test_different_inputs_produce_different_outputs(self):
-        """Test that different inputs produce different outputs."""
-        char_quartet = "abcd"
-        strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets1 = 42
-        num_of_encoded_quartets2 = 43
-
-        result1 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets1)
-        result2 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets2)
-        self.assertNotEqual(result1, result2, "Different inputs should produce different outputs.")
-
-    def test_output_is_permutation_of_input(self):
-        """Test that the output is a permutation of the input quartet."""
-        char_quartet = "abcd"
-        strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets = 42
-
-        result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
-        self.assertEqual(sorted(result), sorted(char_quartet), "Output should be a permutation of the input quartet.")
-
-    def test_edge_case_empty_key_phrase(self):
-        """Test the function with an empty key phrase."""
-        char_quartet = "abcd"
-        strengthened_key_phrase = ""
-        num_of_encoded_quartets = 42
-
-        result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
-        self.assertEqual(
-            sorted(result), sorted(char_quartet), "Output should still be a permutation of the input quartet."
-        )
-
-    def test_invalid_input_length(self):
-        """Test the function with an invalid quartet length."""
-        with self.assertRaises(IndexError):
-            run_quartet_through_reflector("abc", "key", 42)
-
-    def test_invalid_characters_in_quartet(self):
-        """Test the function with invalid characters in the quartet."""
-        char_quartet = "ab1$"
-        strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets = 42
-
-        result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
-        self.assertEqual(sorted(result), sorted(char_quartet), "Output should handle all valid input characters.")
 
 
 class TestSanitizeFunction(unittest.TestCase):
