@@ -19,6 +19,7 @@ from cubigma.utils import (
     quartet_to_index,
     read_config,
     remove_duplicate_letters,
+    rotate_slice_of_cube,
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
@@ -767,6 +768,137 @@ class TestRemoveDuplicateLetters(unittest.TestCase):
     def test_long_string(self):
         """Test with a long string to ensure performance and correctness."""
         self.assertEqual(remove_duplicate_letters("a" * 1000 + "b" * 1000), "ab")
+
+
+class TestRotateSliceOfCube(unittest.TestCase):
+    def setUp(self):
+        self.cube = [
+            [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["Y", "O", "P"], ["Y", "O", "P"], ["Y", "O", "P"]],
+            [["W", "K", "M"], ["W", "K", "M"], ["W", "K", "M"]],
+        ]
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_rotate_x_axis_clockwise(self, mock_randint, mock_choice):
+        # Arrange
+        mock_choice.side_effect = ["X", 1]  # Choose X-axis, clockwise rotation
+        mock_randint.return_value = 1  # Rotate slice index 1
+        expected_cube = [
+            [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["Y", "Y", "Y"], ["O", "O", "O"], ["P", "P", "P"]],
+            [["W", "K", "M"], ["W", "K", "M"], ["W", "K", "M"]],
+        ]
+
+        # Act
+        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+
+        # Assert
+        self.assertEqual(result_cube, expected_cube)
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_rotate_x_axis_counter_clockwise(self, mock_randint, mock_choice):
+        # Arrange
+        mock_choice.side_effect = ["X", -1]  # Choose X-axis, clockwise rotation
+        mock_randint.return_value = 1  # Rotate slice index 1
+        expected_cube = [
+            [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["P", "P", "P"], ["O", "O", "O"], ["Y", "Y", "Y"]],
+            [["W", "K", "M"], ["W", "K", "M"], ["W", "K", "M"]],
+        ]
+
+        # Act
+        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+
+        # Assert
+        self.assertEqual(result_cube, expected_cube)
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_rotate_y_axis_clockwise(self, mock_randint, mock_choice):
+        # Arrange
+        mock_choice.side_effect = ["Y", 1]  # Choose Y-axis, counterclockwise rotation
+        test_slice_idx = 0
+        mock_randint.return_value = test_slice_idx  # Rotate slice index 0
+        expected_cube = [
+            [["Y", "R", "G"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["W", "O", "B"], ["Y", "O", "P"], ["Y", "O", "P"]],
+            [["K", "M", "P"], ["W", "K", "M"], ["W", "K", "M"]],
+        ]
+
+        # Act
+        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+
+        # Assert
+        self.assertEqual(result_cube, expected_cube)
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_rotate_y_axis_counter_clockwise(self, mock_randint, mock_choice):
+        # Arrange
+        mock_choice.side_effect = ["Y", -1]  # Choose Y-axis, counterclockwise rotation
+        test_slice_idx = 0
+        mock_randint.return_value = test_slice_idx  # Rotate slice index 0
+        expected_cube = [
+            [
+                ["G", "B", "P"],
+                ["R", "G", "B"],
+                ["R", "G", "B"],
+            ],
+            [
+                ["R", "O", "M"],
+                ["Y", "O", "P"],
+                ["Y", "O", "P"],
+            ],
+            [
+                ["Y", "W", "K"],
+                ["W", "K", "M"],
+                ["W", "K", "M"],
+            ],
+        ]
+
+        # Act
+        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+
+        # Assert
+        self.assertEqual(result_cube, expected_cube)
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_rotate_z_axis_clockwise(self, mock_randint, mock_choice):
+        # Arrange
+        mock_choice.side_effect = ["Z", 1]  # Choose Z-axis, clockwise rotation
+        mock_randint.return_value = 2  # Rotate slice index 2
+        expected_cube = [
+            [["R", "G", "M"], ["R", "G", "P"], ["R", "G", "B"]],
+            [["Y", "O", "M"], ["Y", "O", "P"], ["Y", "O", "B"]],
+            [["W", "K", "M"], ["W", "K", "P"], ["W", "K", "B"]],
+        ]
+
+        # Act
+        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+
+        # Assert
+        self.assertEqual(result_cube, expected_cube)
+
+    @patch("random.choice")
+    @patch("random.randint")
+    def test_rotate_z_axis_counter_clockwise(self, mock_randint, mock_choice):
+        # Arrange
+        mock_choice.side_effect = ["Z", 1]  # Choose Z-axis, clockwise rotation
+        mock_randint.return_value = 2  # Rotate slice index 2
+        expected_cube = [
+            [["R", "G", "B"], ["R", "G", "P"], ["R", "G", "M"]],
+            [["Y", "O", "B"], ["Y", "O", "P"], ["Y", "O", "M"]],
+            [["W", "K", "B"], ["W", "K", "P"], ["W", "K", "M"]],
+        ]
+
+        # Act
+        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+
+        # Assert
+        self.assertEqual(result_cube, expected_cube)
 
 
 class TestSanitizeFunction(unittest.TestCase):

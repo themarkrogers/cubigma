@@ -6,7 +6,7 @@ This code implements the Cubigma encryption algorithm.
 import math
 
 from cubigma.utils import (
-    # from utils import (
+# from utils import (
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_reflector,
@@ -17,6 +17,7 @@ from cubigma.utils import (
     parse_arguments,
     prep_string_for_encrypting,
     quartet_to_index,
+    rotate_slice_of_cube,
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
@@ -66,8 +67,12 @@ class Cubigma:
     ) -> str:
         indices_by_char = {}
         cur_quartet = char_quartet
-        for rotor in rotors:
-            for frame_idx, cur_frame in enumerate(rotor):
+        for rotor_number, rotor in enumerate(rotors):
+            # Step the rotors forward immediately before encoding each quartet on each rotor
+            stepped_rotor = self._step_rotor(rotor, rotor_number, key_phrase)
+            rotors[rotor_number] = stepped_rotor
+
+            for frame_idx, cur_frame in enumerate(stepped_rotor):
                 for row_idx, cur_line in enumerate(cur_frame):
                     if any(char in cur_line for char in cur_quartet):
                         if cur_quartet[0] in cur_line:
@@ -81,9 +86,9 @@ class Cubigma:
             orig_indices = []
             for cur_char in cur_quartet:
                 orig_indices.append(indices_by_char[cur_char])
-            num_blocks = len(rotor)
-            lines_per_block = len(rotor[0])
-            symbols_per_line = len(rotor[0][0])
+            num_blocks = len(stepped_rotor)
+            lines_per_block = len(stepped_rotor[0])
+            symbols_per_line = len(stepped_rotor[0][0])
             encrypted_indices = get_opposite_corners(
                 orig_indices[0],
                 orig_indices[1],
@@ -96,12 +101,13 @@ class Cubigma:
                 self._num_quartets_encoded,
             )
             self._num_quartets_encoded += 1
-            encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], rotor)
-            encrypted_char_2 = get_chars_for_coordinates(encrypted_indices[1], rotor)
-            encrypted_char_3 = get_chars_for_coordinates(encrypted_indices[2], rotor)
-            encrypted_char_4 = get_chars_for_coordinates(encrypted_indices[3], rotor)
+            encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], stepped_rotor)
+            encrypted_char_2 = get_chars_for_coordinates(encrypted_indices[1], stepped_rotor)
+            encrypted_char_3 = get_chars_for_coordinates(encrypted_indices[2], stepped_rotor)
+            encrypted_char_4 = get_chars_for_coordinates(encrypted_indices[3], stepped_rotor)
             encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
             cur_quartet = encrypted_quartet
+            # ToDo: Do we need to save stepped_rotor back into
         return cur_quartet
 
     def _read_characters_file(self, cube_length: int) -> list[str]:
@@ -169,6 +175,12 @@ class Cubigma:
                     playfair_cube.append(current_frame)
                     current_frame = []
         return playfair_cube
+
+    def _step_rotor(
+        self, rotor: list[list[list[str]]], rotor_num: int, strengthened_key_phrase: str
+    ) -> list[list[list[str]]]:
+        combined_key = f"{strengthened_key_phrase}|{rotor_num}|{self._num_quartets_encoded}"
+        return rotate_slice_of_cube(rotor, combined_key)
 
     def _write_cube_file(
         self,

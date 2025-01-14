@@ -21,6 +21,7 @@ from cubigma.utils import (
     _move_symbol_in_3d_grid,
     _pad_chunk_with_rand_pad_symbols,
     _read_and_validate_config,
+    _rotate_2d_array,
     _shuffle_cube_with_key_phrase,
     _split_key_into_parts,
 )
@@ -604,6 +605,51 @@ class TestReadAndValidateConfig(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             _read_and_validate_config()
         self.assertIn("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value", str(context.exception))
+
+
+class TestRotate2DArray(unittest.TestCase):
+    def setUp(self):
+        # Common test cases
+        self.square_matrix = [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]]
+        self.rectangular_matrix = [["1", "2", "3"], ["4", "5", "6"]]
+        self.empty_matrix = []
+        self.single_element_matrix = [["x"]]
+
+    def test_clockwise_rotation_square(self):
+        result = _rotate_2d_array(self.square_matrix, 1)
+        expected = [["g", "d", "a"], ["h", "e", "b"], ["i", "f", "c"]]
+        self.assertEqual(result, expected)
+
+    def test_counterclockwise_rotation_square(self):
+        result = _rotate_2d_array(self.square_matrix, -1)
+        expected = [["c", "f", "i"], ["b", "e", "h"], ["a", "d", "g"]]
+        self.assertEqual(result, expected)
+
+    def test_clockwise_rotation_rectangular(self):
+        result = _rotate_2d_array(self.rectangular_matrix, 1)
+        expected = [["4", "1"], ["5", "2"], ["6", "3"]]
+        self.assertEqual(result, expected)
+
+    def test_counterclockwise_rotation_rectangular(self):
+        result = _rotate_2d_array(self.rectangular_matrix, -1)
+        expected = [["3", "6"], ["2", "5"], ["1", "4"]]
+        self.assertEqual(result, expected)
+
+    def test_empty_matrix(self):
+        result = _rotate_2d_array(self.empty_matrix, 1)
+        self.assertEqual(result, [])
+
+    def test_single_element_matrix(self):
+        result_clockwise = _rotate_2d_array(self.single_element_matrix, 1)
+        result_counterclockwise = _rotate_2d_array(self.single_element_matrix, -1)
+        self.assertEqual(result_clockwise, [["x"]])
+        self.assertEqual(result_counterclockwise, [["x"]])
+
+    def test_invalid_direction(self):
+        with self.assertRaises(ValueError):
+            _rotate_2d_array(self.square_matrix, 0)
+        with self.assertRaises(ValueError):
+            _rotate_2d_array(self.square_matrix, 2)
 
 
 class TestShuffleCubeWithKeyPhrase(unittest.TestCase):

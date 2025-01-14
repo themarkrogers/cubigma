@@ -1,5 +1,6 @@
 """ Useful shared utilities for the cubigma project. """
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 import base64
@@ -215,6 +216,46 @@ def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str,
         raise ValueError("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value (e.g. true or false)")
 
     return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography
+
+
+def _rotate_2d_array(arr: list[list[str]], direction: int) -> list[list[str]]:
+    """
+    Rotate a 2D array clockwise or counterclockwise.
+
+    Args:
+        arr: The 2D array to rotate.
+        direction: 1 for clockwise, -1 for counterclockwise.
+
+    Returns:
+        A new 2D array rotated in the specified direction.
+    """
+    if direction == 1:  # Clockwise
+        return [list(row) for row in zip(*arr[::-1])]
+    elif direction == -1:  # Counterclockwise
+        return [list(row) for row in zip(*arr)][::-1]
+    raise ValueError("Direction must be 1 (clockwise) or -1 (counterclockwise).")
+
+
+def _shuffle_cube_with_key_phrase(sanitized_key_phrase: str, orig_cube: list[list[list[str]]]) -> list[list[list[str]]]:
+    """
+    Shuffles the elements of a 3-dimensional list in-place for cryptographic use.
+
+    Args:
+        sanitized_key_phrase (str): stengthened, sanitized key
+        orig_cube (list[list[list[str]]]): A 3-dimensional list of strings to shuffle.
+
+    Returns:
+        list[list[list[str]]]: The shuffled 3-dimensional list.
+    """
+    random.seed(sanitized_key_phrase)
+    cube = orig_cube.copy()
+    for outer in cube:
+        for inner in outer:
+            random.shuffle(inner)
+    for outer in cube:
+        random.shuffle(outer)
+    random.shuffle(cube)
+    return cube
 
 
 def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
@@ -549,28 +590,6 @@ def sanitize(raw_input: str) -> str:
     return raw_input.replace("\n", "")
 
 
-def _shuffle_cube_with_key_phrase(sanitized_key_phrase: str, orig_cube: list[list[list[str]]]) -> list[list[list[str]]]:
-    """
-    Shuffles the elements of a 3-dimensional list in-place for cryptographic use.
-
-    Args:
-        sanitized_key_phrase (str): stengthened, sanitized key
-        orig_cube (list[list[list[str]]]): A 3-dimensional list of strings to shuffle.
-
-    Returns:
-        list[list[list[str]]]: The shuffled 3-dimensional list.
-    """
-    random.seed(sanitized_key_phrase)
-    cube = orig_cube.copy()
-    for outer in cube:
-        for inner in outer:
-            random.shuffle(inner)
-    for outer in cube:
-        random.shuffle(outer)
-    random.shuffle(cube)
-    return cube
-
-
 def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | None = LENGTH_OF_QUARTET) -> list[str]:
     """
     Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
@@ -589,6 +608,46 @@ def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | 
         if len(graphemes) != 4:
             raise ValueError("The input string must have a user-perceived length of 4.")
     return graphemes
+
+
+def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> list[list[list[str]]]:
+    """
+    Rotate a slice of a 3D cube (3-dimensional array of chars) along a chosen axis.
+
+    Args:
+        cube: A 3D list representing the cube.
+        combined_seed: A seed string to ensure deterministic random behavior.
+
+    Returns:
+        A new 3D list with the specified slice rotated.
+    """
+    random.seed(combined_seed)  # Ensure this logic is deterministic
+    axis = random.choice(["X", "Y", "Z"])
+    rotate_dir = random.choice([-1, 1])  # -1: counterclockwise, 1: clockwise
+    slice_idx_to_rotate = random.randint(0, len(cube) - 1)
+
+    new_cube = deepcopy(cube)  # Create a copy of the cube to avoid mutating the input
+
+    if axis == "X":
+        # Rotate along the X-axis: affecting cube[slice_idx_to_rotate][i][j]
+        slice_to_rotate = [row[:] for row in cube[slice_idx_to_rotate]]
+        rotated_slice = _rotate_2d_array(slice_to_rotate, rotate_dir)
+        new_cube[slice_idx_to_rotate] = rotated_slice
+    elif axis == "Y":
+        # Rotate along the Y-axis: affecting cube[i][slice_idx_to_rotate][j]
+        slice_to_rotate = [layer[slice_idx_to_rotate] for layer in cube]
+        rotated_slice = _rotate_2d_array(slice_to_rotate, rotate_dir)
+        for i, new_col in enumerate(rotated_slice):
+            for j, val in enumerate(new_col):
+                new_cube[i][slice_idx_to_rotate][j] = val
+    elif axis == "Z":
+        # Rotate along the Z-axis: affecting cube[i][j][slice_idx_to_rotate]
+        slice_to_rotate = [layer_col[slice_idx_to_rotate] for layer_col in cube]
+        rotated_slice = _rotate_2d_array(slice_to_rotate, rotate_dir)
+        for i, new_row in enumerate(rotated_slice):
+            for j, val in enumerate(new_row):
+                new_cube[i][j][slice_idx_to_rotate] = val
+    return new_cube
 
 
 def strengthen_key(
