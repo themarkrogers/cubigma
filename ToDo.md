@@ -19,6 +19,10 @@ Consider:
 
 ## Later
 
+Logo (a pun: q-big-ma == cubigma):
+* An image of a small, cute letter Q (in a military cap) to the left of a large, strong, letters MA.
+* Give them eyes, and make the logo an animated gif of the q passing a note to the MA
+
 See if there is a way to make the cipher ever encode a letter as itself (a weakness in the enigma machine)
 
 # Future Plans

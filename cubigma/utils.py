@@ -190,7 +190,7 @@ def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
     return chunk
 
 
-def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str, bool]:
+def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str, bool, list[str]]:
     config = read_config()
     cube_length = config.get("LENGTH_OF_CUBE", None)
     if cube_length is None:
@@ -239,7 +239,29 @@ def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str,
     if not isinstance(should_use_steganography, bool):
         raise ValueError("ALSO_USE_STEGANOGRAPHY (in config.json) must be a boolean value (e.g. true or false)")
 
-    return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography
+    plugboard_values = config.get("PLUGBOARD", None)
+    if plugboard_values is None:
+        raise ValueError("PLUGBOARD not found in config.json")
+    if not isinstance(plugboard_values, list):
+        raise ValueError("PLUGBOARD (in config.json) must be a list of symbol pairs")
+
+    seen_plugboard_symbols: list[str] = []
+    for index, raw_plugboard_val in enumerate(plugboard_values):
+        if not isinstance(raw_plugboard_val, str):
+            raise ValueError(f"PLUGBOARD (in config.json) contains a non-string value at index: {index}")
+        if _user_perceived_length(raw_plugboard_val) != 2:
+            first_half = "PLUGBOARD (in config.json) all plugboard"
+            raise ValueError(
+                f"{first_half} values must be pairs of symbols.index {index} has length of {_user_perceived_length(raw_plugboard_val)}"
+            )
+        for plugboard_symbol in split_to_human_readable_symbols(raw_plugboard_val):
+            if raw_plugboard_val in seen_plugboard_symbols:
+                raise ValueError(
+                    f"PLUGBOARD (in config.json) all PLUGBOARD symbols must be unique. {plugboard_symbol} appears more than once"
+                )
+            seen_plugboard_symbols.append(plugboard_symbol)
+
+    return cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography, plugboard_values
 
 
 def _rotate_2d_array(arr: list[list[str]], direction: int) -> list[list[str]]:
@@ -366,6 +388,45 @@ def generate_cube_from_symbols(
             new_frame.append(new_row)
         cube.append(new_frame)
     return cube
+
+
+def generate_plugboard(plugboard_values: list[str]) -> dict[str, str]:
+    """
+    Generate a "plugboard" that swaps symbols before and after encryption
+
+    Args:
+        plugboard_values (list[str]): a list of symbol pairs
+
+    Returns:
+        a dictionary of one symbol to another
+    """
+    plugboard = {}
+    for index, symbol_pair in enumerate(plugboard_values):
+        symbols = split_to_human_readable_symbols(symbol_pair)
+        if len(symbols) != 2:
+            first_half = "Plugboard values are expected to all be pairs of symbols."
+            raise ValueError(f"{first_half} Something else is the case at index {index}")
+        symbol_1 = symbols[0]
+        symbol_2 = symbols[1]
+        plugboard[symbol_1] = symbol_2
+        plugboard[symbol_2] = symbol_1
+    return plugboard
+
+
+def generate_reflector(strengthened_key_phrase: str, symbols: list[str]) -> dict[str, str]:
+    """
+    Generate a "reflector" that swaps symbols in the middle of encryption
+
+    Args:
+        strengthened_key_phrase (str): a cryptographically strengthened key phrase
+        symbols (list[str]): a list of all possible symbols
+
+    Returns:
+        a dictionary of one symbol to another
+    """
+    reflector = {}
+    # ToDo: Implement this function
+    return reflector
 
 
 def generate_rotors(
@@ -525,7 +586,7 @@ def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rot
 
 def parse_arguments(
     key_phrase: str = "", mode: str = "", message: str = ""
-) -> tuple[str, str, str, int, int, list[int], bool]:
+) -> tuple[str, str, str, int, int, list[int], bool, list[str]]:
     """
     Parses config and prompts the user for input interactively.
 
@@ -538,11 +599,11 @@ def parse_arguments(
           * number of rotors to generate
           * which rotors to use
           * whether to use steganography in addition to encryption
+          * a list of pairs of symbols to use as the plugboard
     """
 
-    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography = _read_and_validate_config(
-        mode=mode
-    )
+    tuple_result = _read_and_validate_config(mode=mode)
+    cube_length, num_rotors_to_make, rotors_to_use, mode, should_use_steganography, plugboard_values = tuple_result
 
     if not key_phrase:
         key_phrase = input("Enter your key phrase: ").strip()
@@ -554,7 +615,16 @@ def parse_arguments(
         else:
             raise ValueError("Unknown mode")
 
-    return key_phrase, mode.lower(), message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography
+    return (
+        key_phrase,
+        mode.lower(),
+        message,
+        cube_length,
+        num_rotors_to_make,
+        rotors_to_use,
+        should_use_steganography,
+        plugboard_values,
+    )
 
 
 def prep_string_for_encrypting(orig_message: str) -> str:
@@ -662,18 +732,6 @@ def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> lis
 
 
 def run_quartet_through_reflector(char_quartet: str, strengthened_key_phrase: str, num_of_encoded_quartets: int) -> str:
-    """
-    Reflects the quartet deterministically using a hash-based reordering.
-
-    Args:
-        char_quartet (str): The input quartet of symbols.
-        strengthened_key_phrase (str): A strengthened key phrase
-        num_of_encoded_quartets (int): This changes with each encoding, so that the same quartet gets encoded
-          differently each time
-
-    Returns:
-        str: The reflected quartet.
-    """
 
     # Hash the quartet to determine the reordering
     hash_input = f"{char_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"

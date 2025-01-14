@@ -23,16 +23,17 @@ Users can configure the following:
 * How many playfair cubes to generate, and how many to use 
   * Historically, 5 rotors came with the Enigma machine and only 3 were used.
 
-| Component         | Enigma                                      | Cubigma                                         |
-|-------------------|---------------------------------------------|-------------------------------------------------|
-| Input             | Keyboard                                    | Runtime argument, user input, or method param   |
-| Rotors            | Physical rotors with electrical connections | Software-based rotating Playfair cubes          |
-| Rotor Selection   | 5 rotors are available, only 3 are used     | 5 rotors are available, only 3 are used         |
-| Stepping          | Predictable rotor stepping                  | Predictable corner rotation & slice rotation    |
-| Reflector         | Symmetrical pairwise mapping of letters     | Symmetrical pairwise map of quartets            |
-| Plugboard         | Swappable pairs of letters (configurable)   | Configurable cube dimensions & number of rotors |
-| Key Configuration | Rotor settings + plugboard settings         | Key phrase + cube dimensions + rotor selection  |
-| Output            | Lamp board                                  | Printed output or method result                 |
+| Component         | Enigma                                      | Cubigma                                        |
+|-------------------|---------------------------------------------|------------------------------------------------|
+| Input             | Keyboard                                    | Runtime argument, user input, or method param  |
+| Rotors            | Physical rotors with electrical connections | Software-based rotating Playfair cubes         |
+| Rotor Selection   | 5 rotors are available, only 3 are used     | 5 rotors are available, only 3 are used        |
+| Stepping          | Predictable rotor stepping                  | Predictable corner rotation & slice rotation   |
+| Reflector         | Symmetrical pairwise mapping of letters     | Symmetrical pairwise map of quartets           |
+| Plugboard         | Swappable pairs of letters (configurable)   | Swappable pairs of symbols (configurable)      |
+| Key Configuration | Rotor order, ring settings, plugboard,      | Key phrase, cube dimension, number of rotors,  |
+|                   | initial rotor positions                     | rotor selection, plugboard                     |
+| Output            | Lamp board                                  | Printed output or method result                |
 
 ## Steganography
 

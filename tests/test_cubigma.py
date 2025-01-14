@@ -565,7 +565,9 @@ class TestPrepareMachine(unittest.TestCase):
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
-    def test_prepare_machine_valid_inputs(self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_b64_encode):
+    def test_prepare_machine_valid_inputs(
+        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_gen_cube, mock_b64_encode
+    ):
         # Arrange
         (
             cubigma,
@@ -747,7 +749,9 @@ class TestMainFunction(unittest.TestCase):
             main()
 
         # Assert
-        mock_cubigma_instance.prepare_machine.assert_called_once_with("test_key", 3, 5, [1, 2], True, salt="test_encrypted_message_t")
+        mock_cubigma_instance.prepare_machine.assert_called_once_with(
+            "test_key", 3, 5, [1, 2], True, salt="test_encrypted_message_t"
+        )
         mock_cubigma_instance.decrypt_message.assert_called_once_with("hat_is_quite_very_long", "test_key")
         mock_print.assert_any_call("encrypted_content='test_encrypted_message_that_is_quite_very_long'")
         mock_print.assert_any_call("encrypted_message='hat_is_quite_very_long'")

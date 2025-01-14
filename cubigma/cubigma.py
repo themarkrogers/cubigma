@@ -4,12 +4,17 @@ This code implements the Cubigma encryption algorithm.
 """
 
 from base64 import b64decode
+import hashlib
+
+from setuptools.command.sdist import sdist
 
 # from cubigma.utils import (  # Used in packaging & unit testing
 from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
+    generate_plugboard,
+    generate_reflector,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -34,6 +39,8 @@ class Cubigma:
     _is_using_steganography: bool = False
     _num_quartets_encoded = 0
     _symbols: list[str]
+    reflector: dict[str, str]
+    plugboard: dict[str, str]
     rotors: list[list[list[list[str]]]]
 
     def __init__(self, characters_filepath: str = "characters.txt", cube_filepath: str = "cube.txt"):
@@ -44,9 +51,49 @@ class Cubigma:
     def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str) -> str:
         rev_rotors = list(reversed(self.rotors))
         step_one = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase)
-        step_two = run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
+        step_two = self._run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
         complete = self._run_quartet_through_rotors(step_two, rev_rotors, key_phrase)
         return complete
+
+    def _run_message_through_plugboard(self, full_message: str) -> str:
+        message_after_plugboard_ops = ""
+        for symbol in full_message:
+            corresponding_symbol = self.plugboard.get(symbol, symbol)  # Attempt to lookup, fail over to original symbol
+            message_after_plugboard_ops += corresponding_symbol
+        return message_after_plugboard_ops
+
+    def _run_quartet_through_reflector(
+        self, char_quartet: str, strengthened_key_phrase: str, num_of_encoded_quartets: int
+    ) -> str:
+        """
+        Reflects the quartet deterministically using a hash-based reordering.
+
+        Args:
+            char_quartet (str): The input quartet of symbols.
+            strengthened_key_phrase (str): A strengthened key phrase
+            num_of_encoded_quartets (int): This changes with each encoding, so that the same quartet gets encoded
+              differently each time
+
+        Returns:
+            str: The reflected quartet.
+        """
+        reflected_quartet = ""
+        # Reflect each symbol
+        for symbol in split_to_human_readable_symbols(char_quartet):
+            reflected_symbol = self.reflector[symbol]
+            reflected_quartet += reflected_symbol
+
+        # Hash the quartet to determine the reordering
+        hash_input = f"{char_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
+        quartet_hash = hashlib.sha256(hash_input.encode()).digest()
+
+        # Determine the reordering using the first 4 bytes of the hash
+        order = sorted(range(4), key=lambda i: quartet_hash[i])
+
+        # Reorder the quartet based on the computed order
+        reordered_reflected_quartet = "".join(char_quartet[i] for i in order)
+
+        return reordered_reflected_quartet
 
     def _run_quartet_through_rotors(
         self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str
@@ -160,9 +207,11 @@ class Cubigma:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
-        raw_decrypted_message = self.encode_string(encrypted_message, key_phrase)
+        encrypted_message_after_plugboard = self._run_message_through_plugboard(encrypted_message)
+        raw_decrypted_message = self.encode_string(encrypted_message_after_plugboard, key_phrase)
         decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
-        return decrypted_message
+        decrypted_message_after_plugboard = self._run_message_through_plugboard(decrypted_message)
+        return decrypted_message_after_plugboard
 
     def decrypt_message(self, encrypted_message: str, key_phrase: str) -> str:
         """
@@ -229,9 +278,11 @@ class Cubigma:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
             )
-        sanitized_string = prep_string_for_encrypting(clear_text_message)
+        clear_text_message_after_plugboard = self._run_message_through_plugboard(clear_text_message)
+        sanitized_string = prep_string_for_encrypting(clear_text_message_after_plugboard)
         encrypted_message = self.encode_string(sanitized_string, key_phrase)
-        return encrypted_message
+        encrypted_message_after_plugboard = self._run_message_through_plugboard(encrypted_message)
+        return encrypted_message_after_plugboard
 
     def prepare_machine(
         self,
@@ -240,6 +291,7 @@ class Cubigma:
         num_rotors_to_make: int,
         rotors_to_use: list[int],
         should_use_steganography: bool,
+        plugboard_values: list[str],
         salt: str | None = None,
     ) -> str:
         """
@@ -251,6 +303,7 @@ class Cubigma:
             num_rotors_to_make: (int), number of rotors to generate
             rotors_to_use: (list[int]), which of the generated rotors to use
             should_use_steganography: (bool), encryption or encryption+steganography
+            plugboard_values: (list[str]), list of pairs of symbols to use as the plugboard (i.e. swap)
             salt: (str | None), plain text salt. Only needed for decrypting
 
         Returns:
@@ -281,8 +334,12 @@ class Cubigma:
             rotors_to_use=rotors_to_use,
             orig_key_length=len(key_phrase),
         )
+        reflector = generate_reflector(strengthened_key_phrase, self._symbols)
+        plugboard = generate_plugboard(plugboard_values)
         self.rotors = rotors
         self._is_using_steganography = should_use_steganography
+        self.reflector = reflector
+        self.plugbobard = plugboard
         self._is_machine_prepared = True
         return bases64_encoded_salt
 
@@ -296,18 +353,27 @@ def main() -> None:
     """
     cubigma = Cubigma("characters.txt", "cube.txt")
 
-    # ToDo: Add functionality for salt. Alice generates a random salt when encrypting the message. Alice then transmits
-    # the encrypted message AND THE CLEARTEXT SALT to Bob.
-    # Maybe:
-    # Encrypting: The salt is always 16-bytes long, and always prepended to the encrypted message
-    # Steganography: Account for an extra 16-bits when calculating the sum_of_squares
-
     tuple_result = parse_arguments()
-    key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = tuple_result
+    (
+        key_phrase,
+        mode,
+        message,
+        cube_length,
+        num_rotors_to_make,
+        rotors_to_use,
+        should_use_steganography,
+        plugboard_values,
+    ) = tuple_result
 
     if mode == "encrypt":
         salt = cubigma.prepare_machine(
-            key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography, salt=None
+            key_phrase,
+            cube_length,
+            num_rotors_to_make,
+            rotors_to_use,
+            should_use_steganography,
+            plugboard_values,
+            salt=None,
         )
         clear_text_message = message
         print(f"{clear_text_message=}")

@@ -119,11 +119,19 @@ def encrypt_message_into_image(
     """
     cubigma = Cubigma("cube.txt")
     tuple_result = parse_arguments(key_phrase=key_phrase, mode=mode, message=message)
-    key_phrase, mode, clear_text_message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = (
-        tuple_result
-    )
+    (
+        key_phrase,
+        mode,
+        clear_text_message,
+        cube_length,
+        num_rotors_to_make,
+        rotors_to_use,
+        should_use_steganography,
+        plugboard_values,
+    ) = tuple_result
     cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
-    sanitized_string = prep_string_for_encrypting(clear_text_message)
+    clear_text_message_after_plugboard = cubigma._run_message_through_plugboard(clear_text_message)
+    sanitized_string = prep_string_for_encrypting(clear_text_message_after_plugboard)
 
     image_width, image_height = get_image_size(original_image_filepath)
     raw_chunk_sizes = find_five_random_squares_that_fit(len(sanitized_string), image_width, image_height)
@@ -145,7 +153,8 @@ def encrypt_message_into_image(
     encrypted_chunks = []
     for i in range(5):
         encrypted_chunk = cubigma.encode_string(padded_chunks[i], key_phrase)
-        encrypted_chunks.append(encrypted_chunk)
+        encrypted_chunk_after_plugboard = cubigma._run_message_through_plugboard(encrypted_chunk)
+        encrypted_chunks.append(encrypted_chunk_after_plugboard)
     random.shuffle(encrypted_chunks)
 
     embed_chunks(encrypted_chunks, original_image_filepath)
@@ -165,7 +174,16 @@ def decrypt_message_from_image(stego_image_filepath: str, key_phrase: str = "", 
     """
     cubigma = Cubigma("cube.txt")
     tuple_result = parse_arguments(key_phrase=key_phrase, mode=mode)
-    key_phrase, mode, message, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography = tuple_result
+    (
+        key_phrase,
+        mode,
+        message,
+        cube_length,
+        num_rotors_to_make,
+        rotors_to_use,
+        should_use_steganography,
+        plugboard_values,
+    ) = tuple_result
     cubigma.prepare_machine(key_phrase, cube_length, num_rotors_to_make, rotors_to_use, should_use_steganography)
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
