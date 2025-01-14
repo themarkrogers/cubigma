@@ -633,7 +633,8 @@ def run_quartet_through_reflector(char_quartet: str, strengthened_key_phrase: st
     Args:
         char_quartet (str): The input quartet of symbols.
         strengthened_key_phrase (str): A strengthened key phrase
-        num_of_encoded_quartets (int): This changes with each encoding, so that the same quartet gets encoded differently each time
+        num_of_encoded_quartets (int): This changes with each encoding, so that the same quartet gets encoded
+          differently each time
 
     Returns:
         str: The reflected quartet.
@@ -647,7 +648,7 @@ def run_quartet_through_reflector(char_quartet: str, strengthened_key_phrase: st
     order = sorted(range(4), key=lambda i: quartet_hash[i])
 
     # Reorder the quartet based on the computed order
-    return ''.join(char_quartet[i] for i in order)
+    return "".join(char_quartet[i] for i in order)
 
 
 def sanitize(raw_input: str) -> str:

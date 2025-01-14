@@ -56,36 +56,59 @@ class TestGenerateRotors(unittest.TestCase):
     def test_missing_key_phrase(self):
         """Test function raises error on missing or invalid key phrase."""
         with self.assertRaises(ValueError):
-            generate_rotors("", self.valid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length=42,)
+            generate_rotors(
+                "",
+                self.valid_cube,
+                self.num_rotors_to_make,
+                self.rotors_to_use,
+                orig_key_length=42,
+            )
 
     def test_invalid_num_rotors_to_make(self):
         """Test function raises error on invalid num_rotors_to_make."""
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, -1, self.rotors_to_use, orig_key_length=42,)
+            generate_rotors(
+                self.valid_key,
+                self.valid_cube,
+                -1,
+                self.rotors_to_use,
+                orig_key_length=42,
+            )
 
     def test_invalid_rotors_to_use_values(self):
         """Test function raises error on invalid rotors_to_use."""
         invalid_rotors = [0, 5, 1, 1]  # Duplicate and out-of-range values
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors, orig_key_length=42,)
+            generate_rotors(
+                self.valid_key,
+                self.valid_cube,
+                self.num_rotors_to_make,
+                invalid_rotors,
+                orig_key_length=42,
+            )
 
     def test_invalid_rotors_to_use_not_list(self):
         """Test function raises error on invalid rotors_to_use."""
         invalid_rotors = "[0, 5, 1, 1]"
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors, orig_key_length=42)
+            generate_rotors(
+                self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors, orig_key_length=42
+            )
 
     def test_invalid_cube(self):
         """Test function raises error on invalid rotors_to_use."""
         invalid_cube = [["AB", "CD"], ["EF", "GH"]]
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, invalid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length=42)
+            generate_rotors(
+                self.valid_key, invalid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length=42
+            )
 
     def test_invalid_key_length(self):
         """Test function raises error on invalid rotors_to_use."""
-        invalid_cube = [["AB", "CD"], ["EF", "GH"]]
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length="42")
+            generate_rotors(
+                self.valid_key, self.valid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length="42"
+            )
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_rotors_correct_count(self, mock_shuffle):
@@ -97,7 +120,7 @@ class TestGenerateRotors(unittest.TestCase):
             raw_cube=self.valid_cube,
             num_rotors_to_make=self.num_rotors_to_make,
             rotors_to_use=self.rotors_to_use,
-            orig_key_length=42
+            orig_key_length=42,
         )
 
         self.assertEqual(len(result), len(self.rotors_to_use))
@@ -661,8 +684,9 @@ class TestRunQuartetThroughReflector(unittest.TestCase):
         num_of_encoded_quartets = 42
 
         result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
-        self.assertEqual(sorted(result), sorted(char_quartet),
-                         "Output should still be a permutation of the input quartet.")
+        self.assertEqual(
+            sorted(result), sorted(char_quartet), "Output should still be a permutation of the input quartet."
+        )
 
     def test_invalid_input_length(self):
         """Test the function with an invalid quartet length."""
@@ -790,7 +814,7 @@ class TestStrengthenKey(unittest.TestCase):
 
         self.assertIsInstance(key, str)
         self.assertIsInstance(returned_salt, str)
-        self.assertEqual('XtH9sWH8YNx+oE4swUlyj5NQiSR/ezjrBa/GGl84HTE=', key)
+        self.assertEqual("XtH9sWH8YNx+oE4swUlyj5NQiSR/ezjrBa/GGl84HTE=", key)
         self.assertEqual("Zm9v", returned_salt)
         self.assertEqual(len(returned_salt), 4)
         self.assertEqual(raw_salt, found_plaintext_salt)
