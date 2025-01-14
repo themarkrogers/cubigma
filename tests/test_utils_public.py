@@ -8,7 +8,6 @@ import unittest
 
 from cubigma.utils import (
     LENGTH_OF_QUARTET,
-    generate_reflector,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -27,64 +26,6 @@ from cubigma.utils import (
 )
 
 
-class TestGenerateReflector(unittest.TestCase):
-
-    def test_reflector_pairs_correctly(self):
-        """Test that the reflector maps quartets bidirectionally."""
-        sanitized_key_phrase = "testkey"
-        num_quartets = 10
-        reflector = generate_reflector(sanitized_key_phrase, num_quartets)
-
-        for key, value in reflector.items():
-            self.assertEqual(reflector[value], key)
-
-    def test_deterministic_output(self):
-        """Test that the function generates deterministic output for the same key."""
-        sanitized_key_phrase = "testkey"
-        num_quartets = 10
-        reflector1 = generate_reflector(sanitized_key_phrase, num_quartets)
-        reflector2 = generate_reflector(sanitized_key_phrase, num_quartets)
-
-        self.assertEqual(reflector1, reflector2)
-
-    def test_randomized_output_with_different_keys(self):
-        """Test that the function generates different outputs for different keys."""
-        sanitized_key_phrase1 = "key1"
-        sanitized_key_phrase2 = "key2"
-        num_quartets = 10
-        reflector1 = generate_reflector(sanitized_key_phrase1, num_quartets)
-        reflector2 = generate_reflector(sanitized_key_phrase2, num_quartets)
-
-        self.assertNotEqual(reflector1, reflector2)
-
-    def test_even_number_of_quartets(self):
-        """Test that the function raises an error for odd number of quartets."""
-        sanitized_key_phrase = "testkey"
-        num_quartets = 9  # Odd number of quartets
-        with self.assertRaises(IndexError):
-            generate_reflector(sanitized_key_phrase, num_quartets)
-
-    def test_empty_key(self):
-        """Test that an empty key produces valid but deterministic results."""
-        sanitized_key_phrase = ""
-        num_quartets = 10
-        reflector = generate_reflector(sanitized_key_phrase, num_quartets)
-
-        self.assertIsInstance(reflector, dict)
-        self.assertEqual(len(reflector), num_quartets)
-
-    def test_large_number_of_quartets(self):
-        """Test that the function handles a large number of quartets."""
-        sanitized_key_phrase = "largekey"
-        num_quartets = 10000  # Large number of quartets
-        reflector = generate_reflector(sanitized_key_phrase, num_quartets)
-
-        self.assertIsInstance(reflector, dict)
-        self.assertEqual(len(reflector), num_quartets)
-        for key, value in reflector.items():
-            self.assertEqual(reflector[value], key)
-
-
 class TestGenerateRotors(unittest.TestCase):
     def setUp(self):
         self.valid_key = "testkey"
@@ -99,13 +40,14 @@ class TestGenerateRotors(unittest.TestCase):
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_generate_rotors_valid_input(self, mock_shuffle):
         """Test function with valid inputs."""
-        mock_shuffle.side_effect = lambda key, cube: cube  # Mock shuffle function
+        mock_shuffle.side_effect = lambda key, cube, unique_val: cube  # Mock shuffle function
 
         result = generate_rotors(
             sanitized_key_phrase=self.valid_key,
             raw_cube=self.valid_cube,
             num_rotors_to_make=self.num_rotors_to_make,
             rotors_to_use=self.rotors_to_use,
+            orig_key_length=42,
         )
 
         self.assertEqual(len(result), len(self.rotors_to_use))
@@ -143,13 +85,14 @@ class TestGenerateRotors(unittest.TestCase):
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_rotors_correct_count(self, mock_shuffle):
         """Test function generates the correct number of rotors."""
-        mock_shuffle.side_effect = lambda key, cube: cube
+        mock_shuffle.side_effect = lambda key, cube, unique_val: cube
 
         result = generate_rotors(
             sanitized_key_phrase=self.valid_key,
             raw_cube=self.valid_cube,
             num_rotors_to_make=self.num_rotors_to_make,
             rotors_to_use=self.rotors_to_use,
+            orig_key_length=42
         )
 
         self.assertEqual(len(result), len(self.rotors_to_use))
@@ -157,13 +100,14 @@ class TestGenerateRotors(unittest.TestCase):
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_deterministic_output(self, mock_shuffle):
         """Test function produces deterministic output for the same inputs."""
-        mock_shuffle.side_effect = lambda key, cube: cube
+        mock_shuffle.side_effect = lambda key, cube, unique_val: cube
 
         result1 = generate_rotors(
             sanitized_key_phrase=self.valid_key,
             raw_cube=self.valid_cube,
             num_rotors_to_make=self.num_rotors_to_make,
             rotors_to_use=self.rotors_to_use,
+            orig_key_length=42,
         )
 
         result2 = generate_rotors(
@@ -171,6 +115,7 @@ class TestGenerateRotors(unittest.TestCase):
             raw_cube=self.valid_cube,
             num_rotors_to_make=self.num_rotors_to_make,
             rotors_to_use=self.rotors_to_use,
+            orig_key_length=42,
         )
 
         self.assertEqual(result1, result2)
@@ -773,21 +718,9 @@ class TestRemoveDuplicateLetters(unittest.TestCase):
 class TestRotateSliceOfCube(unittest.TestCase):
     def setUp(self):
         self.cube = [
-            [
-                ["R", "G", "B"],
-                ["R", "G", "B"],
-                ["R", "G", "B"]
-            ],
-            [
-                ["Y", "O", "P"],
-                ["Y", "O", "P"],
-                ["Y", "O", "P"]
-            ],
-            [
-                ["W", "K", "M"],
-                ["W", "K", "M"],
-                ["W", "K", "M"]
-            ],
+            [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["Y", "O", "P"], ["Y", "O", "P"], ["Y", "O", "P"]],
+            [["W", "K", "M"], ["W", "K", "M"], ["W", "K", "M"]],
         ]
 
     @patch("random.choice")
@@ -834,19 +767,9 @@ class TestRotateSliceOfCube(unittest.TestCase):
         test_slice_idx = 0
         mock_randint.return_value = test_slice_idx  # Rotate slice index 0
         expected_cube = [
-            [
-                ['W', 'Y', 'R'],
-                ['R', 'G', 'B'],
-                ['R', 'G', 'B']
-            ], [
-                ['K', 'O', 'G'],
-                ['Y', 'O', 'P'],
-                ['Y', 'O', 'P']
-            ], [
-                ['M', 'P', 'B'],
-                ['W', 'K', 'M'],
-                ['W', 'K', 'M']
-            ]
+            [["W", "Y", "R"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["K", "O", "G"], ["Y", "O", "P"], ["Y", "O", "P"]],
+            [["M", "P", "B"], ["W", "K", "M"], ["W", "K", "M"]],
         ]
 
         # Act
@@ -863,21 +786,9 @@ class TestRotateSliceOfCube(unittest.TestCase):
         test_slice_idx = 0
         mock_randint.return_value = test_slice_idx  # Rotate slice index 0
         expected_cube = [
-            [
-                ["B", "P", "M"],
-                ["R", "G", "B"],
-                ["R", "G", "B"]
-            ],
-            [
-                ["G", "O", "K"],
-                ["Y", "O", "P"],
-                ["Y", "O", "P"]
-            ],
-            [
-                ["R", "Y", "W"],
-                ["W", "K", "M"],
-                ["W", "K", "M"]
-            ],
+            [["B", "P", "M"], ["R", "G", "B"], ["R", "G", "B"]],
+            [["G", "O", "K"], ["Y", "O", "P"], ["Y", "O", "P"]],
+            [["R", "Y", "W"], ["W", "K", "M"], ["W", "K", "M"]],
         ]
 
         # Act
@@ -893,21 +804,9 @@ class TestRotateSliceOfCube(unittest.TestCase):
         mock_choice.side_effect = ["Z", 1]  # Choose Z-axis, clockwise rotation
         mock_randint.return_value = 2  # Rotate slice index 2
         expected_cube = [
-            [
-                ["R", "G", "B"],
-                ["R", "G", "P"],
-                ["R", "G", "M"]
-            ],
-            [
-                ["Y", "O", "B"],
-                ["Y", "O", "P"],
-                ["Y", "O", "M"]
-            ],
-            [
-                ["W", "K", "B"],
-                ["W", "K", "P"],
-                ["W", "K", "M"]
-            ],
+            [["R", "G", "B"], ["R", "G", "P"], ["R", "G", "M"]],
+            [["Y", "O", "B"], ["Y", "O", "P"], ["Y", "O", "M"]],
+            [["W", "K", "B"], ["W", "K", "P"], ["W", "K", "M"]],
         ]
 
         # Act
@@ -923,21 +822,9 @@ class TestRotateSliceOfCube(unittest.TestCase):
         mock_choice.side_effect = ["Z", -1]  # Choose Z-axis, clockwise rotation
         mock_randint.return_value = 2  # Rotate slice index 2
         expected_cube = [
-            [
-                ["R", "G", "M"],
-                ["R", "G", "P"],
-                ["R", "G", "B"]
-            ],
-            [
-                ["Y", "O", "M"],
-                ["Y", "O", "P"],
-                ["Y", "O", "B"]
-            ],
-            [
-                ["W", "K", "M"],
-                ["W", "K", "P"],
-                ["W", "K", "B"]
-            ],
+            [["R", "G", "M"], ["R", "G", "P"], ["R", "G", "B"]],
+            [["Y", "O", "M"], ["Y", "O", "P"], ["Y", "O", "B"]],
+            [["W", "K", "M"], ["W", "K", "P"], ["W", "K", "B"]],
         ]
 
         # Act
@@ -1058,7 +945,7 @@ class TestStrengthenKey(unittest.TestCase):
 
         self.assertIsInstance(key, str)
         self.assertIsInstance(returned_salt, str)
-        self.assertEqual("D8QofLkX4FdRLdsq69mAr+Y9g2nfwPqnc7EX4kZaY3c=", key)
+        self.assertEqual('XtH9sWH8YNx+oE4swUlyj5NQiSR/ezjrBa/GGl84HTE=', key)
         self.assertEqual("Zm9v", returned_salt)
         self.assertEqual(len(returned_salt), 4)
         self.assertEqual(raw_salt, found_plaintext_salt)

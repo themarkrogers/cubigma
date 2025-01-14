@@ -3,13 +3,11 @@ This file is used to encrypt and decrypt messages using the prepared cube.txt fi
 This code implements the Cubigma encryption algorithm.
 """
 
-import math
-
-# from cubigma.utils import (  # Used in packaging & unit testing
-from utils import (  # Used in local debugging
+from cubigma.generate_reflectors import read_reflector_from_file
+from cubigma.utils import (  # Used in packaging & unit testing
+    # from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
-    generate_reflector,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -329,23 +327,25 @@ class Cubigma:
             encoded_salt = salt
         else:
             encoded_salt = salt.encode("utf-8")
-        strengthened_key_phrase, salt_used = strengthen_key(key_phrase, salt=encoded_salt)
-        for character in split_to_human_readable_symbols(strengthened_key_phrase):
+        strengthened_key_phrase, bases64_encoded_salt = strengthen_key(key_phrase, salt=encoded_salt)
+        for character in split_to_human_readable_symbols(strengthened_key_phrase, expected_number_of_graphemes=44):
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
 
         # Set up the rotors and the reflector
         rotors = generate_rotors(
-            strengthened_key_phrase, raw_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use
+            strengthened_key_phrase,
+            raw_cube,
+            num_rotors_to_make=num_rotors_to_make,
+            rotors_to_use=rotors_to_use,
+            orig_key_length=len(key_phrase),
         )
-        num_total_symbols = cube_length * cube_length * cube_length
-        num_unique_quartets = math.comb(num_total_symbols, LENGTH_OF_QUARTET)
-        reflector = generate_reflector(strengthened_key_phrase, num_unique_quartets)
+        reflector = read_reflector_from_file(cube_length)
         self.rotors = rotors
         self.reflector = reflector
         self._is_using_steganography = should_use_steganography
         self._is_machine_prepared = True
-        return salt_used
+        return bases64_encoded_salt
 
 
 def main() -> None:
