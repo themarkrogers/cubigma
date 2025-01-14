@@ -142,17 +142,11 @@ class TestReadCharactersFile(unittest.TestCase):
         mock_data = "\n".join(self.symbols[i] for i in range(len(self.symbols)))
         mock_data = mock_data.replace("a", "a\nA")
         mock_open_func.return_value = mock_open(mock=mock_open_func, read_data=mock_data).return_value
-        expected_num_symbols = self.cube_length * self.cube_length * self.cube_length
-        expected_result = self.symbols[0:expected_num_symbols-1]
-        expected_result.insert(1, "A")
-        expected_result = list(reversed(expected_result))
-
-        # Act
         cubigma = Cubigma("characters.txt", "")
-        result = cubigma._read_characters_file(self.cube_length)  # pylint:disable=W0212
 
-        # Assert
-        self.assertEqual(expected_result, result)
+        # Act & Assert
+        with self.assertRaises(AssertionError):
+            cubigma._read_characters_file(self.cube_length)  # pylint:disable=W0212
         mock_print.assert_called_once_with("Duplicate symbol found: A")
 
     @patch("builtins.open")

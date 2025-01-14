@@ -36,6 +36,33 @@ def generate_reflector(sanitized_key_phrase: str, num_symbols: int) -> dict[int,
     return reflector
 
 
+def read_reflector_from_file(cube_size: int, output_dir: str = "reflectors") -> dict[int, int]:
+    """
+    Read a reflector from a file for a given cube size.
+
+    Args:
+        cube_size (int): The size of the cube for which to read the reflector.
+        output_dir (str): Directory where the reflector files are stored.
+
+    Returns:
+        Dict[int, int]: The reflector mapping.
+    """
+    file_path = os.path.join(output_dir, f"reflector_{cube_size}.json")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Reflector file for cube size {cube_size} not found at {file_path}.")
+
+    with open(file_path, "r") as f:
+        compressed_reflector = json.load(f)
+
+    # Rehydrate the full reflector
+    reflector = {}
+    for k, v in compressed_reflector:
+        reflector[k] = v
+        reflector[v] = k
+
+    return reflector
+
+
 def write_reflector_to_file(cube_sizes: list[int], sanitized_key_phrase: str, output_dir: str = "reflectors") -> None:
     """
     Generate and write reflector mappings for multiple cube sizes to disk.
@@ -65,33 +92,6 @@ def write_reflector_to_file(cube_sizes: list[int], sanitized_key_phrase: str, ou
             json.dump(compressed_reflector, reflector_file)
 
         print(f"Reflector for cube size {cube_size} saved to {file_path}")
-
-
-def read_reflector_from_file(cube_size: int, output_dir: str = "reflectors") -> dict[int, int]:
-    """
-    Read a reflector from a file for a given cube size.
-
-    Args:
-        cube_size (int): The size of the cube for which to read the reflector.
-        output_dir (str): Directory where the reflector files are stored.
-
-    Returns:
-        Dict[int, int]: The reflector mapping.
-    """
-    file_path = os.path.join(output_dir, f"reflector_{cube_size}.json")
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Reflector file for cube size {cube_size} not found at {file_path}.")
-
-    with open(file_path, "r") as f:
-        compressed_reflector = json.load(f)
-
-    # Rehydrate the full reflector
-    reflector = {}
-    for k, v in compressed_reflector:
-        reflector[k] = v
-        reflector[v] = k
-
-    return reflector
 
 
 def main() -> None:

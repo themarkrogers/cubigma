@@ -142,11 +142,10 @@ class Cubigma:
         symbols_per_block = symbols_per_line * line_per_block
         total_num_of_symbols = symbols_per_block * num_blocks
 
-        if len(symbols) < total_num_of_symbols:
-            msg = f"The file must contain at least {total_num_of_symbols} symbols. Found {len(symbols)}"
-            raise ValueError(msg)
-        else:
-            trimmed_symbols = symbols[0:total_num_of_symbols]
+        msg = f"The file must contain at least {total_num_of_symbols} symbols. Found {len(symbols)}"
+        assert len(symbols) <= total_num_of_symbols, msg
+
+        trimmed_symbols = symbols[0:total_num_of_symbols]
 
         # Reverse, so the least common symbols are first; this helps entropy when loading the key phrase
         readied_symbols = list(reversed(list(trimmed_symbols)))

@@ -57,30 +57,36 @@ class TestGenerateRotors(unittest.TestCase):
     def test_missing_key_phrase(self):
         """Test function raises error on missing or invalid key phrase."""
         with self.assertRaises(ValueError):
-            generate_rotors("", self.valid_cube, self.num_rotors_to_make, self.rotors_to_use)
+            generate_rotors("", self.valid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length=42,)
 
     def test_invalid_num_rotors_to_make(self):
         """Test function raises error on invalid num_rotors_to_make."""
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, -1, self.rotors_to_use)
+            generate_rotors(self.valid_key, self.valid_cube, -1, self.rotors_to_use, orig_key_length=42,)
 
     def test_invalid_rotors_to_use_values(self):
         """Test function raises error on invalid rotors_to_use."""
         invalid_rotors = [0, 5, 1, 1]  # Duplicate and out-of-range values
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors)
+            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors, orig_key_length=42,)
 
     def test_invalid_rotors_to_use_not_list(self):
         """Test function raises error on invalid rotors_to_use."""
         invalid_rotors = "[0, 5, 1, 1]"
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors)
+            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, invalid_rotors, orig_key_length=42)
 
     def test_invalid_cube(self):
         """Test function raises error on invalid rotors_to_use."""
         invalid_cube = [["AB", "CD"], ["EF", "GH"]]
         with self.assertRaises(ValueError):
-            generate_rotors(self.valid_key, invalid_cube, self.num_rotors_to_make, self.rotors_to_use)
+            generate_rotors(self.valid_key, invalid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length=42)
+
+    def test_invalid_key_length(self):
+        """Test function raises error on invalid rotors_to_use."""
+        invalid_cube = [["AB", "CD"], ["EF", "GH"]]
+        with self.assertRaises(ValueError):
+            generate_rotors(self.valid_key, self.valid_cube, self.num_rotors_to_make, self.rotors_to_use, orig_key_length="42")
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_rotors_correct_count(self, mock_shuffle):
