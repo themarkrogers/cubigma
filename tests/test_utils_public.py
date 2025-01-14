@@ -8,6 +8,7 @@ import unittest
 
 from cubigma.utils import (
     LENGTH_OF_QUARTET,
+    generate_cube_from_symbols,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -21,8 +22,77 @@ from cubigma.utils import (
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
-    user_perceived_length,
+    _user_perceived_length,
 )
+
+
+class TestGenerateCubeFromSymbols(unittest.TestCase):
+    def setUp(self):
+        # Common test setup for symbols
+        self.symbols = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+
+    def test_generate_cube_valid_input(self):
+        """Test cube generation with valid input."""
+        num_blocks = 2
+        lines_per_block = 2
+        symbols_per_line = 3
+
+        expected_output = [
+            [["a", "b", "c"], ["d", "e", "f"]],
+            [["g", "h", "i"], ["j", "k", "l"]]
+        ]
+
+        result = generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
+        self.assertEqual(result, expected_output)
+
+    def test_generate_cube_edge_case_single_block(self):
+        """Test cube generation with only one block."""
+        num_blocks = 1
+        lines_per_block = 2
+        symbols_per_line = 3
+
+        expected_output = [[["a", "b", "c"], ["d", "e", "f"]]]
+
+        result = generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
+        self.assertEqual(result, expected_output)
+
+    def test_generate_cube_invalid_symbols_length(self):
+        """Test failure when symbols length does not match required input dimensions."""
+        num_blocks = 2
+        lines_per_block = 2
+        symbols_per_line = 4
+
+        with self.assertRaises(ValueError) as context:
+            generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
+
+        self.assertEqual(str(context.exception), "Something has failed")
+
+    def test_generate_cube_escape_characters(self):
+        """Test cube generation with escape characters in symbols."""
+        symbols_with_escape = ["a", "\\", "\n", "b", "\t", "c", "d", "e", "f", "g", "h", "i"]
+        num_blocks = 2
+        lines_per_block = 2
+        symbols_per_line = 3
+
+        expected_output = [
+            [["a", "\\\\", "\\n"], ["b", "\\t", "c"]],
+            [["d", "e", "f"], ["g", "h", "i"]]
+        ]
+
+        result = generate_cube_from_symbols(symbols_with_escape, num_blocks, lines_per_block, symbols_per_line)
+        self.assertEqual(result, expected_output)
+
+    def test_generate_cube_empty_symbols(self):
+        """Test cube generation with empty symbols list."""
+        symbols = []
+        num_blocks = 0
+        lines_per_block = 0
+        symbols_per_line = 0
+
+        expected_output = []
+
+        result = generate_cube_from_symbols(symbols, num_blocks, lines_per_block, symbols_per_line)
+        self.assertEqual(result, expected_output)
 
 
 class TestGenerateRotors(unittest.TestCase):
@@ -879,27 +949,27 @@ class TestStrengthenKey(unittest.TestCase):
 
 class TestUserPerceivedLength(unittest.TestCase):
     def test_basic_text(self):
-        self.assertEqual(user_perceived_length("hello"), 5)
-        self.assertEqual(user_perceived_length(""), 0)
-        self.assertEqual(user_perceived_length("a"), 1)
+        self.assertEqual(_user_perceived_length("hello"), 5)
+        self.assertEqual(_user_perceived_length(""), 0)
+        self.assertEqual(_user_perceived_length("a"), 1)
 
     def test_emojis(self):
-        self.assertEqual(user_perceived_length("🙂"), 1)
-        self.assertEqual(user_perceived_length("🙂🙂"), 2)
+        self.assertEqual(_user_perceived_length("🙂"), 1)
+        self.assertEqual(_user_perceived_length("🙂🙂"), 2)
 
     def test_surrogate_pairs(self):
-        self.assertEqual(user_perceived_length("👨‍👩‍👧‍👦"), 1)  # Family emoji
-        self.assertEqual(user_perceived_length("👩‍❤️‍💋‍👨"), 1)  # Couple kissing emoji
+        self.assertEqual(_user_perceived_length("👨‍👩‍👧‍👦"), 1)  # Family emoji
+        self.assertEqual(_user_perceived_length("👩‍❤️‍💋‍👨"), 1)  # Couple kissing emoji
 
     def test_combining_characters(self):
-        self.assertEqual(user_perceived_length("á"), 1)  # "á" as 'a' + combining acute accent
-        self.assertEqual(user_perceived_length("éé"), 2)  # Two "é"
-        self.assertEqual(user_perceived_length("é́"), 1)  # One "e" with two combining marks
+        self.assertEqual(_user_perceived_length("á"), 1)  # "á" as 'a' + combining acute accent
+        self.assertEqual(_user_perceived_length("éé"), 2)  # Two "é"
+        self.assertEqual(_user_perceived_length("é́"), 1)  # One "e" with two combining marks
 
     def test_mixed_content(self):
-        self.assertEqual(user_perceived_length("hello🙂"), 6)
-        self.assertEqual(user_perceived_length("🙂á"), 2)
-        self.assertEqual(user_perceived_length("🙂👩‍❤️‍💋‍👨"), 2)
+        self.assertEqual(_user_perceived_length("hello🙂"), 6)
+        self.assertEqual(_user_perceived_length("🙂á"), 2)
+        self.assertEqual(_user_perceived_length("🙂👩‍❤️‍💋‍👨"), 2)
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring

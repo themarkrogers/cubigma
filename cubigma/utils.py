@@ -243,7 +243,7 @@ def _rotate_2d_array(arr: list[list[str]], direction: int) -> list[list[str]]:
     """
     if direction == 1:  # Clockwise
         return [list(row) for row in zip(*arr[::-1])]
-    elif direction == -1:  # Counterclockwise
+    if direction == -1:  # Counterclockwise
         return [list(row) for row in zip(*arr)][::-1]
     raise ValueError("Direction must be 1 (clockwise) or -1 (counterclockwise).")
 
@@ -334,6 +334,27 @@ def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> lis
             key_part = sanitized_key_phrase[idx_start:idx_end]
         key_parts.append(key_part)
     return key_parts
+
+
+def generate_cube_from_symbols(
+    symbols: list[str], num_blocks: int = -1, lines_per_block: int = -1, symbols_per_line: int = -1
+) -> list[list[list[str]]]:
+    symbols_per_block = symbols_per_line * lines_per_block
+    cube = []
+    for block in range(num_blocks):
+        new_frame = []
+        for row in range(lines_per_block):
+            start_idx = block * symbols_per_block + row * symbols_per_line
+            end_idx = block * symbols_per_block + (row + 1) * symbols_per_line
+            raw_symbols = symbols[start_idx:end_idx]
+            if _user_perceived_length("".join(raw_symbols)) != symbols_per_line:
+                raise ValueError("Something has failed")
+            new_row = [i.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t") for i in raw_symbols]
+            if len(new_row) != symbols_per_line:
+                raise ValueError("Something has failed.")
+            new_frame.append(new_row)
+        cube.append(new_frame)
+    return cube
 
 
 def generate_rotors(
@@ -703,7 +724,7 @@ def strengthen_key(
     return b64_key, b64_salt
 
 
-def user_perceived_length(s: str) -> int:
+def _user_perceived_length(s: str) -> int:
     """
     Used to count the length of strings with surrogate pair emojis
 

@@ -7,6 +7,7 @@ from cubigma.utils import (  # Used in packaging & unit testing
     # from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
+    generate_cube_from_symbols,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -17,7 +18,6 @@ from cubigma.utils import (  # Used in packaging & unit testing
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
-    user_perceived_length,
 )
 
 
@@ -129,7 +129,7 @@ class Cubigma:
         total_num_of_symbols = symbols_per_block * num_blocks
 
         msg = f"The file must contain at least {total_num_of_symbols} symbols. Found {len(symbols)}"
-        assert len(symbols) <= total_num_of_symbols, msg
+        assert len(symbols) >= total_num_of_symbols, msg
 
         trimmed_symbols = symbols[0:total_num_of_symbols]
 
@@ -137,57 +137,11 @@ class Cubigma:
         readied_symbols = list(reversed(list(trimmed_symbols)))
         return readied_symbols
 
-    def _read_cube_from_disk(self, cube_length: int) -> list[list[list[str]]]:
-        line_per_block = cube_length
-        symbols_per_line = cube_length
-        playfair_cube = []
-        current_frame = []
-        with open(self._cube_filepath, "r", encoding="utf-8-sig") as cube_file:
-            for line in cube_file.readlines():
-                if line != "\n":
-                    sanitized_line = line.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
-                    if sanitized_line.endswith("\n"):
-                        trimmed_line = sanitized_line[0:-1]
-                    else:
-                        trimmed_line = sanitized_line
-                    visible_length = user_perceived_length(trimmed_line)
-                    if visible_length != symbols_per_line:
-                        raise ValueError(
-                            "String have already been formatted to a length of 6. This error is unexpected."
-                        )
-                    current_frame.append(list(trimmed_line))
-                if len(current_frame) >= line_per_block:
-                    playfair_cube.append(current_frame)
-                    current_frame = []
-        return playfair_cube
-
     def _step_rotor(
         self, rotor: list[list[list[str]]], rotor_num: int, strengthened_key_phrase: str
     ) -> list[list[list[str]]]:
         combined_key = f"{strengthened_key_phrase}|{rotor_num}|{self._num_quartets_encoded}"
         return rotate_slice_of_cube(rotor, combined_key)
-
-    def _write_cube_file(
-        self,
-        symbols: list[str],
-        num_blocks: int = -1,
-        lines_per_block: int = -1,
-        symbols_per_line: int = -1,
-    ) -> None:
-        symbols_per_block = symbols_per_line * lines_per_block
-        output_lines = []
-        for block in range(num_blocks):
-            for row in range(lines_per_block):
-                start_idx = block * symbols_per_block + row * symbols_per_line
-                end_idx = block * symbols_per_block + (row + 1) * symbols_per_line
-                line = "".join(symbols[start_idx:end_idx])
-                if user_perceived_length(line) != symbols_per_line:
-                    raise ValueError("Something has failed")
-                sanitized_line = line.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
-                output_lines.append(sanitized_line)
-            output_lines.append("")  # Add an empty line between blocks
-        with open(self._cube_filepath, "w", encoding="utf-8") as file:
-            file.write("\n".join(output_lines))
 
     def decode_string(self, encrypted_message: str, key_phrase: str) -> str:
         """
@@ -302,10 +256,9 @@ class Cubigma:
         """
         # Set up user-configurable parameters (similar to configuring the plug board on an Enigma machine)
         self._symbols = self._read_characters_file(cube_length)
-        self._write_cube_file(
+        raw_cube = generate_cube_from_symbols(
             self._symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
-        raw_cube = self._read_cube_from_disk(cube_length)
 
         encoded_salt: bytes | None
         if salt is None:
