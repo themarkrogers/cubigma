@@ -4,6 +4,7 @@ from unittest.mock import patch, mock_open, MagicMock
 import os
 import unittest
 
+import cubigma.cubigma
 from cubigma.cubigma import NOISE_SYMBOL, Cubigma, main
 
 
@@ -12,7 +13,8 @@ from cubigma.cubigma import NOISE_SYMBOL, Cubigma, main
 
 class TestGetEncryptedLetterQuartet(unittest.TestCase):
 
-    def test_get_encrypted_letter_quartet(self):
+    @patch("cubigma.cubigma.run_quartet_through_reflector")
+    def test_get_encrypted_letter_quartet(self, mock_run_reflector):
         # Arrange
         cubigma = Cubigma()
         expected_rotors = [
@@ -28,17 +30,16 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
         mock_run_quartet_through_rotors = MagicMock()
         mock_run_quartet_through_rotors.side_effect = [expected_str_1, expected_result]
         cubigma._run_quartet_through_rotors = mock_run_quartet_through_rotors  # pylint:disable=W0212
-        mock_run_quartet_through_reflector = MagicMock()
-        mock_run_quartet_through_reflector.return_value = expected_middle_str
-        cubigma._run_quartet_through_reflector = mock_run_quartet_through_reflector  # pylint:disable=W0212
+        mock_run_reflector.return_value = expected_middle_str
         test_key_phrase = "foo"
+        cubigma._num_quartets_encoded = 42
 
         # Act
         result = cubigma._get_encrypted_letter_quartet(test_char_quartet, test_key_phrase)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(expected_result, result)
-        mock_run_quartet_through_reflector.assert_called_once_with(expected_str_1)
+        mock_run_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
 
 
 class TestReadCharactersFile(unittest.TestCase):
@@ -295,43 +296,6 @@ class TestReadCubeFromDisk(unittest.TestCase):
         # Assert
         self.assertEqual(result, [])
         mock_length.assert_not_called()
-
-
-class TestRunQuartetThroughReflector(unittest.TestCase):
-
-    @patch("cubigma.cubigma.index_to_quartet")
-    @patch("cubigma.cubigma.quartet_to_index")
-    def test_run_quartet_through_reflector_valid(self, mock_quartet_to_index, mock_index_to_quartet):
-        # Arrange
-        cubigma = Cubigma()
-        cubigma._is_machine_prepared = True  # pylint:disable=W0212
-        expected_symbols = ["A", "B", "C"]
-        cubigma._symbols = expected_symbols  # pylint:disable=W0212
-        expected_quartet_index = 42
-        expected_reflected_index = 9001
-        mock_reflector = {expected_quartet_index: expected_reflected_index}
-        cubigma.reflector = mock_reflector
-
-        mock_quartet_to_index.return_value = expected_quartet_index
-        expected_result = "456"
-        mock_index_to_quartet.return_value = expected_result
-        test_char_quartet = "123"
-
-        # Act
-        result = cubigma._run_quartet_through_reflector(test_char_quartet)  # pylint:disable=W0212
-
-        # Assert
-        self.assertEqual(expected_result, result)
-        mock_quartet_to_index.assert_called_once_with(test_char_quartet, expected_symbols)
-        mock_index_to_quartet.assert_called_once_with(expected_reflected_index, expected_symbols)
-
-    def test_run_quartet_through_reflector_invalid(self):
-        # Arrange
-        cubigma = Cubigma()
-
-        # Act & Assert
-        with self.assertRaises(ValueError):
-            cubigma._run_quartet_through_reflector("foo")  # pylint:disable=W0212
 
 
 class TestRunQuartetThroughRotors(unittest.TestCase):
@@ -720,7 +684,6 @@ class TestCubigma(unittest.TestCase):
         mock_cube,
         num_rotors_to_make,
         rotors_to_use,
-        mock_read_reflector,
         expected_num_unique_quartets,
         key_phrase,
     ):
@@ -737,14 +700,12 @@ class TestCubigma(unittest.TestCase):
         mock_generate_rotors.assert_called_once_with(
             mock_encoded_strengthened_key, mock_cube, num_rotors_to_make=num_rotors_to_make, rotors_to_use=rotors_to_use, orig_key_length=len(key_phrase)
         )
-        mock_read_reflector.assert_called_once_with(cube_length)
 
-    @patch("cubigma.cubigma.read_reflector_from_file")
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
     def test_prepare_machine_valid_inputs(
-        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_read_reflector
+        self, mock_strengthen_key, mock_split, mock_generate_rotors
     ):
         # Arrange
         (
@@ -786,18 +747,16 @@ class TestCubigma(unittest.TestCase):
             mock_cube,
             num_rotors_to_make,
             rotors_to_use,
-            mock_read_reflector,
             expected_num_unique_quartets,
             key_phrase
         )
         mock_strengthen_key.assert_called_once_with(key_phrase, salt=None)
 
-    @patch("cubigma.cubigma.read_reflector_from_file")
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
     def test_prepare_machine_valid_inputs_and_salt(
-        self, mock_strengthen_key, mock_split, mock_generate_rotors, mock_read_reflector
+        self, mock_strengthen_key, mock_split, mock_generate_rotors
     ):
         # Arrange
         (
@@ -839,7 +798,6 @@ class TestCubigma(unittest.TestCase):
             mock_cube,
             num_rotors_to_make,
             rotors_to_use,
-            mock_read_reflector,
             expected_num_unique_quartets,
             key_phrase
         )

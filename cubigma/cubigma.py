@@ -3,7 +3,6 @@ This file is used to encrypt and decrypt messages using the prepared cube.txt fi
 This code implements the Cubigma encryption algorithm.
 """
 
-from cubigma.generate_reflectors import read_reflector_from_file
 from cubigma.utils import (  # Used in packaging & unit testing
     # from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
@@ -11,11 +10,10 @@ from cubigma.utils import (  # Used in packaging & unit testing
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
-    index_to_quartet,
     parse_arguments,
     prep_string_for_encrypting,
-    quartet_to_index,
     rotate_slice_of_cube,
+    run_quartet_through_reflector,
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
@@ -35,30 +33,18 @@ class Cubigma:
     _num_quartets_encoded = 0
     _symbols: list[str]
     rotors: list[list[list[list[str]]]]
-    reflector: dict[int, int]
 
     def __init__(self, characters_filepath: str = "characters.txt", cube_filepath: str = "cube.txt"):
         self._characters_filepath = characters_filepath
         self._cube_filepath = cube_filepath
         self._is_machine_prepared = False
 
-    def _run_quartet_through_reflector(self, char_quartet) -> str:
-        if not self._is_machine_prepared:
-            raise ValueError(
-                "Machine is not prepared yet! Call prepare_machine(key_phrase) before running quartet through reflector"
-            )
-        quartet_index = quartet_to_index(char_quartet, self._symbols)
-        reflected_index = self.reflector[quartet_index]  # Reflect the index
-        reflected_quartet = index_to_quartet(reflected_index, self._symbols)
-        return reflected_quartet
-
     def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str) -> str:
-        partially_encrypted_quartet_1 = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase)
-        partially_encrypted_quartet_2 = self._run_quartet_through_reflector(partially_encrypted_quartet_1)
-        encrypted_quartet = self._run_quartet_through_rotors(
-            partially_encrypted_quartet_2, list(reversed(self.rotors)), key_phrase
-        )
-        return encrypted_quartet
+        rev_rotors = list(reversed(self.rotors))
+        step_one = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase)
+        step_two = run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
+        complete = self._run_quartet_through_rotors(step_two, rev_rotors, key_phrase)
+        return complete
 
     def _run_quartet_through_rotors(
         self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str
@@ -339,9 +325,7 @@ class Cubigma:
             rotors_to_use=rotors_to_use,
             orig_key_length=len(key_phrase),
         )
-        reflector = read_reflector_from_file(cube_length)
         self.rotors = rotors
-        self.reflector = reflector
         self._is_using_steganography = should_use_steganography
         self._is_machine_prepared = True
         return bases64_encoded_salt

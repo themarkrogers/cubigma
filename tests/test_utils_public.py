@@ -11,14 +11,13 @@ from cubigma.utils import (
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
-    index_to_quartet,
     pad_chunk,
     parse_arguments,
     prep_string_for_encrypting,
-    quartet_to_index,
     read_config,
     remove_duplicate_letters,
     rotate_slice_of_cube,
+    run_quartet_through_reflector,
     sanitize,
     split_to_human_readable_symbols,
     strengthen_key,
@@ -247,113 +246,6 @@ class TestGetOppositeCorners(unittest.TestCase):
         self.assertNotEqual(result_1, result_2)
 
 
-class TestIndexToQuartet(unittest.TestCase):
-    def setUp(self):
-        self.symbols = [
-            "q",
-            "w",
-            "e",
-            "r",
-            "t",
-            "y",
-            "u",
-            "i",
-            "o",
-            "p",
-            "a",
-            "s",
-            "d",
-            "f",
-            "g",
-            "h",
-            "j",
-            "k",
-            "l",
-            "z",
-            "x",
-            "c",
-            "v",
-            "b",
-            "n",
-            "m",
-            "Q",
-            "W",
-            "E",
-            "R",
-            "T",
-            "Y",
-            "U",
-            "I",
-            "O",
-            "P",
-            "A",
-            "S",
-            "D",
-            "F",
-            "G",
-            "H",
-            "J",
-            "K",
-            "L",
-            "Z",
-            "X",
-            "C",
-            "V",
-            "B",
-            "N",
-            "M",
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "0",
-            " ",
-            ".",
-            "🏖️",
-            "🏵️",
-            "🌮",
-            "🖐️",
-        ]
-
-    def test_valid_numbers(self):
-        self.assertEqual("dung", index_to_quartet(3802574, self.symbols))
-        self.assertEqual("Dung", index_to_quartet(11977806, self.symbols))
-        self.assertEqual("🏖️🏵️🌮🖐️", index_to_quartet(20428763, self.symbols))
-        self.assertEqual("1234", index_to_quartet(16599263, self.symbols))
-        self.assertEqual(index_to_quartet(0, self.symbols), "qqqq")
-        self.assertEqual(index_to_quartet(1, self.symbols), "qqqw")
-        self.assertEqual(index_to_quartet(2, self.symbols), "qqqe")
-        self.assertEqual(index_to_quartet(3, self.symbols), "qqqr")
-        self.assertEqual(index_to_quartet(4, self.symbols), "qqqt")
-        self.assertEqual(index_to_quartet(8, self.symbols), "qqqo")
-        self.assertEqual(index_to_quartet(16, self.symbols), "qqqj")
-        self.assertEqual(index_to_quartet(32, self.symbols), "qqqU")
-        self.assertEqual(index_to_quartet(85, self.symbols), "qqwk")
-
-    def test_edge_cases(self):
-        # Test edge cases like the maximum index and rollover
-        max_index = (len(self.symbols) ** 4) - 1
-        self.assertEqual(index_to_quartet(max_index, self.symbols), "🖐️🖐️🖐️🖐️")
-
-    def test_invalid_symbols(self):
-        # Test cases with invalid or empty symbols list
-        with self.assertRaises(ValueError):
-            index_to_quartet(0, [])
-
-        with self.assertRaises(ValueError):
-            index_to_quartet(0, ["q"])  # Not enough symbols to form a quartet
-
-    def test_symbols_with_special_characters(self):
-        # Test symbols with special characters
-        special_symbols = ["@", "#", "$", "%"]
-        self.assertEqual(index_to_quartet(42, special_symbols), "@$$$")
-
-
 class TestPadChunk(unittest.TestCase):
     def setUp(self):
         self.chunk_order_number = 2
@@ -532,116 +424,6 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         expected_output = "abc*cdefghij"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
-
-
-class TestQuartetToIndex(unittest.TestCase):
-    def setUp(self):
-        self.symbols = [
-            "q",
-            "w",
-            "e",
-            "r",
-            "t",
-            "y",
-            "u",
-            "i",
-            "o",
-            "p",
-            "a",
-            "s",
-            "d",
-            "f",
-            "g",
-            "h",
-            "j",
-            "k",
-            "l",
-            "z",
-            "x",
-            "c",
-            "v",
-            "b",
-            "n",
-            "m",
-            "Q",
-            "W",
-            "E",
-            "R",
-            "T",
-            "Y",
-            "U",
-            "I",
-            "O",
-            "P",
-            "A",
-            "S",
-            "D",
-            "F",
-            "G",
-            "H",
-            "J",
-            "K",
-            "L",
-            "Z",
-            "X",
-            "C",
-            "V",
-            "B",
-            "N",
-            "M",
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "0",
-            " ",
-            ".",
-            "🏖️",
-            "🏵️",
-            "🌮",
-            "🖐️",
-        ]
-
-    def test_valid_quartet(self):
-        """Test normal usage with valid inputs."""
-        self.assertEqual(3802574, quartet_to_index("dung", self.symbols))
-        self.assertEqual(11977806, quartet_to_index("Dung", self.symbols))
-        self.assertEqual(20428763, quartet_to_index("🏖️🏵️🌮🖐️", self.symbols))
-        self.assertEqual(16599263, quartet_to_index("1234", self.symbols))
-        self.assertEqual(0, quartet_to_index("qqqq", self.symbols))
-        self.assertEqual(1, quartet_to_index("qqqw", self.symbols))
-        self.assertEqual(2, quartet_to_index("qqqe", self.symbols))
-        self.assertEqual(3, quartet_to_index("qqqr", self.symbols))
-        self.assertEqual(4, quartet_to_index("qqqt", self.symbols))
-        self.assertEqual(8, quartet_to_index("qqqo", self.symbols))
-        self.assertEqual(16, quartet_to_index("qqqj", self.symbols))
-        self.assertEqual(32, quartet_to_index("qqqU", self.symbols))
-        self.assertEqual(85, quartet_to_index("qqwk", self.symbols))
-
-    def test_edge_case(self):
-        """Test edge cases with minimum and maximum symbol values."""
-        min_quartet = self.symbols[0] * LENGTH_OF_QUARTET
-        max_quartet = self.symbols[-1] * LENGTH_OF_QUARTET
-        expected_max_index = (len(self.symbols) ** 4) - 1
-        self.assertEqual(quartet_to_index(min_quartet, self.symbols), 0)
-        self.assertEqual(quartet_to_index(max_quartet, self.symbols), expected_max_index)
-
-    def test_invalid_quartet_length(self):
-        """Test that a ValueError is raised if the quartet does not have 4 elements."""
-        with self.assertRaises(ValueError):
-            quartet_to_index("123", self.symbols)
-        with self.assertRaises(ValueError):
-            quartet_to_index("12345", self.symbols)
-
-    def test_invalid_symbol_value(self):
-        """Test that an exception is raised for invalid symbol values."""
-        with self.assertRaises(ValueError):
-            quartet_to_index("123🇬🇵", self.symbols)  # Symbol is not present in cube.txt
 
 
 class TestReadConfig(unittest.TestCase):
@@ -838,6 +620,63 @@ class TestRotateSliceOfCube(unittest.TestCase):
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+
+
+class TestRunQuartetThroughReflector(unittest.TestCase):
+
+    def test_deterministic_output(self):
+        """Test that the function produces deterministic output for the same inputs."""
+        char_quartet = "abcd"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets = 42
+
+        result1 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
+        result2 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
+        self.assertEqual(result1, result2, "The function should produce consistent output for the same inputs.")
+
+    def test_different_inputs_produce_different_outputs(self):
+        """Test that different inputs produce different outputs."""
+        char_quartet = "abcd"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets1 = 42
+        num_of_encoded_quartets2 = 43
+
+        result1 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets1)
+        result2 = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets2)
+        self.assertNotEqual(result1, result2, "Different inputs should produce different outputs.")
+
+    def test_output_is_permutation_of_input(self):
+        """Test that the output is a permutation of the input quartet."""
+        char_quartet = "abcd"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets = 42
+
+        result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
+        self.assertEqual(sorted(result), sorted(char_quartet), "Output should be a permutation of the input quartet.")
+
+    def test_edge_case_empty_key_phrase(self):
+        """Test the function with an empty key phrase."""
+        char_quartet = "abcd"
+        strengthened_key_phrase = ""
+        num_of_encoded_quartets = 42
+
+        result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
+        self.assertEqual(sorted(result), sorted(char_quartet),
+                         "Output should still be a permutation of the input quartet.")
+
+    def test_invalid_input_length(self):
+        """Test the function with an invalid quartet length."""
+        with self.assertRaises(IndexError):
+            run_quartet_through_reflector("abc", "key", 42)
+
+    def test_invalid_characters_in_quartet(self):
+        """Test the function with invalid characters in the quartet."""
+        char_quartet = "ab1$"
+        strengthened_key_phrase = "securekey"
+        num_of_encoded_quartets = 42
+
+        result = run_quartet_through_reflector(char_quartet, strengthened_key_phrase, num_of_encoded_quartets)
+        self.assertEqual(sorted(result), sorted(char_quartet), "Output should handle all valid input characters.")
 
 
 class TestSanitizeFunction(unittest.TestCase):

@@ -464,31 +464,6 @@ def get_opposite_corners(
     return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
 
 
-def index_to_quartet(index: int, symbols: list[str]) -> str:
-    """
-    Convert an index to a quartet based on the provided symbols.
-
-    Args:
-        index (int): The index to convert.
-        symbols (str): A string containing the unique symbols.
-
-    Returns:
-        str: The quartet representing the index.
-    """
-    if not symbols:
-        raise ValueError("List of symbols cannot be None or empty")
-    num_symbols = len(symbols)
-    if num_symbols < LENGTH_OF_QUARTET:
-        raise ValueError("List of symbols must be at least 4")
-    a = index // (num_symbols**3)
-    b = (index % (num_symbols**3)) // (num_symbols**2)
-    c = (index % (num_symbols**2)) // num_symbols
-    d = index % num_symbols
-
-    result = f"{symbols[a]}{symbols[b]}{symbols[c]}{symbols[d]}"
-    return result
-
-
 def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:
     """
     Pad an encrypted message chunk
@@ -579,25 +554,6 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     return sanitized_string
 
 
-def quartet_to_index(quartet: str, symbols: list[str]) -> int:
-    """
-    Convert a quartet to its corresponding index based on the provided symbols.
-
-    Args:
-        quartet (str): The quartet to convert.
-        symbols (str): A string containing the unique symbols.
-
-    Returns:
-        int: The index representing the quartet.
-    """
-    num_symbols = len(symbols)
-    if user_perceived_length(quartet) != LENGTH_OF_QUARTET:
-        raise ValueError("Quartet must be exactly 4 characters long.")
-    indices = [symbols.index(char) for char in split_to_human_readable_symbols(quartet)]
-    result = indices[0] * (num_symbols**3) + indices[1] * (num_symbols**2) + indices[2] * num_symbols + indices[3]
-    return result
-
-
 def read_config(config_file: str = "config.json") -> dict[str, Any]:
     """
     Reads and parses the configuration from the specified JSON file.
@@ -622,32 +578,6 @@ def remove_duplicate_letters(orig: str) -> str:
         if letter not in unique_letters:
             unique_letters.append(letter)
     return "".join(list(unique_letters))
-
-
-def sanitize(raw_input: str) -> str:
-    if raw_input.startswith("\\"):
-        return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
-    return raw_input.replace("\n", "")
-
-
-def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | None = LENGTH_OF_QUARTET) -> list[str]:
-    """
-    Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
-
-    Args:
-        s (str): The input string, guaranteed to have a user_perceived_length of 4.
-        expected_number_of_graphemes (int): Optional. The number of graphemes to enforce
-
-    Returns:
-        list[str]: A list of 4 human-readable symbols, each as a separate string.
-    """
-    # Match grapheme clusters (human-discernible symbols)
-    graphemes = regex.findall(r"\X", s)
-    # Ensure the string has exactly 4 human-discernible symbols
-    if expected_number_of_graphemes:
-        if len(graphemes) != expected_number_of_graphemes:
-            raise ValueError("The input string must have a user-perceived length of 4.")
-    return graphemes
 
 
 def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> list[list[list[str]]]:
@@ -694,6 +624,56 @@ def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> lis
                 rotated_frame_col_idx = max_idx - row_idx
                 new_cube[frame_idx][row_idx][slice_idx_to_rotate] = rotated_slice[frame_idx][rotated_frame_col_idx]
     return new_cube
+
+
+def run_quartet_through_reflector(char_quartet: str, strengthened_key_phrase: str, num_of_encoded_quartets: int) -> str:
+    """
+    Reflects the quartet deterministically using a hash-based reordering.
+
+    Args:
+        char_quartet (str): The input quartet of symbols.
+        strengthened_key_phrase (str): A strengthened key phrase
+        num_of_encoded_quartets (int): This changes with each encoding, so that the same quartet gets encoded differently each time
+
+    Returns:
+        str: The reflected quartet.
+    """
+
+    # Hash the quartet to determine the reordering
+    hash_input = f"{char_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
+    quartet_hash = hashlib.sha256(hash_input.encode()).digest()
+
+    # Determine the reordering using the first 4 bytes of the hash
+    order = sorted(range(4), key=lambda i: quartet_hash[i])
+
+    # Reorder the quartet based on the computed order
+    return ''.join(char_quartet[i] for i in order)
+
+
+def sanitize(raw_input: str) -> str:
+    if raw_input.startswith("\\"):
+        return raw_input.strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+    return raw_input.replace("\n", "")
+
+
+def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | None = LENGTH_OF_QUARTET) -> list[str]:
+    """
+    Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
+
+    Args:
+        s (str): The input string, guaranteed to have a user_perceived_length of 4.
+        expected_number_of_graphemes (int): Optional. The number of graphemes to enforce
+
+    Returns:
+        list[str]: A list of 4 human-readable symbols, each as a separate string.
+    """
+    # Match grapheme clusters (human-discernible symbols)
+    graphemes = regex.findall(r"\X", s)
+    # Ensure the string has exactly 4 human-discernible symbols
+    if expected_number_of_graphemes:
+        if len(graphemes) != expected_number_of_graphemes:
+            raise ValueError("The input string must have a user-perceived length of 4.")
+    return graphemes
 
 
 def strengthen_key(
