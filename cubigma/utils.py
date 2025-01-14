@@ -635,18 +635,24 @@ def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> lis
         new_cube[slice_idx_to_rotate] = rotated_slice
     elif axis == "Y":
         # Rotate along the Y-axis: affecting cube[i][slice_idx_to_rotate][j]
-        slice_to_rotate = [layer[slice_idx_to_rotate] for layer in cube]
+        slice_to_rotate = [frame[slice_idx_to_rotate] for frame in cube]
         rotated_slice = _rotate_2d_array(slice_to_rotate, rotate_dir)
-        for i, new_col in enumerate(rotated_slice):
-            for j, val in enumerate(new_col):
-                new_cube[i][slice_idx_to_rotate][j] = val
+        for idx, layer in enumerate(rotated_slice):
+            new_cube[idx][slice_idx_to_rotate] = layer
     elif axis == "Z":
         # Rotate along the Z-axis: affecting cube[i][j][slice_idx_to_rotate]
-        slice_to_rotate = [layer_col[slice_idx_to_rotate] for layer_col in cube]
+        slice_to_rotate = []
+        for frame_idx, frame in enumerate(cube):
+            row_to_rotate = []
+            for row_idx, row in enumerate(frame):
+                row_to_rotate.append(row[slice_idx_to_rotate])
+            slice_to_rotate.append(row_to_rotate)
         rotated_slice = _rotate_2d_array(slice_to_rotate, rotate_dir)
-        for i, new_row in enumerate(rotated_slice):
-            for j, val in enumerate(new_row):
-                new_cube[i][j][slice_idx_to_rotate] = val
+        for frame_idx, frame in enumerate(cube):
+            for row_idx, row in enumerate(frame):
+                max_idx = (len(row) - 1)
+                rotated_frame_col_idx = max_idx - row_idx
+                new_cube[frame_idx][row_idx][slice_idx_to_rotate] = rotated_slice[frame_idx][rotated_frame_col_idx]
     return new_cube
 
 

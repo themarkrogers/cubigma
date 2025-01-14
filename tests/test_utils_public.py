@@ -773,9 +773,21 @@ class TestRemoveDuplicateLetters(unittest.TestCase):
 class TestRotateSliceOfCube(unittest.TestCase):
     def setUp(self):
         self.cube = [
-            [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
-            [["Y", "O", "P"], ["Y", "O", "P"], ["Y", "O", "P"]],
-            [["W", "K", "M"], ["W", "K", "M"], ["W", "K", "M"]],
+            [
+                ["R", "G", "B"],
+                ["R", "G", "B"],
+                ["R", "G", "B"]
+            ],
+            [
+                ["Y", "O", "P"],
+                ["Y", "O", "P"],
+                ["Y", "O", "P"]
+            ],
+            [
+                ["W", "K", "M"],
+                ["W", "K", "M"],
+                ["W", "K", "M"]
+            ],
         ]
 
     @patch("random.choice")
@@ -822,9 +834,19 @@ class TestRotateSliceOfCube(unittest.TestCase):
         test_slice_idx = 0
         mock_randint.return_value = test_slice_idx  # Rotate slice index 0
         expected_cube = [
-            [["Y", "R", "G"], ["R", "G", "B"], ["R", "G", "B"]],
-            [["W", "O", "B"], ["Y", "O", "P"], ["Y", "O", "P"]],
-            [["K", "M", "P"], ["W", "K", "M"], ["W", "K", "M"]],
+            [
+                ['W', 'Y', 'R'],
+                ['R', 'G', 'B'],
+                ['R', 'G', 'B']
+            ], [
+                ['K', 'O', 'G'],
+                ['Y', 'O', 'P'],
+                ['Y', 'O', 'P']
+            ], [
+                ['M', 'P', 'B'],
+                ['W', 'K', 'M'],
+                ['W', 'K', 'M']
+            ]
         ]
 
         # Act
@@ -842,19 +864,19 @@ class TestRotateSliceOfCube(unittest.TestCase):
         mock_randint.return_value = test_slice_idx  # Rotate slice index 0
         expected_cube = [
             [
-                ["G", "B", "P"],
+                ["B", "P", "M"],
                 ["R", "G", "B"],
-                ["R", "G", "B"],
+                ["R", "G", "B"]
             ],
             [
-                ["R", "O", "M"],
+                ["G", "O", "K"],
                 ["Y", "O", "P"],
-                ["Y", "O", "P"],
+                ["Y", "O", "P"]
             ],
             [
-                ["Y", "W", "K"],
+                ["R", "Y", "W"],
                 ["W", "K", "M"],
-                ["W", "K", "M"],
+                ["W", "K", "M"]
             ],
         ]
 
@@ -871,9 +893,21 @@ class TestRotateSliceOfCube(unittest.TestCase):
         mock_choice.side_effect = ["Z", 1]  # Choose Z-axis, clockwise rotation
         mock_randint.return_value = 2  # Rotate slice index 2
         expected_cube = [
-            [["R", "G", "M"], ["R", "G", "P"], ["R", "G", "B"]],
-            [["Y", "O", "M"], ["Y", "O", "P"], ["Y", "O", "B"]],
-            [["W", "K", "M"], ["W", "K", "P"], ["W", "K", "B"]],
+            [
+                ["R", "G", "B"],
+                ["R", "G", "P"],
+                ["R", "G", "M"]
+            ],
+            [
+                ["Y", "O", "B"],
+                ["Y", "O", "P"],
+                ["Y", "O", "M"]
+            ],
+            [
+                ["W", "K", "B"],
+                ["W", "K", "P"],
+                ["W", "K", "M"]
+            ],
         ]
 
         # Act
@@ -886,12 +920,24 @@ class TestRotateSliceOfCube(unittest.TestCase):
     @patch("random.randint")
     def test_rotate_z_axis_counter_clockwise(self, mock_randint, mock_choice):
         # Arrange
-        mock_choice.side_effect = ["Z", 1]  # Choose Z-axis, clockwise rotation
+        mock_choice.side_effect = ["Z", -1]  # Choose Z-axis, clockwise rotation
         mock_randint.return_value = 2  # Rotate slice index 2
         expected_cube = [
-            [["R", "G", "B"], ["R", "G", "P"], ["R", "G", "M"]],
-            [["Y", "O", "B"], ["Y", "O", "P"], ["Y", "O", "M"]],
-            [["W", "K", "B"], ["W", "K", "P"], ["W", "K", "M"]],
+            [
+                ["R", "G", "M"],
+                ["R", "G", "P"],
+                ["R", "G", "B"]
+            ],
+            [
+                ["Y", "O", "M"],
+                ["Y", "O", "P"],
+                ["Y", "O", "B"]
+            ],
+            [
+                ["W", "K", "M"],
+                ["W", "K", "P"],
+                ["W", "K", "B"]
+            ],
         ]
 
         # Act

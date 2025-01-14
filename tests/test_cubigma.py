@@ -411,10 +411,10 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
                 [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
             ]
         ]
-        expected_coord_for_a = (0, 0, 0)
-        expected_coord_for_b = (0, 0, 1)
-        expected_coord_for_c = (0, 0, 2)
-        expected_coord_for_d = (0, 1, 0)
+        expected_coord_for_a = (0, 0, 2)
+        expected_coord_for_b = (0, 1, 2)
+        expected_coord_for_c = (0, 2, 2)
+        expected_coord_for_d = (0, 0, 1)
         key_phrase = "testkey"
 
         # Act
