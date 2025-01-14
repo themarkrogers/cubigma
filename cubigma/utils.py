@@ -193,7 +193,7 @@ def _read_and_validate_config(mode: str = "") -> tuple[int, int, list[int], str,
     for index, rotor_item in enumerate(rotors_to_use):
         if not isinstance(rotor_item, int):
             raise ValueError(f"ROTORS_TO_USE (in config.json) contains a non-integer value at index: {index}")
-        if rotor_item < 1 or rotor_item >= num_rotors_to_make:
+        if rotor_item < 0 or rotor_item >= num_rotors_to_make:
             first_half = "ROTORS_TO_USE (in config.json) all rotor"
             raise ValueError(f"{first_half} values must be between 0 & the number of rotors generated")
         if rotor_item in seen_rotor_values:

@@ -5,8 +5,8 @@ This code implements the Cubigma encryption algorithm.
 
 import math
 
-from cubigma.utils import (
-# from utils import (
+# from cubigma.utils import (  # Used in packaging & unit testing
+from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_reflector,
@@ -144,13 +144,15 @@ class Cubigma:
         symbols_per_block = symbols_per_line * line_per_block
         total_num_of_symbols = symbols_per_block * num_blocks
 
-        if len(symbols) != total_num_of_symbols:
-            msg = f"The file must contain exactly {total_num_of_symbols} symbols, one per line. Found {len(symbols)}"
+        if len(symbols) < total_num_of_symbols:
+            msg = f"The file must contain at least {total_num_of_symbols} symbols. Found {len(symbols)}"
             raise ValueError(msg)
+        else:
+            trimmed_symbols = symbols[0:total_num_of_symbols]
 
         # Reverse, so the least common symbols are first; this helps entropy when loading the key phrase
-        symbols = list(reversed(list(symbols)))
-        return symbols
+        readied_symbols = list(reversed(list(trimmed_symbols)))
+        return readied_symbols
 
     def _read_cube_from_disk(self, cube_length: int) -> list[list[list[str]]]:
         line_per_block = cube_length
