@@ -19,9 +19,9 @@ However, unlike an Enigma machine, this algorithm does allow a letter to occasio
 
 Users can configure the following:
 * Volume of the playfair cubes used as rotors
-* Number of playfair cubes used as rotors
-* How many playfair cubes to generate, and how many to use 
+* How many playfair cubes to generate, and how many to use as rotors
   * Historically, 5 rotors came with the Enigma machine and only 3 were used.
+* The plugboard ()
 
 | Component         | Enigma                                      | Cubigma                                        |
 |-------------------|---------------------------------------------|------------------------------------------------|
