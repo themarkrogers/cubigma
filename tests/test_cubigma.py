@@ -38,10 +38,8 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_result, result)
-        mock_run_quartet_through_rotors.assert_any_call(test_char_quartet, expected_rotors, test_key_phrase, True)
-        mock_run_quartet_through_rotors.assert_any_call(
-            expected_middle_str, list(reversed(expected_rotors)), test_key_phrase, True
-        )
+        mock_run_quartet_through_rotors.assert_any_call(test_char_quartet, expected_rotors, test_key_phrase, True, [[7, 2, 1, 0], [5, 2, 1, 0], [6, 5, 3, 4]])
+        mock_run_quartet_through_rotors.assert_any_call(expected_middle_str, list(reversed(expected_rotors)), test_key_phrase, True, [[1, 5, 0, 3], [2, 6, 4, 5], [2, 4, 6, 3]])
         assert mock_run_quartet_through_rotors.call_count == 2
         mock_run_quartet_through_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
 
@@ -356,7 +354,9 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True)  # pylint:disable=W0212
+        result = cubigma_instance._run_quartet_through_rotors(
+            char_quartet, rotors, key_phrase, True, [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]],
+        )  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -380,7 +380,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(KeyError):
-            cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True)  # pylint:disable=W0212
+            cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True, [[0, 1, 2, 3]])  # pylint:disable=W0212
         mock_get_chars.assert_not_called()
         mock_get_corners.assert_not_called()
 
@@ -408,7 +408,9 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True)  # pylint:disable=W0212
+        result = cubigma_instance._run_quartet_through_rotors(
+            char_quartet, rotors, key_phrase, True, [[0, 1, 2, 3]]
+        )  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -424,6 +426,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
             key_phrase,
             0,
             True,
+            [0, 1, 2, 3],
         )
 
 

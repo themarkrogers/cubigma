@@ -24,6 +24,7 @@ from cubigma.utils import (  # Used in packaging & unit testing
     sanitize,
     split_to_human_readable_symbols,
     _user_perceived_length,
+    _get_next_corner_choices,
 )
 
 
@@ -54,9 +55,25 @@ class Cubigma:
 
     def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str, is_encrypting: bool) -> str:
         rev_rotors = list(reversed(self.rotors))
-        step_one = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase, is_encrypting)
+        sequence_of_corners_to_choose: list[list[int]] = []
+        for i in range(len(self.rotors) * 2):
+            corners_for_this_iteration = _get_next_corner_choices(
+                key_phrase, self._num_quartets_encoded + i, is_encrypting
+            )
+            sequence_of_corners_to_choose.append(corners_for_this_iteration)
+        if not is_encrypting:
+            sequence_of_corners_to_choose = list(reversed(sequence_of_corners_to_choose))
+        num_rotors = len(self.rotors)
+        first_half_corners = sequence_of_corners_to_choose[:num_rotors]
+        second_half_corners = sequence_of_corners_to_choose[num_rotors:]
+
+        step_one = self._run_quartet_through_rotors(
+            char_quartet, self.rotors, key_phrase, is_encrypting, first_half_corners
+        )
         step_two = self._run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
-        complete = self._run_quartet_through_rotors(step_two, rev_rotors, key_phrase, is_encrypting)
+        complete = self._run_quartet_through_rotors(
+            step_two, rev_rotors, key_phrase, is_encrypting, second_half_corners
+        )
         return complete
 
     def _run_message_through_plugboard(self, full_message: str) -> str:
@@ -101,7 +118,12 @@ class Cubigma:
         return reordered_reflected_quartet
 
     def _run_quartet_through_rotors(
-        self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str, is_encrypting: bool
+        self,
+        char_quartet: str,
+        rotors: list[list[list[list[str]]]],
+        key_phrase: str,
+        is_encrypting: bool,
+        list_of_corners_to_chose: list[list[int]],
     ) -> str:
         cur_quartet = char_quartet
         for rotor_number, rotor in enumerate(rotors):
@@ -146,6 +168,7 @@ class Cubigma:
             num_blocks = len(stepped_rotor)
             lines_per_block = len(stepped_rotor[0])
             symbols_per_line = len(stepped_rotor[0][0])
+            corners_for_this_iteration = list_of_corners_to_chose[rotor_number]
             encrypted_indices = get_opposite_corners(
                 orig_indices[0],
                 orig_indices[1],
@@ -157,6 +180,7 @@ class Cubigma:
                 key_phrase,
                 self._num_quartets_encoded,
                 is_encrypting,
+                corners_for_this_iteration,
             )
             self._num_quartets_encoded += 1
             encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], stepped_rotor)

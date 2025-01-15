@@ -411,6 +411,7 @@ def get_opposite_corners(
     key_phrase: str,
     num_quartets_encoded: int,
     is_encrypting: bool,
+    indices_to_choose: list[int],
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
     Given four corners of a rectangular cube, find the other four corners.
@@ -449,7 +450,7 @@ def get_opposite_corners(
     point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
     all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
-    indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded, is_encrypting)
+    # indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded, is_encrypting)
     chosen_point_1 = all_points[indices_to_choose[0]]
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]
