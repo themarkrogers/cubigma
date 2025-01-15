@@ -4,5 +4,5 @@
   "ROTORS_TO_USE": [4, 0, 3],
   "ENCRYPT_OR_DECRYPT": "DECRYPT",
   "ALSO_USE_STEGANOGRAPHY": false,
-  "PLUGBOARD": ["AB", "CD", "EF"]
+  "PLUGBOARD": []
 }

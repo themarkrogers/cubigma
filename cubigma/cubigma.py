@@ -5,11 +5,11 @@ This code implements the Cubigma encryption algorithm.
 
 from base64 import b64decode
 
-from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
-# from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+# from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
 
-from cubigma.utils import (  # Used in packaging & unit testing
-# from utils import (  # Used in local debugging
+# from cubigma.utils import (  # Used in packaging & unit testing
+from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
@@ -66,14 +66,18 @@ class Cubigma:
         num_rotors = len(self.rotors)
         first_half_corners = sequence_of_corners_to_choose[:num_rotors]
         second_half_corners = sequence_of_corners_to_choose[num_rotors:]
-
+        print(f"{first_half_corners=}")
+        print(f"{second_half_corners=}")
         step_one = self._run_quartet_through_rotors(
             char_quartet, self.rotors, key_phrase, is_encrypting, first_half_corners
         )
+        print(f"{step_one=}")
         step_two = self._run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
+        print(f"{step_two=}")
         complete = self._run_quartet_through_rotors(
             step_two, rev_rotors, key_phrase, is_encrypting, second_half_corners
         )
+        print(f"{complete=}")
         return complete
 
     def _run_message_through_plugboard(self, full_message: str) -> str:
@@ -127,6 +131,7 @@ class Cubigma:
     ) -> str:
         cur_quartet = char_quartet
         for rotor_number, rotor in enumerate(rotors):
+            print(f"{cur_quartet=}")
             # Step the rotors forward immediately before encoding each quartet on each rotor
             indices_by_char = {}
             stepped_rotor = self._step_rotor(rotor, rotor_number, key_phrase)
@@ -258,9 +263,13 @@ class Cubigma:
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
         encrypted_message_after_plugboard = self._run_message_through_plugboard(encrypted_message)
+        print(f"{encrypted_message_after_plugboard=}")
         raw_decrypted_message = self.encode_string(encrypted_message_after_plugboard, key_phrase, False)
+        print(f"{raw_decrypted_message=}")
         decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
+        print(f"{decrypted_message=}")
         decrypted_message_after_plugboard = self._run_message_through_plugboard(decrypted_message)
+        print(f"{decrypted_message_after_plugboard=}")
         return decrypted_message_after_plugboard
 
     def decrypt_message(self, encrypted_message: str, key_phrase: str) -> str:
@@ -291,6 +300,7 @@ class Cubigma:
             decrypted_chunk = self.decode_string(encrypted_chunk, key_phrase)
             if NOISE_SYMBOL not in decrypted_chunk:
                 decrypted_message += decrypted_chunk
+        print(f"{decrypted_message=}")
         return decrypted_message
 
     def encode_string(self, sanitized_message: str, key_phrase: str, is_encrypting: bool) -> str:
@@ -338,9 +348,12 @@ class Cubigma:
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
             )
         clear_text_message_after_plugboard = self._run_message_through_plugboard(clear_text_message)
+        print(f"{clear_text_message_after_plugboard=}")
         sanitized_string = prep_string_for_encrypting(clear_text_message_after_plugboard)
+        print(f"{sanitized_string=}")
         encrypted_message = self.encode_string(sanitized_string, key_phrase, True)
         encrypted_message_after_plugboard = self._run_message_through_plugboard(encrypted_message)
+        print(f"{encrypted_message_after_plugboard=}")
         return encrypted_message_after_plugboard
 
     def prepare_machine(
@@ -381,6 +394,8 @@ class Cubigma:
         else:
             salt_bytes = b64decode(salt)
         strengthened_key_phrase, bases64_encoded_salt = strengthen_key(key_phrase, salt=salt_bytes)
+        print(f"{strengthened_key_phrase=}")
+        print(f"{bases64_encoded_salt=}")
         for character in split_to_human_readable_symbols(strengthened_key_phrase, expected_number_of_graphemes=44):
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
@@ -396,12 +411,16 @@ class Cubigma:
             rotors_to_use=rotors_to_use,
             orig_key_length=len(key_phrase),
         )
+        _ = [print(f"First char of rotor: {rotor[0][0][0]}") for rotor in rotors]
         reflector = generate_reflector(self._symbols, self.random_core)
+        print(f"{reflector["A"]=}, {reflector["B"]=}, {reflector["C"]=}, {reflector["D"]=}")
         plugboard = generate_plugboard(plugboard_values)
+        print(f"{plugboard=}")
         self.plugboard = plugboard
         self.reflector = reflector
         self.rotors = rotors
         self._is_using_steganography = should_use_steganography
+        print(f"{should_use_steganography=}")
         self._is_machine_prepared = True
         return bases64_encoded_salt
 
@@ -427,6 +446,7 @@ def main() -> None:
         plugboard_values,
     ) = tuple_result
 
+    print(f"{mode=}")
     if mode == "encrypt":
         salt = cubigma.prepare_machine(
             key_phrase,
@@ -464,6 +484,7 @@ def main() -> None:
         print(f"{decrypted_message=}")
     else:
         raise ValueError("Unexpected mode!")
+    print("Done!\n")
 
 
 if __name__ == "__main__":

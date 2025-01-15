@@ -10,8 +10,8 @@ import json
 
 import regex
 
-from cubigma.core import (
-# from core import (
+# from cubigma.core import (
+from core import (
     get_independently_deterministic_random_rotor_info,
     get_non_deterministically_random_int,
     get_random_hash_numbers_for_input,
@@ -386,7 +386,12 @@ def generate_rotors(
         base = (generated_rotor_idx + arbitrary_prime_1) * arbitrary_prime_2
         exponent = orig_key_length + generated_rotor_idx
         value_unique_to_each_rotor = str(math.pow(base, exponent))
-        shuffled_rotor = _shuffle_cube_with_key_phrase(strengthened_key_phrase, raw_rotor, value_unique_to_each_rotor)
+
+        are_all_pad_symbols_in_same_frame = True
+        while are_all_pad_symbols_in_same_frame:
+            shuffled_rotor = _shuffle_cube_with_key_phrase(strengthened_key_phrase, raw_rotor, value_unique_to_each_rotor)
+            # ToDo: We need to ensure that all three pad symbols are NOT on the same x, y, or z as each other
+            are_all_pad_symbols_in_same_frame =  # ToDo
         generated_rotors.append(shuffled_rotor)
 
     rotors_ready_for_use: list[list[list[list[str]]]] = []
@@ -430,6 +435,7 @@ def get_opposite_corners(
     Returns:
         A tuple of four tuples, each representing the coordinates of the remaining corners.
     """
+    # ToDo Now: I think this fxn might be busted. Check the tests.
     # Check for unique points
     given_points = {point_1, point_2, point_3, point_4}
     if len(given_points) != LENGTH_OF_QUARTET:
@@ -539,6 +545,8 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     Returns:
         str: String prepared for encryption
     """
+    # ToDo: We also need to check if this quartet of chars forms a square frame in the cube; that is not allowed
+    #  If all 4 symbols in quartet have the same x, or the same y, or the same z in any rotor, then we need a pad symbol
     if not orig_message:
         raise ValueError("Cannot encrypt an empty message")
     sanitized_string = ""
