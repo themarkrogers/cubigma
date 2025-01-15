@@ -11,7 +11,7 @@ import json
 import regex
 
 from cubigma.core import (
-    # from core import (
+# from core import (
     get_independently_deterministic_random_rotor_info,
     get_non_deterministically_random_int,
     get_random_hash_numbers_for_input,
@@ -34,7 +34,7 @@ def _find_symbol(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> t
     raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cube.")
 
 
-def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list[int]:
+def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int, is_encrypting: bool) -> list[int]:
     """
     Generates a deterministic quartet of 4 integers (0-7) based on a key phrase and the count of encoded quartets.
 
@@ -46,10 +46,18 @@ def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list
         list[int]: A list of 4 integers, each between 0-7 (inclusive).
     """
     random_numbers = get_random_hash_numbers_for_input(key_phrase, str(num_quartets_encoded))
+    num_corners_in_a_cube = 8
+    max_corner_idx = num_corners_in_a_cube - 1
+
     quartet = []
     for cur_number in random_numbers:
-        if cur_number not in quartet:
-            quartet.append(cur_number)
+        if is_encrypting:
+            if cur_number not in quartet:
+                quartet.append(cur_number)
+        else:
+            rev_number = max_corner_idx - cur_number
+            if rev_number not in quartet:
+                quartet.append(rev_number)
         if len(quartet) >= LENGTH_OF_QUARTET:
             break
     return quartet
@@ -402,6 +410,7 @@ def get_opposite_corners(
     symbols_per_line: int,
     key_phrase: str,
     num_quartets_encoded: int,
+    is_encrypting: bool,
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
     Given four corners of a rectangular cube, find the other four corners.
@@ -440,7 +449,7 @@ def get_opposite_corners(
     point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
     all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
-    indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+    indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded, is_encrypting)
     chosen_point_1 = all_points[indices_to_choose[0]]
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]

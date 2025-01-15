@@ -351,6 +351,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             self.symbols_per_line,
             self.key_phrase,
             self.num_quartets_encoded,
+            True,
         )
 
         self.assertEqual(len(result), 4)
@@ -375,6 +376,7 @@ class TestGetOppositeCorners(unittest.TestCase):
                 self.symbols_per_line,
                 self.key_phrase,
                 self.num_quartets_encoded,
+            True,
             )
 
     # def test_points_outside_bounds(self):
@@ -406,6 +408,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             self.symbols_per_line,
             "key1",
             self.num_quartets_encoded,
+            True,
         )
 
         result_2 = get_opposite_corners(
@@ -418,6 +421,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             self.symbols_per_line,
             "key2",
             self.num_quartets_encoded,
+            True,
         )
 
         self.assertNotEqual(result_1, result_2)

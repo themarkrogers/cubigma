@@ -162,7 +162,7 @@ def encrypt_message_into_image(
     # Then encrypt each chunk
     encrypted_chunks = []
     for i in range(5):
-        encrypted_chunk = cubigma.encode_string(padded_chunks[i], key_phrase)
+        encrypted_chunk = cubigma.encode_string(padded_chunks[i], key_phrase, True)
         encrypted_chunk_after_plugboard = cubigma._run_message_through_plugboard(
             encrypted_chunk
         )  # pylint:disable=W0212

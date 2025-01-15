@@ -6,11 +6,10 @@ This code implements the Cubigma encryption algorithm.
 from base64 import b64decode
 
 from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
-
 # from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
 
 from cubigma.utils import (  # Used in packaging & unit testing
-    # from utils import (  # Used in local debugging
+# from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
@@ -53,11 +52,11 @@ class Cubigma:
         self.rotors = []
         self.random_core = None
 
-    def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str) -> str:
+    def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str, is_encrypting: bool) -> str:
         rev_rotors = list(reversed(self.rotors))
-        step_one = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase)
+        step_one = self._run_quartet_through_rotors(char_quartet, self.rotors, key_phrase, is_encrypting)
         step_two = self._run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
-        complete = self._run_quartet_through_rotors(step_two, rev_rotors, key_phrase)
+        complete = self._run_quartet_through_rotors(step_two, rev_rotors, key_phrase, is_encrypting)
         return complete
 
     def _run_message_through_plugboard(self, full_message: str) -> str:
@@ -102,7 +101,7 @@ class Cubigma:
         return reordered_reflected_quartet
 
     def _run_quartet_through_rotors(
-        self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str
+        self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str, is_encrypting: bool
     ) -> str:
         cur_quartet = char_quartet
         for rotor_number, rotor in enumerate(rotors):
@@ -157,6 +156,7 @@ class Cubigma:
                 symbols_per_line,
                 key_phrase,
                 self._num_quartets_encoded,
+                is_encrypting,
             )
             self._num_quartets_encoded += 1
             encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], stepped_rotor)
@@ -234,7 +234,7 @@ class Cubigma:
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
         encrypted_message_after_plugboard = self._run_message_through_plugboard(encrypted_message)
-        raw_decrypted_message = self.encode_string(encrypted_message_after_plugboard, key_phrase)
+        raw_decrypted_message = self.encode_string(encrypted_message_after_plugboard, key_phrase, False)
         decrypted_message = raw_decrypted_message.replace("", "").replace("", "").replace("", "")
         decrypted_message_after_plugboard = self._run_message_through_plugboard(decrypted_message)
         return decrypted_message_after_plugboard
@@ -269,13 +269,14 @@ class Cubigma:
                 decrypted_message += decrypted_chunk
         return decrypted_message
 
-    def encode_string(self, sanitized_message: str, key_phrase: str) -> str:
+    def encode_string(self, sanitized_message: str, key_phrase: str, is_encrypting: bool) -> str:
         """
         Encrypt the message using the playfair cube
 
         Args:
             sanitized_message (str): String prepared for encryption
             key_phrase (str): Secret key phrase
+            is_encrypting (bool): A flag to help the direction of the encoding
 
         Returns:
             str: Encrypted string
@@ -293,7 +294,7 @@ class Cubigma:
             end_idx = i + LENGTH_OF_QUARTET
             orig_chunk_symbols = message_split_into_symbols[i:end_idx]
             orig_chunk = "".join(orig_chunk_symbols)
-            encrypted_chunk = self._get_encrypted_letter_quartet(orig_chunk, key_phrase)
+            encrypted_chunk = self._get_encrypted_letter_quartet(orig_chunk, key_phrase, is_encrypting)
             encrypted_message += encrypted_chunk
         return encrypted_message
 
@@ -314,7 +315,7 @@ class Cubigma:
             )
         clear_text_message_after_plugboard = self._run_message_through_plugboard(clear_text_message)
         sanitized_string = prep_string_for_encrypting(clear_text_message_after_plugboard)
-        encrypted_message = self.encode_string(sanitized_string, key_phrase)
+        encrypted_message = self.encode_string(sanitized_string, key_phrase, True)
         encrypted_message_after_plugboard = self._run_message_through_plugboard(encrypted_message)
         return encrypted_message_after_plugboard
 
@@ -351,10 +352,9 @@ class Cubigma:
 
         salt_bytes: bytes | None
         if salt is None:
-            # salt_bytes = b64decode("pRCXZ0Ns0lPxB8iFaeoGdg==")
+            # salt_bytes = b64decode("K6eqcp4HvxKAviVN+0NUDw==")
             salt_bytes = salt
         else:
-            # salt_bytes = salt.encode("utf-8")
             salt_bytes = b64decode(salt)
         strengthened_key_phrase, bases64_encoded_salt = strengthen_key(key_phrase, salt=salt_bytes)
         for character in split_to_human_readable_symbols(strengthened_key_phrase, expected_number_of_graphemes=44):

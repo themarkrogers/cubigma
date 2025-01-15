@@ -1,8 +1,8 @@
 {
-  "LENGTH_OF_CUBE": 7,
+  "LENGTH_OF_CUBE": 5,
   "NUMBER_OF_ROTORS_TO_GENERATE": 5,
   "ROTORS_TO_USE": [4, 0, 3],
   "ENCRYPT_OR_DECRYPT": "DECRYPT",
   "ALSO_USE_STEGANOGRAPHY": false,
-  "PLUGBOARD": ["AB", "CD", "EF", "R;", "🤔©"]
+  "PLUGBOARD": ["AB", "CD", "EF"]
 }

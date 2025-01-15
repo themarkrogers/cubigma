@@ -103,8 +103,8 @@ class TestGetNextCornerChoices(unittest.TestCase):
         key_phrase = "test_key"
         num_quartets_encoded = 5
 
-        result1 = _get_next_corner_choices(key_phrase, num_quartets_encoded)
-        result2 = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+        result1 = _get_next_corner_choices(key_phrase, num_quartets_encoded, True)
+        result2 = _get_next_corner_choices(key_phrase, num_quartets_encoded, True)
 
         self.assertEqual(result1, result2, "The function should produce the same output for the same inputs.")
 
@@ -113,7 +113,7 @@ class TestGetNextCornerChoices(unittest.TestCase):
         key_phrase = "range_test"
         num_quartets_encoded = 10
 
-        result = _get_next_corner_choices(key_phrase, num_quartets_encoded)
+        result = _get_next_corner_choices(key_phrase, num_quartets_encoded, True)
 
         self.assertEqual(len(result), 4, "The function should return exactly 4 integers.")
         self.assertTrue(all(0 <= x <= 7 for x in result), "All integers should be within the range 0-7.")
@@ -122,8 +122,8 @@ class TestGetNextCornerChoices(unittest.TestCase):
         """Test that different inputs produce different outputs."""
         key_phrase = "unique_test"
 
-        result1 = _get_next_corner_choices(key_phrase, 1)
-        result2 = _get_next_corner_choices(key_phrase, 2)
+        result1 = _get_next_corner_choices(key_phrase, 1, True)
+        result2 = _get_next_corner_choices(key_phrase, 2, True)
 
         self.assertNotEqual(result1, result2, "Different num_quartets_encoded values should produce different outputs.")
 
@@ -131,8 +131,8 @@ class TestGetNextCornerChoices(unittest.TestCase):
         """Test that different key phrases produce different outputs."""
         num_quartets_encoded = 1
 
-        result1 = _get_next_corner_choices("key_phrase_1", num_quartets_encoded)
-        result2 = _get_next_corner_choices("key_phrase_2", num_quartets_encoded)
+        result1 = _get_next_corner_choices("key_phrase_1", num_quartets_encoded, True)
+        result2 = _get_next_corner_choices("key_phrase_2", num_quartets_encoded, True)
 
         self.assertNotEqual(result1, result2, "Different key phrases should produce different outputs.")
 

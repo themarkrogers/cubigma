@@ -34,13 +34,13 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
         cubigma._num_quartets_encoded = 42  # pylint:disable=W0212
 
         # Act
-        result = cubigma._get_encrypted_letter_quartet(test_char_quartet, test_key_phrase)  # pylint:disable=W0212
+        result = cubigma._get_encrypted_letter_quartet(test_char_quartet, test_key_phrase, True)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(expected_result, result)
-        mock_run_quartet_through_rotors.assert_any_call(test_char_quartet, expected_rotors, test_key_phrase)
+        mock_run_quartet_through_rotors.assert_any_call(test_char_quartet, expected_rotors, test_key_phrase, True)
         mock_run_quartet_through_rotors.assert_any_call(
-            expected_middle_str, list(reversed(expected_rotors)), test_key_phrase
+            expected_middle_str, list(reversed(expected_rotors)), test_key_phrase, True
         )
         assert mock_run_quartet_through_rotors.call_count == 2
         mock_run_quartet_through_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
@@ -356,7 +356,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase)  # pylint:disable=W0212
+        result = cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -380,7 +380,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(KeyError):
-            cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase)  # pylint:disable=W0212
+            cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True)  # pylint:disable=W0212
         mock_get_chars.assert_not_called()
         mock_get_corners.assert_not_called()
 
@@ -408,7 +408,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase)  # pylint:disable=W0212
+        result = cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -423,6 +423,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
             len(rotors[0][0][0]),
             key_phrase,
             0,
+            True,
         )
 
 
@@ -453,7 +454,7 @@ class TestDecodeString(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_return_value, result, "return value is not the expected value")
-        mock_encode_string.assert_called_once_with("foo", "bar")
+        mock_encode_string.assert_called_once_with("foo", "bar", False)
 
 
 class TestDecryptMessage(unittest.TestCase):
@@ -530,7 +531,7 @@ class TestEncodeMessage(unittest.TestCase):
         instance = Cubigma()  # Not prepared yet
 
         with self.assertRaises(ValueError):
-            instance.encode_string(sanitized_message, key_phrase)
+            instance.encode_string(sanitized_message, key_phrase, True)
 
     def test_encode_string_valid(self):
         """Test encode_string with valid inputs."""
@@ -546,7 +547,7 @@ class TestEncodeMessage(unittest.TestCase):
         expected_result = "".join(mock_data)
 
         # Act
-        result = instance.encode_string(sanitized_message, key_phrase)
+        result = instance.encode_string(sanitized_message, key_phrase, True)
 
         # Assert
         self.assertIsInstance(result, str)
@@ -563,7 +564,7 @@ class TestEncodeMessage(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(AssertionError):
-            instance.encode_string(sanitized_message, key_phrase)
+            instance.encode_string(sanitized_message, key_phrase, True)
 
 
 class TestEncryptMessage(unittest.TestCase):
@@ -593,7 +594,7 @@ class TestEncryptMessage(unittest.TestCase):
 
         # Assert
         self.assertEqual(expected_return_value, result, "return value is not the expected value")
-        mock_encode_string.assert_called_once_with(expected_string, "baz")
+        mock_encode_string.assert_called_once_with(expected_string, "baz", True)
 
 
 class TestPrepareMachine(unittest.TestCase):
