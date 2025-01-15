@@ -4,8 +4,8 @@ This code implements the Cubigma encryption algorithm.
 """
 
 from base64 import b64decode
-import hashlib
 
+from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
 from cubigma.utils import (  # Used in packaging & unit testing
     # from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
@@ -21,7 +21,6 @@ from cubigma.utils import (  # Used in packaging & unit testing
     rotate_slice_of_cube,
     sanitize,
     split_to_human_readable_symbols,
-    strengthen_key,
 )
 
 
@@ -39,6 +38,7 @@ class Cubigma:
     plugboard: dict[str, str]
     reflector: dict[str, str]
     rotors: list[list[list[list[str]]]]
+    random_core: DeterministicRandomCore | None
 
     def __init__(self, characters_filepath: str = "characters.txt", cube_filepath: str = "cube.txt"):
         self._characters_filepath = characters_filepath
@@ -47,6 +47,7 @@ class Cubigma:
         self.plugboard = {}
         self.reflector = {}
         self.rotors = []
+        self.random_core = None
 
     def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str) -> str:
         rev_rotors = list(reversed(self.rotors))
@@ -85,7 +86,7 @@ class Cubigma:
 
         # Hash the quartet to determine the reordering
         hash_input = f"{reflected_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
-        quartet_hash = hashlib.sha256(hash_input.encode()).digest()
+        quartet_hash = get_hash_of_string_in_bytes(hash_input)
 
         # Determine the reordering using the first 4 bytes of the hash
         order = sorted(range(4), key=lambda i: quartet_hash[i])
@@ -326,6 +327,9 @@ class Cubigma:
             if character not in self._symbols:
                 raise ValueError("Key was strengthened to include an invalid character")
 
+        # Setup random seeds
+        self.random_core = DeterministicRandomCore(strengthened_key_phrase)
+
         # Set up the rotors and the reflector
         rotors = generate_rotors(
             strengthened_key_phrase,
@@ -334,7 +338,7 @@ class Cubigma:
             rotors_to_use=rotors_to_use,
             orig_key_length=len(key_phrase),
         )
-        reflector = generate_reflector(strengthened_key_phrase, self._symbols)
+        reflector = generate_reflector(self._symbols, self.random_core)
         plugboard = generate_plugboard(plugboard_values)
         self.plugboard = plugboard
         self.reflector = reflector

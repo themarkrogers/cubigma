@@ -2,18 +2,22 @@
 
 from copy import deepcopy
 from itertools import chain
-from pathlib import Path
-from typing import Any, Sequence, TypeVar
-import base64
-import json
-import hashlib
-import hmac
 import math
-import numbers
-import os
-import random
+from numbers import Number
+from pathlib import Path
+from typing import Any
+import json
 
 import regex
+
+from cubigma.core import (
+    get_independently_deterministic_random_rotor_info,
+    get_non_deterministically_random_int,
+    get_random_hash_numbers_for_input,
+    non_deterministically_random_shuffle_in_place,
+    shuffle_for_input,
+    DeterministicRandomCore,
+)
 
 LENGTH_OF_QUARTET = 4
 NOISE_SYMBOL = ""
@@ -40,23 +44,13 @@ def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int) -> list
     Returns:
         list[int]: A list of 4 integers, each between 0-7 (inclusive).
     """
-    key = key_phrase.encode("utf-8")  # Use the key phrase as the key for HMAC
-    message = str(num_quartets_encoded).encode("utf-8")  # Use num_quartets_encoded as part of the message
-    hmac_hash = hmac.new(key, message, hashlib.sha256).digest()  # Generate a secure hash using HMAC with SHA-256
-    # quartet = [(byte % 8) for byte in hmac_hash[:4]]  # Extract 4 deterministic integers (0-7) from the hash
+    random_numbers = get_random_hash_numbers_for_input(key_phrase, str(num_quartets_encoded))
     quartet = []
-    for byte in hmac_hash:
-        cur_number = byte % 8
+    for cur_number in random_numbers:
         if cur_number not in quartet:
             quartet.append(cur_number)
         if len(quartet) >= LENGTH_OF_QUARTET:
             break
-    # ToDo: Remove debug comments
-    # if len(quartet) < LENGTH_OF_QUARTET:
-    #     print("Ran out!")
-    # num_unique = len(set(quartet))
-    # if len(quartet) != num_unique:
-    #     print("found it")
     return quartet
 
 
@@ -70,7 +64,7 @@ def _get_prefix_order_number_quartet(order_number: int) -> str:
     order_number_str = str(order_number)
     assert len(order_number_str) == 1, "Invalid order number"
     pad_symbols = ["", "", "", order_number_str]
-    random.shuffle(pad_symbols)
+    non_deterministically_random_shuffle_in_place(pad_symbols)
     return "".join(pad_symbols)
 
 
@@ -81,15 +75,15 @@ def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
     noise_quartet_symbols = [NOISE_SYMBOL]
     while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
         coordinate = (
-            random.randint(0, num_blocks - 1),
-            random.randint(0, lines_per_block - 1),
-            random.randint(0, symbols_per_line - 1),
+            get_non_deterministically_random_int(0, num_blocks - 1),
+            get_non_deterministically_random_int(0, lines_per_block - 1),
+            get_non_deterministically_random_int(0, symbols_per_line - 1),
         )
         x, y, z = coordinate
         found_symbol = rotor[x][y][z]
         if found_symbol not in noise_quartet_symbols:
             noise_quartet_symbols.append(found_symbol)
-    random.shuffle(noise_quartet_symbols)
+    non_deterministically_random_shuffle_in_place(noise_quartet_symbols)
     return "".join(noise_quartet_symbols)
 
 
@@ -111,7 +105,7 @@ def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
     pad_symbols = ["", "", ""]
     max_pad_idx = len(pad_symbols) - 1
     while len(chunk) < LENGTH_OF_QUARTET:
-        new_random_number = random.randint(0, max_pad_idx)
+        new_random_number = get_non_deterministically_random_int(0, max_pad_idx)
         random_pad_symbol = pad_symbols[new_random_number]
         if random_pad_symbol not in chunk:
             chunk += random_pad_symbol
@@ -207,54 +201,16 @@ def _rotate_2d_array(arr: list[list[str]], direction: int) -> list[list[str]]:
     raise ValueError("Direction must be 1 (clockwise) or -1 (counterclockwise).")
 
 
-T = TypeVar("T")  # Generic type variable for elements in the sequence
-
-
-def _secure_shuffle(sequence: Sequence[T], sanitized_key_phrase: str) -> list[T]:
-    """
-    Shuffle a sequence using secrets for cryptographic security.
-
-    Args:
-        sequence (Sequence[T]): The input sequence to shuffle.
-        sanitized_key_phrase (str): A sanitized key phrase for deterministic shuffling.
-
-    Returns:
-        list[T]: A securely shuffled list containing the elements of the input sequence.
-    """
-    # # Hash the key phrase to create a deterministic seed
-    # key_hash = hashlib.sha256(sanitized_key_phrase.encode()).digest()
-    #
-    # # Create an iterator over the bytes of the hashed key, cycling if necessary
-    # hash_iter = iter(key_hash * ((len(sequence) // len(key_hash)) + 1))  # Repeat hash bytes as needed
-    #
-    # # Shuffle the sequence using deterministic randomness
-    # shuffled = list(sequence)
-    # for i in range(len(shuffled) - 1, 0, -1):
-    #     j = deterministic_randbelow(i + 1, hash_iter)
-    #     shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-    # return shuffled
-
-    # Derive a deterministic seed from the sanitized_key_phrase
-    seed = int(hashlib.sha256(sanitized_key_phrase.encode()).hexdigest(), 16)
-
-    # Initialize a random generator with the deterministic seed
-    rng = random.Random(seed)
-
-    shuffled = list(sequence)
-    for i in range(len(shuffled) - 1, 0, -1):
-        j = rng.randint(0, i)  # Generate a random index deterministically
-        shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-    return shuffled
-
-
 def _shuffle_cube_with_key_phrase(
-    sanitized_key_phrase: str, orig_cube: list[list[list[str]]], value_unique_to_each_rotor: str
+    strengthened_key_phrase: str,
+    orig_cube: list[list[list[str]]],
+    value_unique_to_each_rotor: str,
 ) -> list[list[list[str]]]:
     """
     Shuffles the elements of a 3-dimensional list in-place for cryptographic use.
 
     Args:
-        sanitized_key_phrase (str): strengthened, sanitized key
+        strengthened_key_phrase (str): strengthened, sanitized key
         orig_cube (list[list[list[str]]]): A 3-dimensional list of strings to shuffle.
         value_unique_to_each_rotor (str): string representation of a number that changes for each rotor
 
@@ -264,10 +220,9 @@ def _shuffle_cube_with_key_phrase(
     # Flatten the entire cube into a single list of elements
     flat_cube = list(chain.from_iterable(chain.from_iterable(orig_cube)))
 
-    shuffled_flat = _secure_shuffle(flat_cube, f"{sanitized_key_phrase}|{value_unique_to_each_rotor}")
+    shuffled_flat = shuffle_for_input(f"{strengthened_key_phrase}|{value_unique_to_each_rotor}", flat_cube)
 
     # Reshape the flattened list back into the original cube structure
-    # cube_shape = [[[len(inner) for inner in outer] for outer in orig_cube]]
     reshaped_cube = deepcopy(orig_cube)
     flat_iter = iter(shuffled_flat)
     for outer in reshaped_cube:
@@ -324,25 +279,19 @@ def generate_plugboard(plugboard_values: list[str]) -> dict[str, str]:
     return plugboard
 
 
-def generate_reflector(strengthened_key_phrase: str, symbols: list[str]) -> dict[str, str]:
+def generate_reflector(symbols: list[str], random_core: DeterministicRandomCore) -> dict[str, str]:
     """
     Generate a "reflector" that swaps symbols in the middle of encryption
 
     Args:
-        strengthened_key_phrase (str): a cryptographically strengthened key phrase
         symbols (list[str]): a list of all possible symbols
+        random_core (DeterministicRandomCore): The random_core from the cubigma instance calling this
 
     Returns:
         a dictionary of one symbol to another
     """
     # Create a list of all possible symbols
-    new_symbols = symbols.copy()
-
-    # Seed the random generator with the key
-    random.seed(strengthened_key_phrase)
-
-    # Shuffle the quartets
-    random.shuffle(new_symbols)
+    new_symbols = random_core.shuffle(symbols.copy())
 
     # Create pairs and map them bidirectionally
     reflector = {}
@@ -354,7 +303,7 @@ def generate_reflector(strengthened_key_phrase: str, symbols: list[str]) -> dict
 
 
 def generate_rotors(
-    sanitized_key_phrase: str,
+    strengthened_key_phrase: str,
     raw_cube: list[list[list[str]]],
     num_rotors_to_make: int | None = None,
     rotors_to_use: list[int] | None = None,
@@ -364,7 +313,7 @@ def generate_rotors(
     Generate a deterministic, key-dependent reflector for quartets.
 
     Args:
-        sanitized_key_phrase (str): The encryption key (strengthened & sanitized) used to seed the random generator.
+        strengthened_key_phrase (str): The encryption key (strengthened & sanitized) used to seed the random generator.
         raw_cube (list[list[list[str]]]): The playfair cube with the key phrase pulled to the front
         num_rotors_to_make (int): Number of "rotors" to generate
         rotors_to_use (list[int]): Indices of which "rotors" to actually use
@@ -374,7 +323,7 @@ def generate_rotors(
         list[list[list[list[str]]]]: A list of "rotors", where each "rotor" is a 3-dimensional cube representing a
           playfair cube. These have been shuffled (based on the key_phrase provided)
     """
-    if not sanitized_key_phrase or not isinstance(sanitized_key_phrase, str):
+    if not strengthened_key_phrase or not isinstance(strengthened_key_phrase, str):
         raise ValueError("sanitized_key_phrase must be a non-empty string")
     if (
         (not raw_cube or not isinstance(raw_cube, list))
@@ -383,7 +332,7 @@ def generate_rotors(
         or (not raw_cube[0][0][0] or not isinstance(raw_cube[0][0][0], str))
     ):
         raise ValueError("raw_cube must be a 3-dimensional list of non-empty strings.")
-    if not num_rotors_to_make or not isinstance(num_rotors_to_make, numbers.Number) or num_rotors_to_make < 1:
+    if not num_rotors_to_make or not isinstance(num_rotors_to_make, Number) or num_rotors_to_make < 1:
         raise ValueError("num_rotors must be an integer great than zero.")
     if not rotors_to_use or not isinstance(rotors_to_use, list):
         raise ValueError("NUMBER_OF_ROTORS_TO_GENERATE (in config.json) must be a non-empty list of integers")
@@ -401,17 +350,15 @@ def generate_rotors(
             raise ValueError(f"{first_half} unique integers between 0 & the number of rotors generated")
         seen_rotor_values.append(rotor_item)
 
-    random.seed(sanitized_key_phrase)  # Seed the random generator with the key
-
     generated_rotors = []
-    random_prime_1 = 7
-    random_prime_2 = 13
+    arbitrary_prime_1 = 7
+    arbitrary_prime_2 = 13
     for generated_rotor_idx in range(num_rotors_to_make):
         raw_rotor = deepcopy(raw_cube)
-        base = (generated_rotor_idx + random_prime_1) * random_prime_2
+        base = (generated_rotor_idx + arbitrary_prime_1) * arbitrary_prime_2
         exponent = orig_key_length + generated_rotor_idx
         value_unique_to_each_rotor = str(math.pow(base, exponent))
-        shuffled_rotor = _shuffle_cube_with_key_phrase(sanitized_key_phrase, raw_rotor, value_unique_to_each_rotor)
+        shuffled_rotor = _shuffle_cube_with_key_phrase(strengthened_key_phrase, raw_rotor, value_unique_to_each_rotor)
         generated_rotors.append(shuffled_rotor)
 
     rotors_ready_for_use: list[list[list[list[str]]]] = []
@@ -474,10 +421,6 @@ def get_opposite_corners(
     all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
     indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded)
-    # ToDo: Remove debug comments
-    # num_unique_points_to_chose = len(set(indices_to_choose))
-    # if num_unique_points_to_chose != len(indices_to_choose):
-    #     raise ValueError("Dagnabbit")
     chosen_point_1 = all_points[indices_to_choose[0]]
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]
@@ -613,10 +556,9 @@ def rotate_slice_of_cube(cube: list[list[list[str]]], combined_seed: str) -> lis
     Returns:
         A new 3D list with the specified slice rotated.
     """
-    random.seed(combined_seed)  # Ensure this logic is deterministic
-    axis = random.choice(["X", "Y", "Z"])
-    rotate_dir = random.choice([-1, 1])  # -1: counterclockwise, 1: clockwise
-    slice_idx_to_rotate = random.randint(0, len(cube) - 1)
+    axis, rotate_dir, slice_idx_to_rotate = get_independently_deterministic_random_rotor_info(
+        combined_seed, ["X", "Y", "Z"], [-1, 1], len(cube) - 1
+    )
 
     new_cube = deepcopy(cube)  # Create a copy of the cube to avoid mutating the input
 
@@ -672,32 +614,6 @@ def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | 
         if len(graphemes) != expected_number_of_graphemes:
             raise ValueError(f"The input string must have a user-perceived length of {expected_number_of_graphemes}.")
     return graphemes
-
-
-def strengthen_key(
-    key_phrase: str, salt: None | bytes = None, iterations: int = 200_000, key_length: int = 32
-) -> tuple[str, str]:
-    """
-    Strengthen a user-provided key using Argon2 key derivation.
-
-    Args:
-        key_phrase (str): The weak key phrase provided by the user.
-        salt (bytes): Optional salt. If None, generates a random 16-byte salt.
-        iterations (int): Number of iterations for PBKDF2 (default is 100,000).
-        key_length (int): The desired length of the derived key in bytes (default is 32 bytes for 256-bit key).
-
-    Returns:
-        bytes: A securely derived key & the salt used
-    """
-    if salt is None:
-        salt = os.urandom(16)  # Use a secure random salt if not provided
-    key_phrase_bytes = key_phrase.encode("utf-8")
-    key = hashlib.pbkdf2_hmac("sha256", key_phrase_bytes, salt, iterations, dklen=key_length)  # Derived key length
-    b64_key = base64.b64encode(key).decode("utf-8")  # always 44 chars long
-    b64_salt = base64.b64encode(salt).decode("utf-8")  # always 24 chars long
-    # if len(b64_key) != 44 or len(b64_salt) != 24:
-    #     print(f"This should not happen! {len(b64_key)} != 44 or {len(b64_salt)} != 24")
-    return b64_key, b64_salt
 
 
 def _user_perceived_length(s: str) -> int:

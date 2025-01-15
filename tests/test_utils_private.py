@@ -27,9 +27,6 @@ from cubigma.utils import (
 )
 
 
-# Testing Private Functions
-
-
 class TestFindSymbol(unittest.TestCase):
     def setUp(self):
         # Example 3x3x3 playfair cube
@@ -405,7 +402,7 @@ class TestMoveSymbolIn3DSpace(unittest.TestCase):
 
 
 class TestPadChunkWithRandPadSymbols(unittest.TestCase):
-    @patch("cubigma.utils.random")
+    @patch("cubigma.utils.get_non_deterministically_random_int")
     def test_pad_chunk_with_empty_input(self, mock_randint):
         with self.assertRaises(ValueError) as context:
             _pad_chunk_with_rand_pad_symbols("")
@@ -714,29 +711,19 @@ class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
 
     def test_consistent_shuffling_with_same_key(self):
         """Test that shuffling with the same key gives consistent results."""
-        shuffled_1 = _shuffle_cube_with_key_phrase(
-            self.key_phrase_1, deepcopy(self.orig_cube), value_unique_to_each_rotor="42"
-        )
-        shuffled_2 = _shuffle_cube_with_key_phrase(
-            self.key_phrase_1, deepcopy(self.orig_cube), value_unique_to_each_rotor="42"
-        )
+        shuffled_1 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
+        shuffled_2 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
         self.assertEqual(shuffled_1, shuffled_2)
 
     def test_different_keys_produce_different_results(self):
         """Test that shuffling with different keys gives different results."""
-        shuffled_1 = _shuffle_cube_with_key_phrase(
-            self.key_phrase_1, deepcopy(self.orig_cube), value_unique_to_each_rotor="42"
-        )
-        shuffled_2 = _shuffle_cube_with_key_phrase(
-            self.key_phrase_2, deepcopy(self.orig_cube), value_unique_to_each_rotor="42"
-        )
+        shuffled_1 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
+        shuffled_2 = _shuffle_cube_with_key_phrase(self.key_phrase_2, deepcopy(self.orig_cube), "42")
         self.assertNotEqual(shuffled_1, shuffled_2)
 
     def test_structure_preserved(self):
         """Test that the structure of the cube is preserved after shuffling."""
-        shuffled = _shuffle_cube_with_key_phrase(
-            self.key_phrase_1, deepcopy(self.orig_cube), value_unique_to_each_rotor="42"
-        )
+        shuffled = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
         # Ensure the top-level list length is preserved
         self.assertEqual(len(shuffled), len(self.orig_cube))
         for orig_outer, shuffled_outer in zip(self.orig_cube, shuffled):
@@ -749,7 +736,7 @@ class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
     def test_no_side_effects(self):
         """Test that the original cube is not modified by the function."""
         orig_cube_copy = deepcopy(self.orig_cube)
-        _ = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), value_unique_to_each_rotor="42")
+        _ = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
         self.assertEqual(self.orig_cube, orig_cube_copy)
 
 
