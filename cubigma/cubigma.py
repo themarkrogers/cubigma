@@ -6,6 +6,9 @@ This code implements the Cubigma encryption algorithm.
 from base64 import b64decode
 
 from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+
+# from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+
 from cubigma.utils import (  # Used in packaging & unit testing
     # from utils import (  # Used in local debugging
     LENGTH_OF_QUARTET,
@@ -21,6 +24,7 @@ from cubigma.utils import (  # Used in packaging & unit testing
     rotate_slice_of_cube,
     sanitize,
     split_to_human_readable_symbols,
+    _user_perceived_length,
 )
 
 
@@ -78,13 +82,14 @@ class Cubigma:
         Returns:
             str: The reflected quartet.
         """
-        reflected_quartet = ""
+        reflected_symbols = []
         # Reflect each symbol
         for symbol in split_to_human_readable_symbols(char_quartet):
             reflected_symbol = self.reflector[symbol]
-            reflected_quartet += reflected_symbol
+            reflected_symbols.append(reflected_symbol)
 
         # Hash the quartet to determine the reordering
+        reflected_quartet = "".join(reflected_symbols)
         hash_input = f"{reflected_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
         quartet_hash = get_hash_of_string_in_bytes(hash_input)
 
@@ -92,33 +97,52 @@ class Cubigma:
         order = sorted(range(4), key=lambda i: quartet_hash[i])
 
         # Reorder the quartet based on the computed order
-        reordered_reflected_quartet = "".join(reflected_quartet[i] for i in order)
+        reordered_reflected_quartet = "".join(reflected_symbols[i] for i in order)
 
         return reordered_reflected_quartet
 
     def _run_quartet_through_rotors(
         self, char_quartet: str, rotors: list[list[list[list[str]]]], key_phrase: str
     ) -> str:
-        indices_by_char = {}
         cur_quartet = char_quartet
         for rotor_number, rotor in enumerate(rotors):
             # Step the rotors forward immediately before encoding each quartet on each rotor
+            indices_by_char = {}
             stepped_rotor = self._step_rotor(rotor, rotor_number, key_phrase)
             rotors[rotor_number] = stepped_rotor
 
+            individual_symbols = split_to_human_readable_symbols(cur_quartet)
             for frame_idx, cur_frame in enumerate(stepped_rotor):
                 for row_idx, cur_line in enumerate(cur_frame):
-                    if any(char in cur_line for char in cur_quartet):
-                        if cur_quartet[0] in cur_line:
-                            indices_by_char[cur_quartet[0]] = (frame_idx, row_idx, cur_line.index(cur_quartet[0]))
-                        if cur_quartet[1] in cur_line:
-                            indices_by_char[cur_quartet[1]] = (frame_idx, row_idx, cur_line.index(cur_quartet[1]))
-                        if cur_quartet[2] in cur_line:
-                            indices_by_char[cur_quartet[2]] = (frame_idx, row_idx, cur_line.index(cur_quartet[2]))
-                        if cur_quartet[3] in cur_line:
-                            indices_by_char[cur_quartet[3]] = (frame_idx, row_idx, cur_line.index(cur_quartet[3]))
+                    if any(symbol in cur_line for symbol in individual_symbols):
+                        if individual_symbols[0] in cur_line:
+                            indices_by_char[individual_symbols[0]] = (
+                                frame_idx,
+                                row_idx,
+                                cur_line.index(individual_symbols[0]),
+                            )
+                        if individual_symbols[1] in cur_line:
+                            indices_by_char[individual_symbols[1]] = (
+                                frame_idx,
+                                row_idx,
+                                cur_line.index(individual_symbols[1]),
+                            )
+                        if individual_symbols[2] in cur_line:
+                            indices_by_char[individual_symbols[2]] = (
+                                frame_idx,
+                                row_idx,
+                                cur_line.index(individual_symbols[2]),
+                            )
+                        if individual_symbols[3] in cur_line:
+                            indices_by_char[individual_symbols[3]] = (
+                                frame_idx,
+                                row_idx,
+                                cur_line.index(individual_symbols[3]),
+                            )
+            if len(indices_by_char) != LENGTH_OF_QUARTET:
+                print("This is unexpected")
             orig_indices = []
-            for cur_char in split_to_human_readable_symbols(cur_quartet):
+            for cur_char in individual_symbols:
                 orig_indices.append(indices_by_char[cur_char])
             num_blocks = len(stepped_rotor)
             lines_per_block = len(stepped_rotor[0])
@@ -139,7 +163,8 @@ class Cubigma:
             encrypted_char_2 = get_chars_for_coordinates(encrypted_indices[1], stepped_rotor)
             encrypted_char_3 = get_chars_for_coordinates(encrypted_indices[2], stepped_rotor)
             encrypted_char_4 = get_chars_for_coordinates(encrypted_indices[3], stepped_rotor)
-            encrypted_quartet = "".join([encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4])
+            list_of_encrypted_chars = [encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4]
+            encrypted_quartet = "".join(list_of_encrypted_chars)
             cur_quartet = encrypted_quartet
             # ToDo: Do we need to save stepped_rotor back into
         return cur_quartet
@@ -232,9 +257,13 @@ class Cubigma:
 
         # Remove all quartets with the TOTAL_NOISE characters
         decrypted_message = ""
-        for i in range(0, len(encrypted_message), LENGTH_OF_QUARTET):
+        message_split_into_symbols = split_to_human_readable_symbols(
+            encrypted_message, expected_number_of_graphemes=None
+        )
+        for i in range(0, len(message_split_into_symbols), LENGTH_OF_QUARTET):
             end_idx = i + LENGTH_OF_QUARTET
-            encrypted_chunk = encrypted_message[i:end_idx]
+            encrypted_chunk_symbols = message_split_into_symbols[i:end_idx]
+            encrypted_chunk = "".join(encrypted_chunk_symbols)
             decrypted_chunk = self.decode_string(encrypted_chunk, key_phrase)
             if NOISE_SYMBOL not in decrypted_chunk:
                 decrypted_message += decrypted_chunk
@@ -255,11 +284,15 @@ class Cubigma:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
-        assert len(sanitized_message) % LENGTH_OF_QUARTET == 0, "Message is not properly sanitized!"
+        assert _user_perceived_length(sanitized_message) % LENGTH_OF_QUARTET == 0, "Message is not properly sanitized!"
         encrypted_message = ""
-        for i in range(0, len(sanitized_message), LENGTH_OF_QUARTET):
+        message_split_into_symbols = split_to_human_readable_symbols(
+            sanitized_message, expected_number_of_graphemes=None
+        )
+        for i in range(0, len(message_split_into_symbols), LENGTH_OF_QUARTET):
             end_idx = i + LENGTH_OF_QUARTET
-            orig_chunk = sanitized_message[i:end_idx]
+            orig_chunk_symbols = message_split_into_symbols[i:end_idx]
+            orig_chunk = "".join(orig_chunk_symbols)
             encrypted_chunk = self._get_encrypted_letter_quartet(orig_chunk, key_phrase)
             encrypted_message += encrypted_chunk
         return encrypted_message
@@ -318,6 +351,7 @@ class Cubigma:
 
         salt_bytes: bytes | None
         if salt is None:
+            # salt_bytes = b64decode("pRCXZ0Ns0lPxB8iFaeoGdg==")
             salt_bytes = salt
         else:
             # salt_bytes = salt.encode("utf-8")

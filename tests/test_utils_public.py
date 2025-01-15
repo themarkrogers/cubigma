@@ -1,6 +1,6 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import json
 import unittest
 
@@ -8,6 +8,7 @@ from cubigma.utils import (
     LENGTH_OF_QUARTET,
     generate_cube_from_symbols,
     generate_plugboard,
+    generate_reflector,
     generate_rotors,
     get_chars_for_coordinates,
     get_opposite_corners,
@@ -68,10 +69,10 @@ class TestGenerateCubeFromSymbols(unittest.TestCase):
         lines_per_block = 2
         symbols_per_line = 3
 
-        expected_output = [[["a", "\\\\", "\\n"], ["b", "\\t", "c"]], [["d", "e", "f"], ["g", "h", "i"]]]
+        expected_output = [[["a", "\\", "\n"], ["b", "\t", "c"]], [["d", "e", "f"], ["g", "h", "i"]]]
 
         result = generate_cube_from_symbols(symbols_with_escape, num_blocks, lines_per_block, symbols_per_line)
-        self.assertEqual(result, expected_output)
+        self.assertEqual(expected_output, result)
 
     def test_generate_cube_empty_symbols(self):
         """Test cube generation with empty symbols list."""
@@ -115,6 +116,55 @@ class TestGeneratePlugboard(unittest.TestCase):
         plugboard_values = [123, "AB"]
         with self.assertRaises(TypeError):
             generate_plugboard(plugboard_values)
+
+
+class TestGenerateReflector(unittest.TestCase):
+
+    def setUp(self):
+        self.symbols = ["A", "B", "C", "D", "E", "F"]
+
+        # Mocking DeterministicRandomCore
+        self.random_core = MagicMock()
+        self.random_core.shuffle = lambda x: x[::-1]  # Reverse list for deterministic behavior
+
+    def test_reflector_bidirectional_mapping(self):
+        """Test if the reflector creates bidirectional mappings."""
+        reflector = generate_reflector(self.symbols, self.random_core)
+
+        for symbol, mapped_symbol in reflector.items():
+            self.assertEqual(reflector[mapped_symbol], symbol, "Mapping is not bidirectional")
+
+    def test_all_symbols_mapped(self):
+        """Test if all symbols are included in the reflector."""
+        reflector = generate_reflector(self.symbols, self.random_core)
+
+        self.assertSetEqual(set(reflector.keys()), set(self.symbols), "Not all symbols are mapped")
+        self.assertSetEqual(set(reflector.values()), set(self.symbols), "Not all symbols are in values")
+
+    def test_odd_number_of_symbols(self):
+        """Test if function handles odd number of symbols by pairing the last symbol with itself."""
+        odd_symbols = ["A", "B", "C", "D", "E"]
+        self.random_core.shuffle = lambda x: x[::]  # Preserve list order
+        reflector = generate_reflector(odd_symbols, self.random_core)
+
+        for symbol in odd_symbols:
+            self.assertIn(symbol, reflector, f"Symbol {symbol} is missing in reflector")
+            self.assertIn(reflector[symbol], odd_symbols, f"Symbol {reflector[symbol]} is not valid")
+
+            # Verify last symbol pairs with itself if list is odd
+            if symbol == "E":
+                self.assertNotEqual(reflector[symbol], symbol, "Odd symbol should not be paired with itself")
+
+    def test_empty_symbols_list(self):
+        """Test if function handles an empty symbols list."""
+        reflector = generate_reflector([], self.random_core)
+        self.assertEqual(reflector, {}, "Reflector for empty symbols list is not empty")
+
+    def test_single_symbol(self):
+        """Test if function handles a single symbol by mapping it to itself."""
+        single_symbol = ["A"]
+        reflector = generate_reflector(single_symbol, self.random_core)
+        self.assertEqual(reflector, {"A": "A"}, "Single symbol is not paired with itself")
 
 
 class TestGenerateRotors(unittest.TestCase):

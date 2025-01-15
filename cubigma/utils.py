@@ -11,6 +11,7 @@ import json
 import regex
 
 from cubigma.core import (
+    # from core import (
     get_independently_deterministic_random_rotor_info,
     get_non_deterministically_random_int,
     get_random_hash_numbers_for_input,
@@ -245,7 +246,11 @@ def generate_cube_from_symbols(
             raw_symbols = symbols[start_idx:end_idx]
             if _user_perceived_length("".join(raw_symbols)) != symbols_per_line:
                 raise ValueError("Something has failed")
-            new_row = [i.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t") for i in raw_symbols]
+            new_row = [i.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\") for i in raw_symbols]
+            # new_row = []
+            # for i in raw_symbols:
+            #     foo = i.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+            #     new_row.append(foo)
             assert len(new_row) == symbols_per_line, "Something else has failed."
             new_frame.append(new_row)
         cube.append(new_frame)
@@ -295,10 +300,25 @@ def generate_reflector(symbols: list[str], random_core: DeterministicRandomCore)
 
     # Create pairs and map them bidirectionally
     reflector = {}
-    for i in range(0, len(new_symbols), 2):
-        q1, q2 = new_symbols[i], new_symbols[i + 1]
-        reflector[q1] = q2
-        reflector[q2] = q1
+    num_symbols = len(new_symbols)
+    last_index = num_symbols - 1
+    middle_index = int(num_symbols / 2.0)
+    is_length_odd = middle_index != num_symbols / 2.0
+    if num_symbols == 1:
+        only_symbol = symbols[0]
+        reflector[only_symbol] = only_symbol
+        return reflector
+    for i in range(0, middle_index):
+        if i == 0 and is_length_odd:
+            q1, q2 = new_symbols[i], new_symbols[last_index - i]
+            q3 = new_symbols[middle_index]
+            reflector[q1] = q2
+            reflector[q2] = q3
+            reflector[q3] = q1
+        else:
+            q1, q2 = new_symbols[i], new_symbols[last_index - i]
+            reflector[q1] = q2
+            reflector[q2] = q1
     return reflector
 
 
@@ -425,6 +445,10 @@ def get_opposite_corners(
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]
     chosen_point_4 = all_points[indices_to_choose[3]]
+    list_of_foo = [chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4]
+    unique_foo = set(list_of_foo)
+    if len(unique_foo) != LENGTH_OF_QUARTET:
+        print("Odd")
     return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
 
 
