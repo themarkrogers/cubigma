@@ -7,7 +7,7 @@ import random
 from cubigma.cubigma import prep_string_for_encrypting
 from cubigma.cubigma import Cubigma
 from cubigma.steganography import embed_chunks, get_chunks_from_image, get_image_size
-from cubigma.utils import LENGTH_OF_QUARTET, pad_chunk, parse_arguments
+from cubigma.utils import LENGTH_OF_TRIO, pad_chunk, parse_arguments
 
 NUM_SQUARES = 5
 
@@ -150,13 +150,13 @@ def encrypt_message_into_image(
     chunk_sizes = list(raw_chunk_sizes)
     chunks = split_message_according_to_numbers(chunk_sizes, sanitized_string)
 
-    # # "- LENGTH_OF_QUARTET" is to leave room for the prefixed order number
-    # padded_chunk_length = (int(padded_length / NUM_SQUARES) - LENGTH_OF_QUARTET)
+    # # "- LENGTH_OF_TRIO" is to leave room for the prefixed order number
+    # padded_chunk_length = (int(padded_length / NUM_SQUARES) - LENGTH_OF_TRIO)
 
     padded_chunks = []
     for i in range(5):
         rotor_to_use = i % len(cubigma.rotors)
-        padded_chunk = pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_QUARTET, i + 1, cubigma.rotors[rotor_to_use])
+        padded_chunk = pad_chunk(chunks[i], chunk_sizes[i] - LENGTH_OF_TRIO, i + 1, cubigma.rotors[rotor_to_use])
         padded_chunks.append(padded_chunk)
 
     # Then encrypt each chunk
@@ -209,7 +209,7 @@ def decrypt_message_from_image(stego_image_filepath: str, key_phrase: str = "", 
     chunks = get_chunks_from_image(stego_image_filepath)
     chunk_by_order_number = {}
     for chunk in chunks:
-        encrypted_order_number = chunk[0:LENGTH_OF_QUARTET]
+        encrypted_order_number = chunk[0:LENGTH_OF_TRIO]
         decrypted_order_number = cubigma.decode_string(encrypted_order_number, key_phrase)
         order_number = int(decrypted_order_number)
         chunk_by_order_number[order_number] = chunk
@@ -217,9 +217,9 @@ def decrypt_message_from_image(stego_image_filepath: str, key_phrase: str = "", 
     # Assemble the 5 chunks in order
     encrypted_noisy_message = ""
     for i in range(NUM_SQUARES):
-        # Use the key to decode the first quartet in each chunk to determine assembly order
+        # Use the key to decode the first trio in each chunk to determine assembly order
         cur_chunk = chunk_by_order_number[i]
-        encrypted_noisy_message += cur_chunk[LENGTH_OF_QUARTET:]
+        encrypted_noisy_message += cur_chunk[LENGTH_OF_TRIO:]
 
     decrypted_message = cubigma.decrypt_message(encrypted_noisy_message, key_phrase)
     return decrypted_message

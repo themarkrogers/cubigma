@@ -20,7 +20,7 @@ from core import (
     DeterministicRandomCore,
 )
 
-LENGTH_OF_QUARTET = 4
+LENGTH_OF_TRIO = 3
 NOISE_SYMBOL = ""
 
 
@@ -34,33 +34,33 @@ def _find_symbol(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> t
     raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cube.")
 
 
-def _get_next_corner_choices(key_phrase: str, num_quartets_encoded: int, is_encrypting: bool) -> list[int]:
+def _get_next_corner_choices(key_phrase: str, num_trios_encoded: int, is_encrypting: bool) -> list[int]:
     """
-    Generates a deterministic quartet of 4 integers (0-7) based on a key phrase and the count of encoded quartets.
+    Generates a deterministic trio of 3 integers (0-7) based on a key phrase and the count of encoded trios.
 
     Args:
         key_phrase (str): The key phrase used to seed the generator.
-        num_quartets_encoded (int): The number of quartets already encoded (used to vary output).
+        num_trios_encoded (int): The number of trios already encoded (used to vary output).
 
     Returns:
-        list[int]: A list of 4 integers, each between 0-7 (inclusive).
+        list[int]: A list of 3 integers, each between 0-7 (inclusive).
     """
-    random_numbers = get_random_hash_numbers_for_input(key_phrase, str(num_quartets_encoded))
+    random_numbers = get_random_hash_numbers_for_input(key_phrase, str(num_trios_encoded))
     num_corners_in_a_cube = 8
     max_corner_idx = num_corners_in_a_cube - 1
 
-    quartet = []
+    trio = []
     for cur_number in random_numbers:
         if is_encrypting:
-            if cur_number not in quartet:
-                quartet.append(cur_number)
+            if cur_number not in trio:
+                trio.append(cur_number)
         else:
             rev_number = max_corner_idx - cur_number
-            if rev_number not in quartet:
-                quartet.append(rev_number)
-        if len(quartet) >= LENGTH_OF_QUARTET:
+            if rev_number not in trio:
+                trio.append(rev_number)
+        if len(trio) >= LENGTH_OF_TRIO:
             break
-    return quartet
+    return trio
 
 
 def _get_flat_index(x, y, z, size_x, size_y):
@@ -69,7 +69,7 @@ def _get_flat_index(x, y, z, size_x, size_y):
     return x * size_y * size_x + y * size_x + z
 
 
-def _get_prefix_order_number_quartet(order_number: int) -> str:
+def _get_prefix_order_number_trio(order_number: int) -> str:
     order_number_str = str(order_number)
     assert len(order_number_str) == 1, "Invalid order number"
     pad_symbols = ["", "", "", order_number_str]
@@ -81,8 +81,8 @@ def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
     num_blocks = len(rotor)
     lines_per_block = len(rotor[0])
     symbols_per_line = len(rotor[0][0])
-    noise_quartet_symbols = [NOISE_SYMBOL]
-    while len(noise_quartet_symbols) < LENGTH_OF_QUARTET:
+    noise_trio_symbols = [NOISE_SYMBOL]
+    while len(noise_trio_symbols) < LENGTH_OF_TRIO:
         coordinate = (
             get_non_deterministically_random_int(0, num_blocks - 1),
             get_non_deterministically_random_int(0, lines_per_block - 1),
@@ -90,10 +90,10 @@ def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
         )
         x, y, z = coordinate
         found_symbol = rotor[x][y][z]
-        if found_symbol not in noise_quartet_symbols:
-            noise_quartet_symbols.append(found_symbol)
-    non_deterministically_random_shuffle_in_place(noise_quartet_symbols)
-    return "".join(noise_quartet_symbols)
+        if found_symbol not in noise_trio_symbols:
+            noise_trio_symbols.append(found_symbol)
+    non_deterministically_random_shuffle_in_place(noise_trio_symbols)
+    return "".join(noise_trio_symbols)
 
 
 def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -> bool:
@@ -113,7 +113,7 @@ def _pad_chunk_with_rand_pad_symbols(chunk: str) -> str:
         raise ValueError("Chunk cannot be empty")
     pad_symbols = ["", "", ""]
     max_pad_idx = len(pad_symbols) - 1
-    while len(chunk) < LENGTH_OF_QUARTET:
+    while len(chunk) < LENGTH_OF_TRIO:
         new_random_number = get_non_deterministically_random_int(0, max_pad_idx)
         random_pad_symbol = pad_symbols[new_random_number]
         if random_pad_symbol not in chunk:
@@ -338,7 +338,7 @@ def generate_rotors(
     orig_key_length: int | None = None,
 ) -> list[list[list[list[str]]]]:
     """
-    Generate a deterministic, key-dependent reflector for quartets.
+    Generate a deterministic, key-dependent reflector for trios.
 
     Args:
         strengthened_key_phrase (str): The encryption key (strengthened & sanitized) used to seed the random generator.
@@ -414,7 +414,7 @@ def get_opposite_corners(
     lines_per_block: int,
     symbols_per_line: int,
     key_phrase: str,
-    num_quartets_encoded: int,
+    num_trios_encoded: int,
     is_encrypting: bool,
     indices_to_choose: list[int],
 ) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
@@ -430,7 +430,7 @@ def get_opposite_corners(
         lines_per_block (int): How long in the cube (y).
         symbols_per_line (int): How wide in the cube (z).
         key_phrase (str): Secret key phrase
-        num_quartets_encoded (int): Number of quartet encodings performed thus far
+        num_trios_encoded (int): Number of trio encodings performed thus far
 
     Returns:
         A tuple of four tuples, each representing the coordinates of the remaining corners.
@@ -438,7 +438,7 @@ def get_opposite_corners(
     # ToDo Now: I think this fxn might be busted. Check the tests.
     # Check for unique points
     given_points = {point_1, point_2, point_3, point_4}
-    if len(given_points) != LENGTH_OF_QUARTET:
+    if len(given_points) != LENGTH_OF_TRIO:
         raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cube.")
 
     x1, y1, z1 = point_1
@@ -456,14 +456,14 @@ def get_opposite_corners(
     point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
     all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
 
-    # indices_to_choose = _get_next_corner_choices(key_phrase, num_quartets_encoded, is_encrypting)
+    # indices_to_choose = _get_next_corner_choices(key_phrase, num_trios_encoded, is_encrypting)
     chosen_point_1 = all_points[indices_to_choose[0]]
     chosen_point_2 = all_points[indices_to_choose[1]]
     chosen_point_3 = all_points[indices_to_choose[2]]
     chosen_point_4 = all_points[indices_to_choose[3]]
     list_of_foo = [chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4]
     unique_foo = set(list_of_foo)
-    if len(unique_foo) != LENGTH_OF_QUARTET:
+    if len(unique_foo) != LENGTH_OF_TRIO:
         print("Odd")
     return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
 
@@ -483,12 +483,12 @@ def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rot
     """
     padded_chunk = chunk
     while len(padded_chunk) < padded_chunk_length:
-        if len(padded_chunk) % LENGTH_OF_QUARTET != 0:
+        if len(padded_chunk) % LENGTH_OF_TRIO != 0:
             padded_chunk = _pad_chunk_with_rand_pad_symbols(padded_chunk)
         random_noise_chunk = _get_random_noise_chunk(rotor)
         padded_chunk += random_noise_chunk
-    prefix_order_number_quartet = _get_prefix_order_number_quartet(chunk_order_number)
-    result = prefix_order_number_quartet + padded_chunk
+    prefix_order_number_trio = _get_prefix_order_number_trio(chunk_order_number)
+    result = prefix_order_number_trio + padded_chunk
     return result
 
 
@@ -545,15 +545,15 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     Returns:
         str: String prepared for encryption
     """
-    # ToDo: We also need to check if this quartet of chars forms a square frame in the cube; that is not allowed
-    #  If all 4 symbols in quartet have the same x, or the same y, or the same z in any rotor, then we need a pad symbol
+    # ToDo: We also need to check if this trio of chars forms a square frame in the cube; that is not allowed
+    #  If all 4 symbols in trio have the same x, or the same y, or the same z in any rotor, then we need a pad symbol
     if not orig_message:
         raise ValueError("Cannot encrypt an empty message")
     sanitized_string = ""
     cur_chunk = ""
     chunk_idx = 0
     for orig_char in orig_message:
-        if chunk_idx >= LENGTH_OF_QUARTET:
+        if chunk_idx >= LENGTH_OF_TRIO:
             sanitized_string += cur_chunk
             cur_chunk = ""
             chunk_idx = 0
@@ -638,7 +638,7 @@ def sanitize(raw_input: str) -> str:
     return raw_input.replace("\n", "")
 
 
-def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | None = LENGTH_OF_QUARTET) -> list[str]:
+def split_to_human_readable_symbols(s: str, expected_number_of_graphemes: int | None = LENGTH_OF_TRIO) -> list[str]:
     """
     Splits a string with a user-perceived length of 4 into its 4 human-discernible symbols.
 

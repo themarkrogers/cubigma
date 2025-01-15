@@ -6,14 +6,14 @@ import unittest
 
 from cubigma.utils import (
     NOISE_SYMBOL,
-    LENGTH_OF_QUARTET,
+    LENGTH_OF_TRIO,
     # get_chars_for_coordinates,
 )
 from cubigma.utils import (
     _find_symbol,
     _get_flat_index,
     _get_next_corner_choices,
-    _get_prefix_order_number_quartet,
+    _get_prefix_order_number_trio,
     _get_random_noise_chunk,
     _is_valid_coord,
     _move_letter_to_center,
@@ -101,19 +101,19 @@ class TestGetNextCornerChoices(unittest.TestCase):
     def test_deterministic_output(self):
         """Test that the function produces deterministic outputs for the same inputs."""
         key_phrase = "test_key"
-        num_quartets_encoded = 5
+        num_trios_encoded = 5
 
-        result1 = _get_next_corner_choices(key_phrase, num_quartets_encoded, True)
-        result2 = _get_next_corner_choices(key_phrase, num_quartets_encoded, True)
+        result1 = _get_next_corner_choices(key_phrase, num_trios_encoded, True)
+        result2 = _get_next_corner_choices(key_phrase, num_trios_encoded, True)
 
         self.assertEqual(result1, result2, "The function should produce the same output for the same inputs.")
 
     def test_output_within_range(self):
         """Test that the output values are within the range [0-7]."""
         key_phrase = "range_test"
-        num_quartets_encoded = 10
+        num_trios_encoded = 10
 
-        result = _get_next_corner_choices(key_phrase, num_quartets_encoded, True)
+        result = _get_next_corner_choices(key_phrase, num_trios_encoded, True)
 
         self.assertEqual(len(result), 4, "The function should return exactly 4 integers.")
         self.assertTrue(all(0 <= x <= 7 for x in result), "All integers should be within the range 0-7.")
@@ -125,23 +125,23 @@ class TestGetNextCornerChoices(unittest.TestCase):
         result1 = _get_next_corner_choices(key_phrase, 1, True)
         result2 = _get_next_corner_choices(key_phrase, 2, True)
 
-        self.assertNotEqual(result1, result2, "Different num_quartets_encoded values should produce different outputs.")
+        self.assertNotEqual(result1, result2, "Different num_trios_encoded values should produce different outputs.")
 
     def test_different_key_phrases_produce_different_outputs(self):
         """Test that different key phrases produce different outputs."""
-        num_quartets_encoded = 1
+        num_trios_encoded = 1
 
-        result1 = _get_next_corner_choices("key_phrase_1", num_quartets_encoded, True)
-        result2 = _get_next_corner_choices("key_phrase_2", num_quartets_encoded, True)
+        result1 = _get_next_corner_choices("key_phrase_1", num_trios_encoded, True)
+        result2 = _get_next_corner_choices("key_phrase_2", num_trios_encoded, True)
 
         self.assertNotEqual(result1, result2, "Different key phrases should produce different outputs.")
 
 
-class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
+class TestGetPrefixOrderNumberTrio(unittest.TestCase):
     def test_valid_order_number(self):
-        """Test that a valid single-digit order number returns a quartet of symbols including the order number."""
+        """Test that a valid single-digit order number returns a trio of symbols including the order number."""
         order_number = 5
-        result = _get_prefix_order_number_quartet(order_number)
+        result = _get_prefix_order_number_trio(order_number)
 
         # Check that the result has exactly 4 characters
         self.assertEqual(len(result), 4, "Resulting string does not have 4 characters")
@@ -157,18 +157,18 @@ class TestGetPrefixOrderNumberQuartet(unittest.TestCase):
     def test_invalid_order_number(self):
         """Test that an invalid order number raises an assertion error."""
         with self.assertRaises(AssertionError):
-            _get_prefix_order_number_quartet(10)  # Not a single-digit number
+            _get_prefix_order_number_trio(10)  # Not a single-digit number
 
         with self.assertRaises(AssertionError):
-            _get_prefix_order_number_quartet(-1)  # Negative number
+            _get_prefix_order_number_trio(-1)  # Negative number
 
         with self.assertRaises(AssertionError):
-            _get_prefix_order_number_quartet(123)  # Multiple digits
+            _get_prefix_order_number_trio(123)  # Multiple digits
 
     def test_randomness(self):
         """Test that the function produces different outputs for the same input due to shuffling."""
         order_number = 3
-        results = {_get_prefix_order_number_quartet(order_number) for _ in range(100)}
+        results = {_get_prefix_order_number_trio(order_number) for _ in range(100)}
 
         # Verify that we have multiple unique outputs, indicating randomness
         self.assertGreater(len(results), 1, "Function does not produce randomized outputs")
@@ -200,7 +200,7 @@ class TestGetRandomNoiseChunk(unittest.TestCase):
         """Test that the function output has the correct length."""
         mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]  # Mock coordinates
         result = _get_random_noise_chunk(self.rotor)
-        self.assertEqual(len(result), LENGTH_OF_QUARTET)
+        self.assertEqual(len(result), LENGTH_OF_TRIO)
 
     @patch("random.randint")
     def test_includes_noise_symbol(self, mock_randint):
@@ -214,7 +214,7 @@ class TestGetRandomNoiseChunk(unittest.TestCase):
         """Test that the output contains unique symbols."""
         mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
         result = _get_random_noise_chunk(self.rotor)
-        self.assertEqual(len(set(result)), LENGTH_OF_QUARTET)
+        self.assertEqual(len(set(result)), LENGTH_OF_TRIO)
 
     @patch("random.randint")
     def test_handles_non_uniform_rotor(self, mock_randint):
@@ -226,7 +226,7 @@ class TestGetRandomNoiseChunk(unittest.TestCase):
         ]
         mock_randint.side_effect = [0, 0, 0, 1, 0, 0, 2, 0, 0]
         result = _get_random_noise_chunk(non_uniform_rotor)
-        self.assertEqual(len(result), LENGTH_OF_QUARTET)
+        self.assertEqual(len(result), LENGTH_OF_TRIO)
 
 
 class TestIsValidCoord(unittest.TestCase):

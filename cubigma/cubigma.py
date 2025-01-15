@@ -10,7 +10,7 @@ from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRando
 
 # from cubigma.utils import (  # Used in packaging & unit testing
 from utils import (  # Used in local debugging
-    LENGTH_OF_QUARTET,
+    LENGTH_OF_TRIO,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
     generate_plugboard,
@@ -37,7 +37,7 @@ class Cubigma:
     _cube_filepath: str
     _is_machine_prepared: bool = False
     _is_using_steganography: bool = False
-    _num_quartets_encoded = 0
+    _num_trios_encoded = 0
     _symbols: list[str]
     plugboard: dict[str, str]
     reflector: dict[str, str]
@@ -53,12 +53,12 @@ class Cubigma:
         self.rotors = []
         self.random_core = None
 
-    def _get_encrypted_letter_quartet(self, char_quartet: str, key_phrase: str, is_encrypting: bool) -> str:
+    def _get_encrypted_letter_trio(self, char_trio: str, key_phrase: str, is_encrypting: bool) -> str:
         rev_rotors = list(reversed(self.rotors))
         sequence_of_corners_to_choose: list[list[int]] = []
         for i in range(len(self.rotors) * 2):
             corners_for_this_iteration = _get_next_corner_choices(
-                key_phrase, self._num_quartets_encoded + i, is_encrypting
+                key_phrase, self._num_trios_encoded + i, is_encrypting
             )
             sequence_of_corners_to_choose.append(corners_for_this_iteration)
         if not is_encrypting:
@@ -68,13 +68,13 @@ class Cubigma:
         second_half_corners = sequence_of_corners_to_choose[num_rotors:]
         print(f"{first_half_corners=}")
         print(f"{second_half_corners=}")
-        step_one = self._run_quartet_through_rotors(
-            char_quartet, self.rotors, key_phrase, is_encrypting, first_half_corners
+        step_one = self._run_trio_through_rotors(
+            char_trio, self.rotors, key_phrase, is_encrypting, first_half_corners
         )
         print(f"{step_one=}")
-        step_two = self._run_quartet_through_reflector(step_one, key_phrase, self._num_quartets_encoded)
+        step_two = self._run_trio_through_reflector(step_one, key_phrase, self._num_trios_encoded)
         print(f"{step_two=}")
-        complete = self._run_quartet_through_rotors(
+        complete = self._run_trio_through_rotors(
             step_two, rev_rotors, key_phrase, is_encrypting, second_half_corners
         )
         print(f"{complete=}")
@@ -87,57 +87,57 @@ class Cubigma:
             message_after_plugboard_ops += corresponding_symbol
         return message_after_plugboard_ops
 
-    def _run_quartet_through_reflector(
-        self, char_quartet: str, strengthened_key_phrase: str, num_of_encoded_quartets: int
+    def _run_trio_through_reflector(
+        self, char_trio: str, strengthened_key_phrase: str, num_of_encoded_trios: int
     ) -> str:
         """
-        Reflects the quartet deterministically using a hash-based reordering.
+        Reflects the trio deterministically using a hash-based reordering.
 
         Args:
-            char_quartet (str): The input quartet of symbols.
+            char_trio (str): The input trio of symbols.
             strengthened_key_phrase (str): A strengthened key phrase
-            num_of_encoded_quartets (int): This changes with each encoding, so that the same quartet gets encoded
+            num_of_encoded_trios (int): This changes with each encoding, so that the same trio gets encoded
               differently each time
 
         Returns:
-            str: The reflected quartet.
+            str: The reflected trio.
         """
         reflected_symbols = []
         # Reflect each symbol
-        for symbol in split_to_human_readable_symbols(char_quartet):
+        for symbol in split_to_human_readable_symbols(char_trio):
             reflected_symbol = self.reflector[symbol]
             reflected_symbols.append(reflected_symbol)
 
-        # Hash the quartet to determine the reordering
-        reflected_quartet = "".join(reflected_symbols)
-        hash_input = f"{reflected_quartet}|{strengthened_key_phrase}|{num_of_encoded_quartets}"
-        quartet_hash = get_hash_of_string_in_bytes(hash_input)
+        # Hash the trio to determine the reordering
+        reflected_trio = "".join(reflected_symbols)
+        hash_input = f"{reflected_trio}|{strengthened_key_phrase}|{num_of_encoded_trios}"
+        trio_hash = get_hash_of_string_in_bytes(hash_input)
 
-        # Determine the reordering using the first 4 bytes of the hash
-        order = sorted(range(4), key=lambda i: quartet_hash[i])
+        # Determine the reordering using the first 3 bytes of the hash
+        order = sorted(range(LENGTH_OF_TRIO), key=lambda i: trio_hash[i])
 
-        # Reorder the quartet based on the computed order
-        reordered_reflected_quartet = "".join(reflected_symbols[i] for i in order)
+        # Reorder the trio based on the computed order
+        reordered_reflected_trio = "".join(reflected_symbols[i] for i in order)
 
-        return reordered_reflected_quartet
+        return reordered_reflected_trio
 
-    def _run_quartet_through_rotors(
+    def _run_trio_through_rotors(
         self,
-        char_quartet: str,
+        char_trio: str,
         rotors: list[list[list[list[str]]]],
         key_phrase: str,
         is_encrypting: bool,
         list_of_corners_to_chose: list[list[int]],
     ) -> str:
-        cur_quartet = char_quartet
+        cur_trio = char_trio
         for rotor_number, rotor in enumerate(rotors):
-            print(f"{cur_quartet=}")
-            # Step the rotors forward immediately before encoding each quartet on each rotor
+            print(f"{cur_trio=}")
+            # Step the rotors forward immediately before encoding each trio on each rotor
             indices_by_char = {}
             stepped_rotor = self._step_rotor(rotor, rotor_number, key_phrase)
             rotors[rotor_number] = stepped_rotor
 
-            individual_symbols = split_to_human_readable_symbols(cur_quartet)
+            individual_symbols = split_to_human_readable_symbols(cur_trio)
             for frame_idx, cur_frame in enumerate(stepped_rotor):
                 for row_idx, cur_line in enumerate(cur_frame):
                     if any(symbol in cur_line for symbol in individual_symbols):
@@ -165,7 +165,7 @@ class Cubigma:
                                 row_idx,
                                 cur_line.index(individual_symbols[3]),
                             )
-            if len(indices_by_char) != LENGTH_OF_QUARTET:
+            if len(indices_by_char) != LENGTH_OF_TRIO:
                 print("This is unexpected")
             orig_indices = []
             for cur_char in individual_symbols:
@@ -183,20 +183,20 @@ class Cubigma:
                 lines_per_block,
                 symbols_per_line,
                 key_phrase,
-                self._num_quartets_encoded,
+                self._num_trios_encoded,
                 is_encrypting,
                 corners_for_this_iteration,
             )
-            self._num_quartets_encoded += 1
+            self._num_trios_encoded += 1
             encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], stepped_rotor)
             encrypted_char_2 = get_chars_for_coordinates(encrypted_indices[1], stepped_rotor)
             encrypted_char_3 = get_chars_for_coordinates(encrypted_indices[2], stepped_rotor)
             encrypted_char_4 = get_chars_for_coordinates(encrypted_indices[3], stepped_rotor)
             list_of_encrypted_chars = [encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4]
-            encrypted_quartet = "".join(list_of_encrypted_chars)
-            cur_quartet = encrypted_quartet
+            encrypted_trio = "".join(list_of_encrypted_chars)
+            cur_trio = encrypted_trio
             # ToDo: Do we need to save stepped_rotor back into
-        return cur_quartet
+        return cur_trio
 
     def _read_characters_file(self, cube_length: int) -> list[str]:
         with open(self._characters_filepath, "r", encoding="utf-8") as line_count_file:
@@ -244,7 +244,7 @@ class Cubigma:
     def _step_rotor(
         self, rotor: list[list[list[str]]], rotor_num: int, strengthened_key_phrase: str
     ) -> list[list[list[str]]]:
-        combined_key = f"{strengthened_key_phrase}|{rotor_num}|{self._num_quartets_encoded}"
+        combined_key = f"{strengthened_key_phrase}|{rotor_num}|{self._num_trios_encoded}"
         return rotate_slice_of_cube(rotor, combined_key)
 
     def decode_string(self, encrypted_message: str, key_phrase: str) -> str:
@@ -288,13 +288,13 @@ class Cubigma:
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encrypting or decrypting"
             )
 
-        # Remove all quartets with the TOTAL_NOISE characters
+        # Remove all trios with the TOTAL_NOISE characters
         decrypted_message = ""
         message_split_into_symbols = split_to_human_readable_symbols(
             encrypted_message, expected_number_of_graphemes=None
         )
-        for i in range(0, len(message_split_into_symbols), LENGTH_OF_QUARTET):
-            end_idx = i + LENGTH_OF_QUARTET
+        for i in range(0, len(message_split_into_symbols), LENGTH_OF_TRIO):
+            end_idx = i + LENGTH_OF_TRIO
             encrypted_chunk_symbols = message_split_into_symbols[i:end_idx]
             encrypted_chunk = "".join(encrypted_chunk_symbols)
             decrypted_chunk = self.decode_string(encrypted_chunk, key_phrase)
@@ -319,16 +319,16 @@ class Cubigma:
             raise ValueError(
                 "Machine is not prepared yet! Call .prepare_machine(key_phrase) before encoding or decoding"
             )
-        assert _user_perceived_length(sanitized_message) % LENGTH_OF_QUARTET == 0, "Message is not properly sanitized!"
+        assert _user_perceived_length(sanitized_message) % LENGTH_OF_TRIO == 0, "Message is not properly sanitized!"
         encrypted_message = ""
         message_split_into_symbols = split_to_human_readable_symbols(
             sanitized_message, expected_number_of_graphemes=None
         )
-        for i in range(0, len(message_split_into_symbols), LENGTH_OF_QUARTET):
-            end_idx = i + LENGTH_OF_QUARTET
+        for i in range(0, len(message_split_into_symbols), LENGTH_OF_TRIO):
+            end_idx = i + LENGTH_OF_TRIO
             orig_chunk_symbols = message_split_into_symbols[i:end_idx]
             orig_chunk = "".join(orig_chunk_symbols)
-            encrypted_chunk = self._get_encrypted_letter_quartet(orig_chunk, key_phrase, is_encrypting)
+            encrypted_chunk = self._get_encrypted_letter_trio(orig_chunk, key_phrase, is_encrypting)
             encrypted_message += encrypted_chunk
         return encrypted_message
 

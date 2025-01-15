@@ -5,7 +5,7 @@ import json
 import unittest
 
 from cubigma.utils import (
-    LENGTH_OF_QUARTET,
+    LENGTH_OF_TRIO,
     generate_cube_from_symbols,
     generate_plugboard,
     generate_reflector,
@@ -333,7 +333,7 @@ class TestGetOppositeCorners(unittest.TestCase):
         self.lines_per_block = 10
         self.symbols_per_line = 10
         self.key_phrase = "testkey"
-        self.num_quartets_encoded = 1
+        self.num_trios_encoded = 1
 
     def test_valid_input(self):
         point_1 = (0, 0, 0)
@@ -350,7 +350,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             self.lines_per_block,
             self.symbols_per_line,
             self.key_phrase,
-            self.num_quartets_encoded,
+            self.num_trios_encoded,
             True,
             [0, 1, 2, 3],
         )
@@ -376,7 +376,7 @@ class TestGetOppositeCorners(unittest.TestCase):
                 self.lines_per_block,
                 self.symbols_per_line,
                 self.key_phrase,
-                self.num_quartets_encoded,
+                self.num_trios_encoded,
                 True,
                 [0, 1, 2, 3],
             )
@@ -391,7 +391,7 @@ class TestGetOppositeCorners(unittest.TestCase):
     #         get_opposite_corners(
     #             point_1, point_2, point_3, point_4,
     #             self.num_blocks, self.lines_per_block, self.symbols_per_line,
-    #             self.key_phrase, self.num_quartets_encoded
+    #             self.key_phrase, self.num_trios_encoded
     #         )
 
     def test_key_phrase_affects_result(self):
@@ -409,7 +409,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             self.lines_per_block,
             self.symbols_per_line,
             "key1",
-            self.num_quartets_encoded,
+            self.num_trios_encoded,
             True,
             [0, 1, 2, 3],
         )
@@ -423,7 +423,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             self.lines_per_block,
             self.symbols_per_line,
             "key2",
-            self.num_quartets_encoded,
+            self.num_trios_encoded,
             True,
             [0, 1, 2, 2],  # ToDo: These tests are not great
         )
@@ -438,12 +438,12 @@ class TestPadChunk(unittest.TestCase):
 
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     @patch("cubigma.utils._get_random_noise_chunk")
-    @patch("cubigma.utils._get_prefix_order_number_quartet")
+    @patch("cubigma.utils._get_prefix_order_number_trio")
     def test_pad_chunk_even_length(
-        self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
+        self, mock_get_prefix_order_number_trio, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
     ):
         # Arrange
-        mock_get_prefix_order_number_quartet.return_value = "ORDR"
+        mock_get_prefix_order_number_trio.return_value = "ORDR"
         mock_get_random_noise_chunk.return_value = "XXXX"
         mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
         test_chunk = "TEST"
@@ -457,18 +457,18 @@ class TestPadChunk(unittest.TestCase):
         self.assertTrue(result.startswith("ORDR"))
         self.assertEqual(expected_result, result)
         self.assertEqual(len(result[4:]), padded_chunk_length)
-        mock_get_prefix_order_number_quartet.assert_called_once_with(self.chunk_order_number)
+        mock_get_prefix_order_number_trio.assert_called_once_with(self.chunk_order_number)
         mock_get_random_noise_chunk.assert_called()
         mock_pad_chunk_with_rand_pad_symbols.assert_not_called()
 
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     @patch("cubigma.utils._get_random_noise_chunk")
-    @patch("cubigma.utils._get_prefix_order_number_quartet")
+    @patch("cubigma.utils._get_prefix_order_number_trio")
     def test_pad_chunk_short_length(
-        self, mock_get_prefix_order_number_quartet, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
+        self, mock_get_prefix_order_number_trio, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
     ):
         # Arrange
-        mock_get_prefix_order_number_quartet.return_value = "ORDR"
+        mock_get_prefix_order_number_trio.return_value = "ORDR"
         mock_get_random_noise_chunk.return_value = "XXXX"
         mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
         test_chunk = "TES"
@@ -482,7 +482,7 @@ class TestPadChunk(unittest.TestCase):
         self.assertTrue(result.startswith("ORDR"))
         self.assertEqual(expected_result, result)
         self.assertEqual(len(result[4:]), padded_chunk_length)
-        mock_get_prefix_order_number_quartet.assert_called_once_with(self.chunk_order_number)
+        mock_get_prefix_order_number_trio.assert_called_once_with(self.chunk_order_number)
         mock_get_random_noise_chunk.assert_called()
         mock_pad_chunk_with_rand_pad_symbols.assert_called_once_with(test_chunk)
 
@@ -565,15 +565,15 @@ class TestPrepStringForEncrypting(unittest.TestCase):
     def _fake_pad_chunk_with_rand_pad_symbols(self, chunk):
         """
         Mock implementation of the pad_chunk_with_rand_pad_symbols function
-        Adds '*' symbols to the chunk until its length is LENGTH_OF_QUARTET.
+        Adds '*' symbols to the chunk until its length is LENGTH_OF_TRIO.
         """
-        while len(chunk) < LENGTH_OF_QUARTET:
+        while len(chunk) < LENGTH_OF_TRIO:
             chunk += "*"
         return chunk
 
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_no_padding_needed(self, mock_pad):
-        """Test when the input string is already a multiple of LENGTH_OF_QUARTET."""
+        """Test when the input string is already a multiple of LENGTH_OF_TRIO."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
         input_message = "abcd"
         expected_output = "abcd"
@@ -582,7 +582,7 @@ class TestPrepStringForEncrypting(unittest.TestCase):
 
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
     def test_padding_needed(self, mock_pad):
-        """Test when the input string length is not a multiple of LENGTH_OF_QUARTET."""
+        """Test when the input string length is not a multiple of LENGTH_OF_TRIO."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
         input_message = "abc"
         expected_output = "abc*"

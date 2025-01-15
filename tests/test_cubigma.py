@@ -9,9 +9,9 @@ from cubigma.cubigma import NOISE_SYMBOL, Cubigma, main
 # Testing Private Cubigma Functions
 
 
-class TestGetEncryptedLetterQuartet(unittest.TestCase):
+class TestGetEncryptedLetterTrio(unittest.TestCase):
 
-    def test_get_encrypted_letter_quartet(self):
+    def test_get_encrypted_letter_trio(self):
         # Arrange
         cubigma = Cubigma()
         expected_rotors = [
@@ -20,28 +20,28 @@ class TestGetEncryptedLetterQuartet(unittest.TestCase):
             [[["h", "g"], ["f", "e"]], [["d", "c"], ["b", "a"]]],
         ]
         cubigma.rotors = expected_rotors
-        test_char_quartet = "fade"
+        test_char_trio = "fade"
         expected_str_1 = "cafe"
         expected_result = "bead"
         expected_middle_str = "head"
-        mock_run_quartet_through_rotors = MagicMock()
-        mock_run_quartet_through_rotors.side_effect = [expected_str_1, expected_result]
-        cubigma._run_quartet_through_rotors = mock_run_quartet_through_rotors  # pylint:disable=W0212
-        mock_run_quartet_through_reflector = MagicMock()
-        mock_run_quartet_through_reflector.return_value = expected_middle_str
-        cubigma._run_quartet_through_reflector = mock_run_quartet_through_reflector  # pylint:disable=W0212
+        mock_run_trio_through_rotors = MagicMock()
+        mock_run_trio_through_rotors.side_effect = [expected_str_1, expected_result]
+        cubigma._run_trio_through_rotors = mock_run_trio_through_rotors  # pylint:disable=W0212
+        mock_run_trio_through_reflector = MagicMock()
+        mock_run_trio_through_reflector.return_value = expected_middle_str
+        cubigma._run_trio_through_reflector = mock_run_trio_through_reflector  # pylint:disable=W0212
         test_key_phrase = "foo"
-        cubigma._num_quartets_encoded = 42  # pylint:disable=W0212
+        cubigma._num_trios_encoded = 42  # pylint:disable=W0212
 
         # Act
-        result = cubigma._get_encrypted_letter_quartet(test_char_quartet, test_key_phrase, True)  # pylint:disable=W0212
+        result = cubigma._get_encrypted_letter_trio(test_char_trio, test_key_phrase, True)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(expected_result, result)
-        mock_run_quartet_through_rotors.assert_any_call(test_char_quartet, expected_rotors, test_key_phrase, True, [[7, 2, 1, 0], [5, 2, 1, 0], [6, 5, 3, 4]])
-        mock_run_quartet_through_rotors.assert_any_call(expected_middle_str, list(reversed(expected_rotors)), test_key_phrase, True, [[1, 5, 0, 3], [2, 6, 4, 5], [2, 4, 6, 3]])
-        assert mock_run_quartet_through_rotors.call_count == 2
-        mock_run_quartet_through_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
+        mock_run_trio_through_rotors.assert_any_call(test_char_trio, expected_rotors, test_key_phrase, True, [[7, 2, 1, 0], [5, 2, 1, 0], [6, 5, 3, 4]])
+        mock_run_trio_through_rotors.assert_any_call(expected_middle_str, list(reversed(expected_rotors)), test_key_phrase, True, [[1, 5, 0, 3], [2, 6, 4, 5], [2, 4, 6, 3]])
+        assert mock_run_trio_through_rotors.call_count == 2
+        mock_run_trio_through_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
 
 
 class TestReadCharactersFile(unittest.TestCase):
@@ -225,104 +225,104 @@ class TestReadCharactersFile(unittest.TestCase):
         self.assertEqual(result, expected_symbols)
 
 
-class TestRunQuartetThroughReflector(unittest.TestCase):
+class TestRunTrioThroughReflector(unittest.TestCase):
 
     def test_deterministic_output(self):
         """Test that the function produces deterministic output for the same inputs."""
-        char_quartet = "abcd"
+        char_trio = "abcd"
         expected_result = "WZYX"
         strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets = 42
+        num_of_encoded_trios = 42
         cubigma = Cubigma()
         mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
         cubigma.reflector = mock_reflector
 
-        result1 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        result1 = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+            char_trio, strengthened_key_phrase, num_of_encoded_trios
         )
-        result2 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        result2 = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+            char_trio, strengthened_key_phrase, num_of_encoded_trios
         )
         self.assertEqual(result1, result2, "The function should produce consistent output for the same inputs.")
         self.assertEqual(expected_result, result1)
 
     def test_different_inputs_produce_different_outputs(self):
         """Test that different inputs produce different outputs."""
-        char_quartet = "abcd"
+        char_trio = "abcd"
         strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets1 = 42
-        num_of_encoded_quartets2 = 43
+        num_of_encoded_trios1 = 42
+        num_of_encoded_trios2 = 43
         cubigma = Cubigma()
         mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
         cubigma.reflector = mock_reflector
 
-        result1 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-            char_quartet, strengthened_key_phrase, num_of_encoded_quartets1
+        result1 = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+            char_trio, strengthened_key_phrase, num_of_encoded_trios1
         )
-        result2 = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-            char_quartet, strengthened_key_phrase, num_of_encoded_quartets2
+        result2 = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+            char_trio, strengthened_key_phrase, num_of_encoded_trios2
         )
         self.assertNotEqual(result1, result2, "Different inputs should produce different outputs.")
 
     def test_output_is_permutation_of_input(self):
-        """Test that the output is a permutation of the input quartet."""
-        char_quartet = "abcd"
+        """Test that the output is a permutation of the input trio."""
+        char_trio = "abcd"
         expected_result = "WXYZ"
         strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets = 42
+        num_of_encoded_trios = 42
         cubigma = Cubigma()
         mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
         cubigma.reflector = mock_reflector
 
-        result = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        result = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+            char_trio, strengthened_key_phrase, num_of_encoded_trios
         )
         self.assertEqual(
-            sorted(expected_result), sorted(result), "Output should be a permutation of the input quartet."
+            sorted(expected_result), sorted(result), "Output should be a permutation of the input trio."
         )
 
     def test_edge_case_empty_key_phrase(self):
         """Test the function with an empty key phrase."""
-        char_quartet = "abcd"
+        char_trio = "abcd"
         expected_result = "WXYZ"
         strengthened_key_phrase = ""
-        num_of_encoded_quartets = 42
+        num_of_encoded_trios = 42
         cubigma = Cubigma()
         mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
         cubigma.reflector = mock_reflector
 
-        result = cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-            char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+        result = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+            char_trio, strengthened_key_phrase, num_of_encoded_trios
         )
         self.assertEqual(
-            sorted(expected_result), sorted(result), "Output should still be a permutation of the input quartet."
+            sorted(expected_result), sorted(result), "Output should still be a permutation of the input trio."
         )
 
     def test_invalid_input_length(self):
-        """Test the function with an invalid quartet length."""
+        """Test the function with an invalid trio length."""
         cubigma = Cubigma()
         mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
         cubigma.reflector = mock_reflector
 
         with self.assertRaises(ValueError):
-            cubigma._run_quartet_through_reflector("abc", "key", 42)  # pylint:disable=W0212
+            cubigma._run_trio_through_reflector("abc", "key", 42)  # pylint:disable=W0212
 
-    def test_invalid_characters_in_quartet(self):
-        """Test the function with invalid characters in the quartet."""
-        char_quartet = "ab1$"
+    def test_invalid_characters_in_trio(self):
+        """Test the function with invalid characters in the trio."""
+        char_trio = "ab1$"
         strengthened_key_phrase = "securekey"
-        num_of_encoded_quartets = 42
+        num_of_encoded_trios = 42
         cubigma = Cubigma()
         mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
         cubigma.reflector = mock_reflector
 
         with self.assertRaises(KeyError):
-            cubigma._run_quartet_through_reflector(  # pylint:disable=W0212
-                char_quartet, strengthened_key_phrase, num_of_encoded_quartets
+            cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+                char_trio, strengthened_key_phrase, num_of_encoded_trios
             )
 
 
-class TestRunQuartetThroughRotors(unittest.TestCase):
+class TestRunTrioThroughRotors(unittest.TestCase):
 
     @patch("cubigma.cubigma.get_opposite_corners")
     @patch("cubigma.cubigma.get_chars_for_coordinates")
@@ -333,7 +333,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         mock_get_chars.side_effect = mock_chars_data
         mock_get_corners.side_effect = [[6, 2, 7, 0], [0, 1, 2, 3], [4, 5, 6, 7]]
         expected_result = "".join(mock_chars_data[-4:])
-        char_quartet = "ABCD"
+        char_trio = "ABCD"
         rotors = [
             [
                 [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
@@ -354,8 +354,8 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_quartet_through_rotors(
-            char_quartet, rotors, key_phrase, True, [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]],
+        result = cubigma_instance._run_trio_through_rotors(
+            char_trio, rotors, key_phrase, True, [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]],
         )  # pylint:disable=W0212
 
         # Assert
@@ -368,7 +368,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
     def test_no_matching_characters(self, mock_get_chars, mock_get_corners):
         # Arrange
         cubigma_instance = Cubigma()
-        char_quartet = "wxyz"
+        char_trio = "wxyz"
         rotors = [
             [
                 [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
@@ -380,7 +380,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(KeyError):
-            cubigma_instance._run_quartet_through_rotors(char_quartet, rotors, key_phrase, True, [[0, 1, 2, 3]])  # pylint:disable=W0212
+            cubigma_instance._run_trio_through_rotors(char_trio, rotors, key_phrase, True, [[0, 1, 2, 3]])  # pylint:disable=W0212
         mock_get_chars.assert_not_called()
         mock_get_corners.assert_not_called()
 
@@ -393,7 +393,7 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         mock_get_chars.side_effect = mock_chars_data
         mock_get_corners.side_effect = [[6, 2, 7, 0], [0, 1, 2, 3], [4, 5, 6, 7]]
         expected_result = "".join(mock_chars_data[:4])
-        char_quartet = "ABCD"
+        char_trio = "ABCD"
         rotors = [
             [
                 [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
@@ -408,8 +408,8 @@ class TestRunQuartetThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_quartet_through_rotors(
-            char_quartet, rotors, key_phrase, True, [[0, 1, 2, 3]]
+        result = cubigma_instance._run_trio_through_rotors(
+            char_trio, rotors, key_phrase, True, [[0, 1, 2, 3]]
         )  # pylint:disable=W0212
 
         # Assert
@@ -544,9 +544,9 @@ class TestEncodeMessage(unittest.TestCase):
         instance = Cubigma()
         instance._is_machine_prepared = True  # pylint:disable=W0212
         mock_data = ["STUV", "WXYZ"]
-        mock_get_encrypted_letter_quartet = MagicMock()
-        mock_get_encrypted_letter_quartet.side_effect = mock_data
-        instance._get_encrypted_letter_quartet = mock_get_encrypted_letter_quartet  # pylint:disable=W0212
+        mock_get_encrypted_letter_trio = MagicMock()
+        mock_get_encrypted_letter_trio.side_effect = mock_data
+        instance._get_encrypted_letter_trio = mock_get_encrypted_letter_trio  # pylint:disable=W0212
         expected_result = "".join(mock_data)
 
         # Act
@@ -555,12 +555,12 @@ class TestEncodeMessage(unittest.TestCase):
         # Assert
         self.assertIsInstance(result, str)
         self.assertEqual(expected_result, result)
-        assert mock_get_encrypted_letter_quartet.call_count == 2
+        assert mock_get_encrypted_letter_trio.call_count == 2
 
     def test_encode_string_invalid_sanitized_message(self):
         """Test encode_string raises AssertionError for invalid sanitized message length."""
         # Arrange
-        sanitized_message = "ABCDE"  # Invalid length (not divisible by LENGTH_OF_QUARTET)
+        sanitized_message = "ABCDE"  # Invalid length (not divisible by LENGTH_OF_TRIO)
         key_phrase = "SECRET"
         instance = Cubigma()
         instance._is_machine_prepared = True  # pylint:disable=W0212

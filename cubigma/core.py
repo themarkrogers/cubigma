@@ -91,7 +91,7 @@ def non_deterministically_random_shuffle_in_place(input_to_shuffle: list) -> Non
 
 def get_random_hash_numbers_for_input(strengthened_key_phrase: str, message: str):
     key_bytes: bytes = strengthened_key_phrase.encode("utf-8")  # Use the key phrase as the key for HMAC
-    message_bytes: bytes = message.encode("utf-8")  # Use num_quartets_encoded as part of the message
+    message_bytes: bytes = message.encode("utf-8")  # Use num_trios_encoded as part of the message
     hmac_hash = hmac.new(
         key_bytes, message_bytes, hashlib.sha256
     ).digest()  # Generate a secure hash using HMAC with SHA-256
