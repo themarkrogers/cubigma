@@ -1,7 +1,6 @@
 from typing import Any, Sequence, TypeVar
 import base64
 import hashlib
-import hmac
 import os
 import random
 
@@ -89,16 +88,6 @@ def non_deterministically_random_shuffle_in_place(input_to_shuffle: list) -> Non
     random.shuffle(input_to_shuffle)
 
 
-def get_random_hash_numbers_for_input(strengthened_key_phrase: str, message: str):
-    key_bytes: bytes = strengthened_key_phrase.encode("utf-8")  # Use the key phrase as the key for HMAC
-    message_bytes: bytes = message.encode("utf-8")  # Use num_trios_encoded as part of the message
-    hmac_hash = hmac.new(
-        key_bytes, message_bytes, hashlib.sha256
-    ).digest()  # Generate a secure hash using HMAC with SHA-256
-    numbers = [byte % 8 for byte in hmac_hash]
-    return numbers
-
-
 def shuffle_for_input(strengthened_key_phrase: str, sequence: Sequence[T]) -> list[T]:
     # Derive a deterministic seed from the sanitized_key_phrase
     seed = int(hashlib.sha256(strengthened_key_phrase.encode()).hexdigest(), 16)
@@ -113,7 +102,20 @@ def shuffle_for_input(strengthened_key_phrase: str, sequence: Sequence[T]) -> li
     return shuffled
 
 
-def strengthen_key(key_phrase: str, salt: None | bytes = None, iterations: int = 200_000, key_length: int = 32) -> tuple[str, str]:
+def random_int_for_input(strengthened_key_phrase: str, min_num: int, max_num: int) -> int:
+    # Derive a deterministic seed from the sanitized_key_phrase
+    seed = int(hashlib.sha256(strengthened_key_phrase.encode()).hexdigest(), 16)
+
+    # Initialize a random generator with the deterministic seed
+    rng = random.Random(seed)
+
+    result = rng.randint(min_num, max_num)
+    return result
+
+
+def strengthen_key(
+    key_phrase: str, salt: None | bytes = None, iterations: int = 200_000, key_length: int = 32
+) -> tuple[str, str]:
     """
     Strengthen a user-provided key using Argon2 key derivation.
 

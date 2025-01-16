@@ -24,7 +24,6 @@ from cubigma.utils import (  # Used in packaging & unit testing
     sanitize,
     split_to_human_readable_symbols,
     _user_perceived_length,
-    _get_next_corner_choices,
 )
 
 
@@ -55,24 +54,11 @@ class Cubigma:
 
     def _get_encrypted_letter_trio(self, char_trio: str, key_phrase: str, is_encrypting: bool) -> str:
         rev_rotors = list(reversed(self.rotors))
-        sequence_of_corners_to_choose: list[list[int]] = []
-        for i in range(len(self.rotors) * 2):
-            corners_for_this_iteration = _get_next_corner_choices(
-                key_phrase, self._num_trios_encoded + i, is_encrypting
-            )
-            sequence_of_corners_to_choose.append(corners_for_this_iteration)
-        if not is_encrypting:
-            sequence_of_corners_to_choose = list(reversed(sequence_of_corners_to_choose))
-        num_rotors = len(self.rotors)
-        first_half_corners = sequence_of_corners_to_choose[:num_rotors]
-        second_half_corners = sequence_of_corners_to_choose[num_rotors:]
-        print(f"{first_half_corners=}")
-        print(f"{second_half_corners=}")
-        step_one = self._run_trio_through_rotors(char_trio, self.rotors, key_phrase, is_encrypting, first_half_corners)
+        step_one = self._run_trio_through_rotors(char_trio, self.rotors, key_phrase, is_encrypting)
         print(f"{step_one=}")
         step_two = self._run_trio_through_reflector(step_one, key_phrase, self._num_trios_encoded)
         print(f"{step_two=}")
-        complete = self._run_trio_through_rotors(step_two, rev_rotors, key_phrase, is_encrypting, second_half_corners)
+        complete = self._run_trio_through_rotors(step_two, rev_rotors, key_phrase, is_encrypting)
         print(f"{complete=}")
         return complete
 
@@ -123,7 +109,6 @@ class Cubigma:
         rotors: list[list[list[list[str]]]],
         key_phrase: str,
         is_encrypting: bool,
-        list_of_corners_to_chose: list[list[int]],
     ) -> str:
         cur_trio = char_trio
         for rotor_number, rotor in enumerate(rotors):
@@ -148,19 +133,13 @@ class Cubigma:
                             coordinate_by_char[individual_symbols[2]] = point
             if len(coordinate_by_char) != LENGTH_OF_TRIO:
                 print("This is unexpected")
-            orig_indices = []
-            for cur_char in individual_symbols:
-                orig_indices.append(coordinate_by_char[cur_char])
+            orig_indices = [coordinate_by_char[cur_char] for cur_char in individual_symbols]
             num_blocks = len(stepped_rotor)
-            lines_per_block = len(stepped_rotor[0])
-            symbols_per_line = len(stepped_rotor[0][0])
             encrypted_coordinates = get_encrypted_coordinates(
                 orig_indices[0],
                 orig_indices[1],
                 orig_indices[2],
                 num_blocks,
-                lines_per_block,
-                symbols_per_line,
                 key_phrase,
                 self._num_trios_encoded,
                 is_encrypting,

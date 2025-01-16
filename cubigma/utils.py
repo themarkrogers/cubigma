@@ -14,8 +14,8 @@ from cubigma.core import (
 # from core import (
     get_independently_deterministic_random_rotor_info,
     get_non_deterministically_random_int,
-    get_random_hash_numbers_for_input,
     non_deterministically_random_shuffle_in_place,
+    random_int_for_input,
     shuffle_for_input,
     DeterministicRandomCore,
 )
@@ -32,35 +32,6 @@ def _find_symbol(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> t
                 col_idx = row.index(symbol_to_move)
                 return frame_idx, row_idx, col_idx
     raise ValueError(f"Symbol '{symbol_to_move}' not found in playfair_cube.")
-
-
-def _get_next_corner_choices(key_phrase: str, num_trios_encoded: int, is_encrypting: bool) -> list[int]:
-    """
-    Generates a deterministic trio of 3 integers (0-7) based on a key phrase and the count of encoded trios.
-
-    Args:
-        key_phrase (str): The key phrase used to seed the generator.
-        num_trios_encoded (int): The number of trios already encoded (used to vary output).
-
-    Returns:
-        list[int]: A list of 3 integers, each between 0-7 (inclusive).
-    """
-    random_numbers = get_random_hash_numbers_for_input(key_phrase, str(num_trios_encoded))
-    num_corners_in_a_cube = 8
-    max_corner_idx = num_corners_in_a_cube - 1
-
-    trio = []
-    for cur_number in random_numbers:
-        if is_encrypting:
-            if cur_number not in trio:
-                trio.append(cur_number)
-        else:
-            rev_number = max_corner_idx - cur_number
-            if rev_number not in trio:
-                trio.append(rev_number)
-        if len(trio) >= LENGTH_OF_TRIO:
-            break
-    return trio
 
 
 def _get_flat_index(x, y, z, size_x, size_y):
@@ -407,10 +378,14 @@ def get_symbol_for_coordinates(coordinate: tuple[int, int, int], rotor: list[lis
     return rotor[x][y][z]
 
 
-def _transpose_coordinates(coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool) -> list[tuple[int, int, int]]:
-    x_mod = -1
-    y_mod = 1
-    z_mod = -2
+def _transpose_coordinates(
+    coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool, key_phrase: str
+) -> list[tuple[int, int, int]]:
+    # ToDo: Derive these values from the key (instead of hardcoding them)
+    x_mod = random_int_for_input(f"{key_phrase}|x", -2, 2)
+    y_mod = random_int_for_input(f"{key_phrase}|y", -2, 2)
+    z_mod = random_int_for_input(f"{key_phrase}|z", -2, 2)
+
     max_index = cube_length - 1
     new_coordinates = []
     for coordinate in coordinates:
@@ -448,7 +423,9 @@ def _transpose_coordinates(coordinates: list[tuple[int, int, int]], cube_length:
     return new_coordinates
 
 
-def _cyclically_permute_coordinates(coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool) -> list[tuple[int, int, int]]:
+def _cyclically_permute_coordinates(
+    coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool, key_phrase: str
+) -> list[tuple[int, int, int]]:
     max_index = cube_length - 1
     new_coordinates = []
     for idx, coordinate in enumerate(coordinates):
@@ -474,12 +451,15 @@ def _cyclically_permute_coordinates(coordinates: list[tuple[int, int, int]], cub
     return new_coordinates
 
 
-def _invert_coordinates(coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool) -> list[tuple[int, int, int]]:
+def _invert_coordinates(
+    coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool, key_phrase: str
+) -> list[tuple[int, int, int]]:
     max_index = cube_length - 1
+    reflection_index = random_int_for_input(key_phrase, 0, max_index)
     new_coordinates = []
     for coordinate in coordinates:
         x, y, z = coordinate
-        new_coordinate = max_index - x, max_index - y, max_index - z
+        new_coordinate = reflection_index - x, reflection_index - y, reflection_index - z
         new_coordinates.append(new_coordinate)
     return new_coordinates
 
@@ -488,13 +468,11 @@ def get_encrypted_coordinates(
     point_1: tuple[int, int, int],
     point_2: tuple[int, int, int],
     point_3: tuple[int, int, int],
-    num_blocks: int,
-    lines_per_block: int,
-    symbols_per_line: int,
+    cube_length: int,
     key_phrase: str,
     num_trios_encoded: int,
     is_encrypting: bool,
-) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+) -> list[tuple[int, int, int]]:
     """
     Given four corners of a rectangular cube, find the other four corners.
 
@@ -502,9 +480,7 @@ def get_encrypted_coordinates(
         point_1: A tuple representing the first point (x, y, z).
         point_2: A tuple representing the second point (x, y, z).
         point_3: A tuple representing the third point (x, y, z).
-        num_blocks (int): How tall in the cube (x).
-        lines_per_block (int): How long in the cube (y).
-        symbols_per_line (int): How wide in the cube (z).
+        cube_length (int): How many symbols are in each dimension of the cube
         key_phrase (str): Secret key phrase
         num_trios_encoded (int): Number of trio encodings performed thus far
         is_encrypting (bool): encrypting or decrypting
@@ -512,23 +488,13 @@ def get_encrypted_coordinates(
     Returns:
         A tuple of three tuples, each representing the coordinates of the encrypted symbols.
     """
-    # ToDo Now: I think this fxn might be busted. Check the tests.
-
-    x1, y1, z1 = point_1
-    x2, y2, z2 = point_2
-    x3, y3, z3 = point_3
-
-    max_frame_idx = num_blocks - 1
-    max_row_idx = lines_per_block - 1
-    max_col_idx = symbols_per_line - 1
-
-    cube_length = num_blocks
+    # ToDo: Confirm the tests on this function are complete
     combined_key = f"{key_phrase}|{num_trios_encoded}"
     operations = [_cyclically_permute_coordinates, _invert_coordinates, _transpose_coordinates]
     shuffled_ops = shuffle_for_input(combined_key, operations)
     cur_points = [point_1, point_2, point_3]
     for coordinate_operation in shuffled_ops:
-        cur_points = coordinate_operation(cur_points, cube_length, is_encrypting)
+        cur_points = coordinate_operation(cur_points, cube_length, is_encrypting, key_phrase)
     return cur_points
 
 
@@ -601,7 +567,7 @@ def parse_arguments(
 
 def prep_string_for_encrypting(orig_message: str) -> str:
     """
-    Pad the string with random pad symbols until its length is a multiple of 4
+    Pad the string with random pad symbols until its length is a multiple of LENGTH_OF_TRIO
 
     Args:
         orig_message (str): String to be prepared for encryption
@@ -609,27 +575,13 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     Returns:
         str: String prepared for encryption
     """
-    # ToDo: We also need to check if this trio of chars forms a square frame in the cube; that is not allowed
-    #  If all 4 symbols in trio have the same x, or the same y, or the same z in any rotor, then we need a pad symbol
     if not orig_message:
         raise ValueError("Cannot encrypt an empty message")
-    sanitized_string = ""
-    cur_chunk = ""
-    chunk_idx = 0
-    for orig_char in orig_message:
-        if chunk_idx >= LENGTH_OF_TRIO:
-            sanitized_string += cur_chunk
-            cur_chunk = ""
-            chunk_idx = 0
-        if orig_char in cur_chunk:
-            cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
-            sanitized_string += cur_chunk
-            cur_chunk = ""
-            chunk_idx = 0
-        cur_chunk += orig_char
-        chunk_idx += 1
-    cur_chunk = _pad_chunk_with_rand_pad_symbols(cur_chunk)
-    sanitized_string += cur_chunk
+    length_of_incomplete_chunk = len(orig_message) % LENGTH_OF_TRIO
+    incomplete_chunk = orig_message[length_of_incomplete_chunk:]
+    message_without_incomplete_chunk = orig_message[0:-length_of_incomplete_chunk]
+    complete_chunk = _pad_chunk_with_rand_pad_symbols(incomplete_chunk)
+    sanitized_string = message_without_incomplete_chunk + complete_chunk
     return sanitized_string
 
 
@@ -735,95 +687,3 @@ def _user_perceived_length(s: str) -> int:
     # Match grapheme clusters
     graphemes = regex.findall(r"\X", s)
     return len(graphemes)
-
-
-# Functions below are Deprecated
-
-
-def _move_letter_to_center(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the center of the playfair cube."""
-    num_blocks = len(playfair_cube)
-    lines_per_block = len(playfair_cube[0])
-    symbols_per_line = len(playfair_cube[0][0])
-    center_position = (num_blocks // 2, lines_per_block // 2, symbols_per_line // 2)
-    start_position = _find_symbol(symbol_to_move, playfair_cube)
-    updated_cube = _move_symbol_in_3d_grid(start_position, center_position, playfair_cube)
-    return updated_cube
-
-
-def _move_letter_to_front(symbol_to_move: str, playfair_cube: list[list[list[str]]]) -> list[list[list[str]]]:
-    """Moves the symbol to the front of the playfair cube."""
-    start_position = _find_symbol(symbol_to_move, playfair_cube)
-    updated_cube = _move_symbol_in_3d_grid(start_position, (0, 0, 0), playfair_cube)
-    return updated_cube
-
-
-def _move_symbol_in_3d_grid(
-    coord1: tuple[int, int, int], coord2: tuple[int, int, int], grid: list[list[list[str]]]
-) -> list[list[list[str]]]:
-    """
-    Moves a symbol from `coord1` to `coord2` in a 3D grid and shifts intermediate elements accordingly.
-
-    Args:
-        coord1 (tuple[int, int, int]): The (x, y, z) coordinate of the symbol to move.
-        coord2 (tuple[int, int, int]): The (x, y, z) coordinate where the symbol is to be moved.
-        grid (list[list[list[str]]]): A 3D grid of symbols.
-
-    Returns:
-        list[list[list[str]]]: The updated grid after moving the symbol.
-    """
-    if not (_is_valid_coord(coord1, grid) and _is_valid_coord(coord2, grid)):
-        raise ValueError("One or both coordinates are out of grid bounds.")
-    size_x, size_y, size_z = len(grid), len(grid[0]), len(grid[0][0])
-    flat_grid = [grid[x][y][z] for x in range(size_x) for y in range(size_y) for z in range(size_z)]
-
-    idx1 = _get_flat_index(*coord1, size_x, size_y)
-    idx2 = _get_flat_index(*coord2, size_x, size_y)
-
-    symbol_to_move = flat_grid[idx1]
-
-    # Shift elements and insert the moved symbol
-    idx_start = idx1 + 1
-    if idx1 < idx2:
-        idx_end = idx2 + 1
-        flat_grid = flat_grid[:idx1] + flat_grid[idx_start:idx_end] + [symbol_to_move] + flat_grid[idx_end:]
-    else:
-        flat_grid = flat_grid[:idx2] + [symbol_to_move] + flat_grid[idx2:idx1] + flat_grid[idx_start:]
-
-    # Rebuild the 3D grid
-    updated_grid = []
-    for x in range(size_x):
-        cur_elements = []
-        for y in range(size_y):
-            idx_start = x * size_y * size_z + y * size_z
-            idx_end = x * size_y * size_z + (y + 1) * size_z
-            cur_element = flat_grid[idx_start:idx_end]
-            cur_elements.append(cur_element)
-        updated_grid.append(cur_elements)
-    return updated_grid
-
-
-def remove_duplicate_letters(orig: str) -> str:
-    unique_letters = []
-    for letter in orig:
-        if letter not in unique_letters:
-            unique_letters.append(letter)
-    return "".join(list(unique_letters))
-
-
-def _split_key_into_parts(sanitized_key_phrase: str, num_rotors: int = 3) -> list[str]:
-    if len(sanitized_key_phrase) < num_rotors:
-        raise ValueError("Message length must be at least the number of rotors")
-    if num_rotors <= 0:
-        raise ValueError("Invalid number of rotors. Must be at least 1.")
-    key_third_length = len(sanitized_key_phrase) // num_rotors
-    key_parts = []
-    for i in range(num_rotors):
-        idx_start = key_third_length * i
-        idx_end = key_third_length * (i + 1)
-        if i == num_rotors - 1:
-            key_part = sanitized_key_phrase[idx_start:]
-        else:
-            key_part = sanitized_key_phrase[idx_start:idx_end]
-        key_parts.append(key_part)
-    return key_parts

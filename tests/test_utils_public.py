@@ -16,7 +16,6 @@ from cubigma.utils import (
     parse_arguments,
     prep_string_for_encrypting,
     read_config,
-    remove_duplicate_letters,
     rotate_slice_of_cube,
     sanitize,
     split_to_human_readable_symbols,
@@ -339,20 +338,15 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_1 = (0, 0, 0)
         point_2 = (0, 0, 1)
         point_3 = (0, 1, 0)
-        point_4 = (0, 1, 1)
 
         result = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
-            point_4,
             self.num_blocks,
-            self.lines_per_block,
-            self.symbols_per_line,
             self.key_phrase,
             self.num_trios_encoded,
             True,
-            [0, 1, 2, 3],
         )
 
         self.assertEqual(len(result), 4)
@@ -364,21 +358,16 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_1 = (0, 0, 0)
         point_2 = (0, 0, 0)  # Duplicate
         point_3 = (0, 1, 0)
-        point_4 = (0, 1, 1)
 
         with self.assertRaises(ValueError):
             get_encrypted_coordinates(
                 point_1,
                 point_2,
                 point_3,
-                point_4,
                 self.num_blocks,
-                self.lines_per_block,
-                self.symbols_per_line,
                 self.key_phrase,
                 self.num_trios_encoded,
                 True,
-                [0, 1, 2, 3],
             )
 
     # def test_points_outside_bounds(self):
@@ -398,34 +387,25 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_1 = (0, 0, 0)
         point_2 = (0, 0, 1)
         point_3 = (0, 1, 0)
-        point_4 = (0, 1, 1)
 
         result_1 = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
-            point_4,
             self.num_blocks,
-            self.lines_per_block,
-            self.symbols_per_line,
             "key1",
             self.num_trios_encoded,
             True,
-            [0, 1, 2, 3],
         )
 
         result_2 = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
-            point_4,
             self.num_blocks,
-            self.lines_per_block,
-            self.symbols_per_line,
             "key2",
             self.num_trios_encoded,
             True,
-            [0, 1, 2, 2],  # ToDo: These tests are not great
         )
 
         self.assertNotEqual(result_1, result_2)
@@ -657,41 +637,6 @@ class TestReadConfig(unittest.TestCase):
         mock_path.return_value.open.return_value.__enter__.return_value.read.assert_called_once()
 
 
-class TestRemoveDuplicateLetters(unittest.TestCase):
-
-    def test_empty_string(self):
-        """Test that an empty string returns an empty string."""
-        self.assertEqual(remove_duplicate_letters(""), "")
-
-    def test_single_character(self):
-        """Test that a single character string returns itself."""
-        self.assertEqual(remove_duplicate_letters("a"), "a")
-
-    def test_all_unique_characters(self):
-        """Test that a string with all unique characters returns the same string."""
-        self.assertEqual(remove_duplicate_letters("abc"), "abc")
-
-    def test_repeated_characters(self):
-        """Test that repeated characters are removed, keeping only the first occurrence."""
-        self.assertEqual(remove_duplicate_letters("aabbcc"), "abc")
-
-    def test_mixed_characters(self):
-        """Test that mixed characters with repetitions return the correct result."""
-        self.assertEqual(remove_duplicate_letters("abacada"), "abcd")
-
-    def test_case_sensitivity(self):
-        """Test that the function is case-sensitive."""
-        self.assertEqual(remove_duplicate_letters("AaAaBbBb"), "AaBb")
-
-    def test_numbers_and_special_characters(self):
-        """Test that numbers and special characters are handled correctly."""
-        self.assertEqual(remove_duplicate_letters("123123!@!@"), "123!@")
-
-    def test_long_string(self):
-        """Test with a long string to ensure performance and correctness."""
-        self.assertEqual(remove_duplicate_letters("a" * 1000 + "b" * 1000), "ab")
-
-
 class TestRotateSliceOfCube(unittest.TestCase):
     def setUp(self):
         self.cube = [
@@ -872,24 +817,24 @@ class TestSplitToHumanReadableSymbols(unittest.TestCase):
 
     def test_valid_input(self):
         """Test valid input with exactly 4 human-discernible symbols."""
-        self.assertEqual(split_to_human_readable_symbols("áb̂c̃d̄"), ["á", "b̂", "c̃", "d̄"])
+        self.assertEqual(split_to_human_readable_symbols("b̂c̃d̄"), ["b̂", "c̃", "d̄"])
 
-        self.assertEqual(split_to_human_readable_symbols("😊é́👍🏽🎉"), ["😊", "é́", "👍🏽", "🎉"])
+        self.assertEqual(split_to_human_readable_symbols("é́👍🏽🎉"), ["é́", "👍🏽", "🎉"])
 
     def test_mixed_grapheme_clusters(self):
         """Test input with mixed grapheme clusters (combining marks and emojis)."""
-        self.assertEqual(split_to_human_readable_symbols("👩‍❤️‍💋‍👨á😊👍🏽"), ["👩‍❤️‍💋‍👨", "á", "😊", "👍🏽"])
+        self.assertEqual(split_to_human_readable_symbols("👩‍❤️‍💋‍👨á👍🏽"), ["👩‍❤️‍💋‍👨", "á", "👍🏽"])
 
     def test_invalid_input_length(self):
         """Test input with invalid user-perceived lengths."""
         with self.assertRaises(ValueError):
-            split_to_human_readable_symbols("abc")  # 3 graphemes
+            split_to_human_readable_symbols("ab")  # 2 graphemes
 
         with self.assertRaises(ValueError):
-            split_to_human_readable_symbols("abcde")  # 5 graphemes
+            split_to_human_readable_symbols("abcd")  # 4 graphemes
 
         with self.assertRaises(ValueError):
-            split_to_human_readable_symbols("áb̂c̃d̄e")  # 5 graphemes
+            split_to_human_readable_symbols("b̂c̃d̄e")  # 4 graphemes
 
     def test_empty_string(self):
         """Test an empty string input, which should raise an error."""
@@ -902,11 +847,11 @@ class TestSplitToHumanReadableSymbols(unittest.TestCase):
             split_to_human_readable_symbols(None)  # noqa
 
         with self.assertRaises(TypeError):
-            split_to_human_readable_symbols(1234)  # noqa
+            split_to_human_readable_symbols(123)  # noqa
 
     def test_valid_combining_characters(self):
         """Test valid input with combining characters to form graphemes."""
-        self.assertEqual(split_to_human_readable_symbols("éôũī"), ["é", "ô", "ũ", "ī"])
+        self.assertEqual(split_to_human_readable_symbols("ôũī"), ["ô", "ũ", "ī"])
 
 
 class TestUserPerceivedLength(unittest.TestCase):

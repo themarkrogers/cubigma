@@ -12,18 +12,13 @@ from cubigma.utils import (
 from cubigma.utils import (
     _find_symbol,
     _get_flat_index,
-    _get_next_corner_choices,
     _get_prefix_order_number_trio,
     _get_random_noise_chunk,
     _is_valid_coord,
-    _move_letter_to_center,
-    _move_letter_to_front,
-    _move_symbol_in_3d_grid,
     _pad_chunk_with_rand_pad_symbols,
     _read_and_validate_config,
     _rotate_2d_array,
     _shuffle_cube_with_key_phrase,
-    _split_key_into_parts,
 )
 
 
@@ -95,46 +90,6 @@ class TestGetFlatIndex(unittest.TestCase):
             _get_flat_index(1, 2, 3, -4, 5)
         with self.assertRaises(ValueError):
             _get_flat_index(1, 2, 3, 4, -5)
-
-
-class TestGetNextCornerChoices(unittest.TestCase):
-    def test_deterministic_output(self):
-        """Test that the function produces deterministic outputs for the same inputs."""
-        key_phrase = "test_key"
-        num_trios_encoded = 5
-
-        result1 = _get_next_corner_choices(key_phrase, num_trios_encoded, True)
-        result2 = _get_next_corner_choices(key_phrase, num_trios_encoded, True)
-
-        self.assertEqual(result1, result2, "The function should produce the same output for the same inputs.")
-
-    def test_output_within_range(self):
-        """Test that the output values are within the range [0-7]."""
-        key_phrase = "range_test"
-        num_trios_encoded = 10
-
-        result = _get_next_corner_choices(key_phrase, num_trios_encoded, True)
-
-        self.assertEqual(len(result), 4, "The function should return exactly 4 integers.")
-        self.assertTrue(all(0 <= x <= 7 for x in result), "All integers should be within the range 0-7.")
-
-    def test_different_inputs_produce_different_outputs(self):
-        """Test that different inputs produce different outputs."""
-        key_phrase = "unique_test"
-
-        result1 = _get_next_corner_choices(key_phrase, 1, True)
-        result2 = _get_next_corner_choices(key_phrase, 2, True)
-
-        self.assertNotEqual(result1, result2, "Different num_trios_encoded values should produce different outputs.")
-
-    def test_different_key_phrases_produce_different_outputs(self):
-        """Test that different key phrases produce different outputs."""
-        num_trios_encoded = 1
-
-        result1 = _get_next_corner_choices("key_phrase_1", num_trios_encoded, True)
-        result2 = _get_next_corner_choices("key_phrase_2", num_trios_encoded, True)
-
-        self.assertNotEqual(result1, result2, "Different key phrases should produce different outputs.")
 
 
 class TestGetPrefixOrderNumberTrio(unittest.TestCase):
@@ -264,143 +219,6 @@ class TestIsValidCoord(unittest.TestCase):
         self.assertFalse(_is_valid_coord((1, 0, 2), grid))  # Invalid in second grid (z exceeds limit)
 
 
-class TestMoveLetterToCenter(unittest.TestCase):
-
-    @patch("cubigma.utils._move_symbol_in_3d_grid")
-    def test_move_letter_to_center_with_even_dimensions(self, mock_move_symbol_in_3d_grid):
-        # Arrange
-        expected_return_value = [
-            [["A", "B", "C", "D"], ["E", "F", "G", "H"], ["I", "J", "K", "L"], ["M", "N", "O", "P"]],
-            [["Q", "R", "S", "T"], ["U", "V", "W", "X"], ["Y", "Z", "1", "2"], ["3", "4", "5", "6"]],
-            [["7", "8", "9", "0"], ["a", "b", "c", "d"], ["e", "f", "g", "h"], ["i", "j", "k", "l"]],
-            [["m", "n", "o", "p"], ["q", "r", "s", "t"], ["u", "v", "w", "x"], ["y", "z", "!", "@"]],
-        ]
-        mock_move_symbol_in_3d_grid.return_value = expected_return_value
-        test_symbol = "R"
-        test_cube = [
-            expected_return_value[3],
-            expected_return_value[2],
-            expected_return_value[1],
-            expected_return_value[0],
-        ]
-
-        # Act
-        result = _move_letter_to_center(test_symbol, test_cube)
-
-        # Assert
-        self.assertEqual(expected_return_value, result)
-        mock_move_symbol_in_3d_grid.assert_called_once_with((2, 0, 1), (2, 2, 2), test_cube)
-
-    @patch("cubigma.utils._move_symbol_in_3d_grid")
-    def test_move_letter_to_center_with_odd_dimensions(self, mock_move_symbol_in_3d_grid):
-        # Arrange
-        expected_return_value = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "1"]],
-        ]
-        mock_move_symbol_in_3d_grid.return_value = expected_return_value
-        test_symbol = "R"
-        test_cube = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
-
-        # Act
-        result = _move_letter_to_center(test_symbol, test_cube)
-
-        # Assert
-        self.assertEqual(expected_return_value, result)
-        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (1, 1, 1), test_cube)
-
-
-class TestMoveLetterToFront(unittest.TestCase):
-
-    @patch("cubigma.utils._move_symbol_in_3d_grid")
-    def test_move_letter_to_front(self, mock_move_symbol_in_3d_grid):
-        # Arrange
-        expected_return_value = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "1"]],
-        ]
-        mock_move_symbol_in_3d_grid.return_value = expected_return_value
-        test_symbol = "R"
-        test_cube = [expected_return_value[2], expected_return_value[1], expected_return_value[0]]
-
-        # Act
-        result = _move_letter_to_front(test_symbol, test_cube)
-
-        # Assert
-        self.assertEqual(expected_return_value, result)
-        mock_move_symbol_in_3d_grid.assert_called_once_with((1, 2, 2), (0, 0, 0), test_cube)
-
-
-class TestMoveSymbolIn3DSpace(unittest.TestCase):
-
-    def setUp(self):
-        # Set up a 3x3x3 grid for testing
-        self.grid = [
-            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
-            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
-            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
-        ]
-
-    def test_valid_move_forward(self):
-        # Test moving a symbol forward in the grid
-        coord1 = (0, 0, 0)
-        coord2 = (2, 1, 0)
-        result = _move_symbol_in_3d_grid(coord1, coord2, self.grid)
-        self.assertEqual(result[0][0][0], "B")
-        self.assertEqual(result[0][0][1], "C")
-        self.assertEqual(result[2][1][0], "A")
-        self.assertEqual(result[2][2][2], "0")
-
-    def test_valid_move_backward(self):
-        # Test moving a symbol backward in the grid
-        coord1 = (2, 1, 0)
-        coord2 = (0, 0, 0)
-        result = _move_symbol_in_3d_grid(coord1, coord2, self.grid)
-        self.assertEqual(result[0][0][0], "V")
-        self.assertEqual(result[0][0][1], "A")
-        self.assertEqual(result[2][1][0], "U")
-        self.assertEqual(result[2][2][2], "0")
-
-    def test_move_to_same_position(self):
-        # Test moving a symbol to the same position
-        coord1 = (1, 1, 1)
-        coord2 = (1, 1, 1)
-        result = _move_symbol_in_3d_grid(coord1, coord2, self.grid)
-        self.assertEqual(result, self.grid)
-
-    def test_invalid_coord1(self):
-        # Test when coord1 is out of bounds
-        coord1 = (3, 0, 0)
-        coord2 = (0, 0, 0)
-        with self.assertRaises(ValueError):
-            _move_symbol_in_3d_grid(coord1, coord2, self.grid)
-
-    def test_invalid_coord2(self):
-        # Test when coord2 is out of bounds
-        coord1 = (0, 0, 0)
-        coord2 = (3, 0, 0)
-        with self.assertRaises(ValueError):
-            _move_symbol_in_3d_grid(coord1, coord2, self.grid)
-
-    def test_large_grid_move(self):
-        # Test a larger grid
-        large_grid = [[[f"{x}{y}{z}" for z in range(5)] for y in range(5)] for x in range(5)]
-        coord1 = (2, 2, 2)
-        coord2 = (3, 3, 3)
-        result = _move_symbol_in_3d_grid(coord1, coord2, large_grid)
-        self.assertEqual(result[3][3][3], "222")
-        self.assertNotEqual(result[2][2][2], "222")
-
-    def test_move_symbol_in_3d_grid_with_valid_coords(self):
-        # Arrange & Act
-        result = _move_symbol_in_3d_grid((0, 0, 0), (1, 1, 1), self.grid)
-
-        # Assert
-        self.assertNotEqual(self.grid, result, "Failed to manipulate cube")
-
-
 class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     @patch("cubigma.utils.get_non_deterministically_random_int")
     def test_pad_chunk_with_empty_input(self, mock_randint):
@@ -413,25 +231,19 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
     def test_pad_chunk_with_one_length_input(self, mock_randint):
         mock_randint.side_effect = [0, 1, 2]
         result = _pad_chunk_with_rand_pad_symbols("A")
-        self.assertEqual(result, "A\x07\x16\x06")
+        self.assertEqual(result, "A\x07\x16")
 
     @patch("random.randint")
     def test_pad_chunk_with_two_length_input(self, mock_randint):
         mock_randint.side_effect = [2, 1]
         result = _pad_chunk_with_rand_pad_symbols("AB")
-        self.assertEqual(result, "AB\x06\x16")
+        self.assertEqual(result, "AB\x06")
 
     @patch("random.randint")
     def test_pad_chunk_with_three_length_input(self, mock_randint):
         mock_randint.side_effect = [0]
         result = _pad_chunk_with_rand_pad_symbols("ABC")
-        self.assertEqual(result, "ABC\x07")
-
-    @patch("random.randint")
-    def test_pad_chunk_with_full_length_input(self, mock_randint):
-        result = _pad_chunk_with_rand_pad_symbols("ABCD")
-        self.assertEqual(result, "ABCD")
-        mock_randint.assert_not_called()
+        self.assertEqual(result, "ABC")
 
 
 class TestReadAndValidateConfig(unittest.TestCase):
@@ -738,43 +550,6 @@ class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
         orig_cube_copy = deepcopy(self.orig_cube)
         _ = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
         self.assertEqual(self.orig_cube, orig_cube_copy)
-
-
-class TestSplitKeyIntoParts(unittest.TestCase):
-    def test_even_division(self):
-        """Test when the sanitized key phrase length is evenly divisible by the number of rotors."""
-        result = _split_key_into_parts("ABCDEFGHI", 3)
-        self.assertEqual(result, ["ABC", "DEF", "GHI"])
-
-    def test_uneven_division(self):
-        """Test when the sanitized key phrase length is not evenly divisible by the number of rotors."""
-        result = _split_key_into_parts("ABCDEFGHIJK", 3)
-        self.assertEqual(result, ["ABC", "DEF", "GHIJK"])
-
-    def test_single_rotor(self):
-        """Test when there is only one rotor."""
-        result = _split_key_into_parts("ABCDEFGHI", 1)
-        self.assertEqual(result, ["ABCDEFGHI"])
-
-    def test_empty_string(self):
-        """Test when the sanitized key phrase is an empty string."""
-        with self.assertRaises(ValueError):
-            _split_key_into_parts("", 3)
-
-    def test_more_rotors_than_characters(self):
-        """Test when the number of rotors exceeds the length of the sanitized key phrase."""
-        with self.assertRaises(ValueError):
-            _split_key_into_parts("AB", 5)
-
-    def test_zero_rotors(self):
-        """Test when the number of rotors is zero (should raise an error)."""
-        with self.assertRaises(ValueError):
-            _split_key_into_parts("ABCD", 0)
-
-    def test_negative_rotors(self):
-        """Test when the number of rotors is negative (should raise an error)."""
-        with self.assertRaises(ValueError):
-            _split_key_into_parts("ABCD", -3)
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring
