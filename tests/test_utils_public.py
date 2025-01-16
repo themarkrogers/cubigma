@@ -10,8 +10,8 @@ from cubigma.utils import (
     generate_plugboard,
     generate_reflector,
     generate_rotors,
-    get_chars_for_coordinates,
-    get_opposite_corners,
+    get_symbol_for_coordinates,
+    get_encrypted_coordinates,
     pad_chunk,
     parse_arguments,
     prep_string_for_encrypting,
@@ -312,7 +312,7 @@ class TestGetCharsForCoordinates(unittest.TestCase):
         expected_result = "8"
 
         # Act
-        result = get_chars_for_coordinates(coordinate, test_rotor)
+        result = get_symbol_for_coordinates(coordinate, test_rotor)
 
         # Assert
         self.assertEqual(expected_result, result)
@@ -324,7 +324,7 @@ class TestGetCharsForCoordinates(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(IndexError):
-            get_chars_for_coordinates(coordinate, test_rotor)
+            get_symbol_for_coordinates(coordinate, test_rotor)
 
 
 class TestGetOppositeCorners(unittest.TestCase):
@@ -341,7 +341,7 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_3 = (0, 1, 0)
         point_4 = (0, 1, 1)
 
-        result = get_opposite_corners(
+        result = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
@@ -367,7 +367,7 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_4 = (0, 1, 1)
 
         with self.assertRaises(ValueError):
-            get_opposite_corners(
+            get_encrypted_coordinates(
                 point_1,
                 point_2,
                 point_3,
@@ -400,7 +400,7 @@ class TestGetOppositeCorners(unittest.TestCase):
         point_3 = (0, 1, 0)
         point_4 = (0, 1, 1)
 
-        result_1 = get_opposite_corners(
+        result_1 = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
@@ -414,7 +414,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             [0, 1, 2, 3],
         )
 
-        result_2 = get_opposite_corners(
+        result_2 = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,

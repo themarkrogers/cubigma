@@ -10,8 +10,8 @@ import json
 
 import regex
 
-# from cubigma.core import (
-from core import (
+from cubigma.core import (
+# from core import (
     get_independently_deterministic_random_rotor_info,
     get_non_deterministically_random_int,
     get_random_hash_numbers_for_input,
@@ -389,9 +389,11 @@ def generate_rotors(
 
         are_all_pad_symbols_in_same_frame = True
         while are_all_pad_symbols_in_same_frame:
-            shuffled_rotor = _shuffle_cube_with_key_phrase(strengthened_key_phrase, raw_rotor, value_unique_to_each_rotor)
+            shuffled_rotor = _shuffle_cube_with_key_phrase(
+                strengthened_key_phrase, raw_rotor, value_unique_to_each_rotor
+            )
             # ToDo: We need to ensure that all three pad symbols are NOT on the same x, y, or z as each other
-            are_all_pad_symbols_in_same_frame =  # ToDo
+            are_all_pad_symbols_in_same_frame = False  # ToDo: Implement this
         generated_rotors.append(shuffled_rotor)
 
     rotors_ready_for_use: list[list[list[list[str]]]] = []
@@ -400,24 +402,99 @@ def generate_rotors(
     return rotors_ready_for_use
 
 
-def get_chars_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
+def get_symbol_for_coordinates(coordinate: tuple[int, int, int], rotor: list[list[list[str]]]) -> str:
     x, y, z = coordinate
     return rotor[x][y][z]
 
 
-def get_opposite_corners(
+def _transpose_coordinates(coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool) -> list[tuple[int, int, int]]:
+    x_mod = -1
+    y_mod = 1
+    z_mod = -2
+    max_index = cube_length - 1
+    new_coordinates = []
+    for coordinate in coordinates:
+        x, y, z = coordinate
+
+        if is_encrypting:
+            new_x = x + x_mod
+        else:
+            new_x = x - x_mod
+        if new_x > max_index:
+            new_x -= cube_length
+        if new_x < 0:
+            new_x = cube_length + new_x
+
+        if is_encrypting:
+            new_y = y + y_mod
+        else:
+            new_y = y - y_mod
+        if new_y > max_index:
+            new_y -= cube_length
+        if new_y < 0:
+            new_y = cube_length + new_y
+
+        if is_encrypting:
+            new_z = z + z_mod
+        else:
+            new_z = z - z_mod
+        if new_z > max_index:
+            new_z -= cube_length
+        if new_z < 0:
+            new_z = cube_length + new_z
+
+        new_coordinate = new_x, new_y, new_z
+        new_coordinates.append(new_coordinate)
+    return new_coordinates
+
+
+def _cyclically_permute_coordinates(coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool) -> list[tuple[int, int, int]]:
+    max_index = cube_length - 1
+    new_coordinates = []
+    for idx, coordinate in enumerate(coordinates):
+        x, y, z = coordinate
+        if idx == 0:
+            next_idx = idx + 1
+            prev_idx = max_index
+        elif idx == max_index:
+            next_idx = 0
+            prev_idx = idx - 1
+        else:
+            next_idx = idx + 1
+            prev_idx = idx - 1
+        next_coordinate = coordinates[next_idx]
+        prev_coordinate = coordinates[prev_idx]
+        x_n, y_n, z_n = next_coordinate
+        x_p, y_p, z_p = prev_coordinate
+        if is_encrypting:
+            new_coordinate = x, y_n, z_p
+        else:
+            new_coordinate = x, y_p, z_n
+        new_coordinates.append(new_coordinate)
+    return new_coordinates
+
+
+def _invert_coordinates(coordinates: list[tuple[int, int, int]], cube_length: int, is_encrypting: bool) -> list[tuple[int, int, int]]:
+    max_index = cube_length - 1
+    new_coordinates = []
+    for coordinate in coordinates:
+        x, y, z = coordinate
+        new_coordinate = max_index - x, max_index - y, max_index - z
+        new_coordinates.append(new_coordinate)
+    return new_coordinates
+
+
+def get_encrypted_coordinates(
     point_1: tuple[int, int, int],
     point_2: tuple[int, int, int],
     point_3: tuple[int, int, int],
-    point_4: tuple[int, int, int],
     num_blocks: int,
     lines_per_block: int,
     symbols_per_line: int,
     key_phrase: str,
     num_trios_encoded: int,
     is_encrypting: bool,
-    indices_to_choose: list[int],
-) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
     Given four corners of a rectangular cube, find the other four corners.
 
@@ -425,47 +502,34 @@ def get_opposite_corners(
         point_1: A tuple representing the first point (x, y, z).
         point_2: A tuple representing the second point (x, y, z).
         point_3: A tuple representing the third point (x, y, z).
-        point_4: A tuple representing the fourth point (x, y, z).
         num_blocks (int): How tall in the cube (x).
         lines_per_block (int): How long in the cube (y).
         symbols_per_line (int): How wide in the cube (z).
         key_phrase (str): Secret key phrase
         num_trios_encoded (int): Number of trio encodings performed thus far
+        is_encrypting (bool): encrypting or decrypting
 
     Returns:
-        A tuple of four tuples, each representing the coordinates of the remaining corners.
+        A tuple of three tuples, each representing the coordinates of the encrypted symbols.
     """
     # ToDo Now: I think this fxn might be busted. Check the tests.
-    # Check for unique points
-    given_points = {point_1, point_2, point_3, point_4}
-    if len(given_points) != LENGTH_OF_TRIO:
-        raise ValueError("The provided points must be unique and represent adjacent corners of a rectangular cube.")
 
     x1, y1, z1 = point_1
     x2, y2, z2 = point_2
     x3, y3, z3 = point_3
-    x4, y4, z4 = point_4
 
     max_frame_idx = num_blocks - 1
     max_row_idx = lines_per_block - 1
     max_col_idx = symbols_per_line - 1
 
-    point_5 = (max_frame_idx - x1, max_row_idx - y1, max_col_idx - z1)
-    point_6 = (max_frame_idx - x2, max_row_idx - y2, max_col_idx - z2)
-    point_7 = (max_frame_idx - x3, max_row_idx - y3, max_col_idx - z3)
-    point_8 = (max_frame_idx - x4, max_row_idx - y4, max_col_idx - z4)
-    all_points = [point_1, point_2, point_3, point_4, point_5, point_6, point_7, point_8]
-
-    # indices_to_choose = _get_next_corner_choices(key_phrase, num_trios_encoded, is_encrypting)
-    chosen_point_1 = all_points[indices_to_choose[0]]
-    chosen_point_2 = all_points[indices_to_choose[1]]
-    chosen_point_3 = all_points[indices_to_choose[2]]
-    chosen_point_4 = all_points[indices_to_choose[3]]
-    list_of_foo = [chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4]
-    unique_foo = set(list_of_foo)
-    if len(unique_foo) != LENGTH_OF_TRIO:
-        print("Odd")
-    return chosen_point_1, chosen_point_2, chosen_point_3, chosen_point_4
+    cube_length = num_blocks
+    combined_key = f"{key_phrase}|{num_trios_encoded}"
+    operations = [_cyclically_permute_coordinates, _invert_coordinates, _transpose_coordinates]
+    shuffled_ops = shuffle_for_input(combined_key, operations)
+    cur_points = [point_1, point_2, point_3]
+    for coordinate_operation in shuffled_ops:
+        cur_points = coordinate_operation(cur_points, cube_length, is_encrypting)
+    return cur_points
 
 
 def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:

@@ -113,9 +113,7 @@ def shuffle_for_input(strengthened_key_phrase: str, sequence: Sequence[T]) -> li
     return shuffled
 
 
-def strengthen_key(
-    key_phrase: str, salt: None | bytes = None, iterations: int = 200_000, key_length: int = 32
-) -> tuple[str, str]:
+def strengthen_key(key_phrase: str, salt: None | bytes = None, iterations: int = 200_000, key_length: int = 32) -> tuple[str, str]:
     """
     Strengthen a user-provided key using Argon2 key derivation.
 
@@ -134,6 +132,4 @@ def strengthen_key(
     key = hashlib.pbkdf2_hmac("sha256", key_phrase_bytes, salt, iterations, dklen=key_length)  # Derived key length
     b64_key = base64.b64encode(key).decode("utf-8")  # always 44 chars long
     b64_salt = base64.b64encode(salt).decode("utf-8")  # always 24 chars long
-    # if len(b64_key) != 44 or len(b64_salt) != 24:
-    #     print(f"This should not happen! {len(b64_key)} != 44 or {len(b64_salt)} != 24")
     return b64_key, b64_salt

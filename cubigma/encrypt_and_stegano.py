@@ -138,9 +138,9 @@ def encrypt_message_into_image(
         plugboard_values,
         salt=None,
     )
-    clear_text_message_after_plugboard = cubigma._run_message_through_plugboard(
+    clear_text_message_after_plugboard = cubigma._run_message_through_plugboard(  # pylint:disable=W0212
         clear_text_message
-    )  # pylint:disable=W0212
+    )
     sanitized_string = prep_string_for_encrypting(clear_text_message_after_plugboard)
 
     image_width, image_height = get_image_size(original_image_filepath)
@@ -163,9 +163,9 @@ def encrypt_message_into_image(
     encrypted_chunks = []
     for i in range(5):
         encrypted_chunk = cubigma.encode_string(padded_chunks[i], key_phrase, True)
-        encrypted_chunk_after_plugboard = cubigma._run_message_through_plugboard(
+        encrypted_chunk_after_plugboard = cubigma._run_message_through_plugboard(  # pylint:disable=W0212
             encrypted_chunk
-        )  # pylint:disable=W0212
+        )
         encrypted_chunks.append(encrypted_chunk_after_plugboard)
     random.shuffle(encrypted_chunks)
 

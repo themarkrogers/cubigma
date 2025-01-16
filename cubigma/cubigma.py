@@ -5,19 +5,19 @@ This code implements the Cubigma encryption algorithm.
 
 from base64 import b64decode
 
-# from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
-from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+# from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
 
-# from cubigma.utils import (  # Used in packaging & unit testing
-from utils import (  # Used in local debugging
+from cubigma.utils import (  # Used in packaging & unit testing
+# from utils import (  # Used in local debugging
     LENGTH_OF_TRIO,
     NOISE_SYMBOL,
     generate_cube_from_symbols,
     generate_plugboard,
     generate_reflector,
     generate_rotors,
-    get_chars_for_coordinates,
-    get_opposite_corners,
+    get_symbol_for_coordinates,
+    get_encrypted_coordinates,
     parse_arguments,
     prep_string_for_encrypting,
     rotate_slice_of_cube,
@@ -68,15 +68,11 @@ class Cubigma:
         second_half_corners = sequence_of_corners_to_choose[num_rotors:]
         print(f"{first_half_corners=}")
         print(f"{second_half_corners=}")
-        step_one = self._run_trio_through_rotors(
-            char_trio, self.rotors, key_phrase, is_encrypting, first_half_corners
-        )
+        step_one = self._run_trio_through_rotors(char_trio, self.rotors, key_phrase, is_encrypting, first_half_corners)
         print(f"{step_one=}")
         step_two = self._run_trio_through_reflector(step_one, key_phrase, self._num_trios_encoded)
         print(f"{step_two=}")
-        complete = self._run_trio_through_rotors(
-            step_two, rev_rotors, key_phrase, is_encrypting, second_half_corners
-        )
+        complete = self._run_trio_through_rotors(step_two, rev_rotors, key_phrase, is_encrypting, second_half_corners)
         print(f"{complete=}")
         return complete
 
@@ -133,7 +129,7 @@ class Cubigma:
         for rotor_number, rotor in enumerate(rotors):
             print(f"{cur_trio=}")
             # Step the rotors forward immediately before encoding each trio on each rotor
-            indices_by_char = {}
+            coordinate_by_char = {}
             stepped_rotor = self._step_rotor(rotor, rotor_number, key_phrase)
             rotors[rotor_number] = stepped_rotor
 
@@ -142,57 +138,41 @@ class Cubigma:
                 for row_idx, cur_line in enumerate(cur_frame):
                     if any(symbol in cur_line for symbol in individual_symbols):
                         if individual_symbols[0] in cur_line:
-                            indices_by_char[individual_symbols[0]] = (
-                                frame_idx,
-                                row_idx,
-                                cur_line.index(individual_symbols[0]),
-                            )
+                            point = (frame_idx, row_idx, cur_line.index(individual_symbols[0]))
+                            coordinate_by_char[individual_symbols[0]] = point
                         if individual_symbols[1] in cur_line:
-                            indices_by_char[individual_symbols[1]] = (
-                                frame_idx,
-                                row_idx,
-                                cur_line.index(individual_symbols[1]),
-                            )
+                            point = (frame_idx, row_idx, cur_line.index(individual_symbols[1]))
+                            coordinate_by_char[individual_symbols[1]] = point
                         if individual_symbols[2] in cur_line:
-                            indices_by_char[individual_symbols[2]] = (
-                                frame_idx,
-                                row_idx,
-                                cur_line.index(individual_symbols[2]),
-                            )
-                        if individual_symbols[3] in cur_line:
-                            indices_by_char[individual_symbols[3]] = (
-                                frame_idx,
-                                row_idx,
-                                cur_line.index(individual_symbols[3]),
-                            )
-            if len(indices_by_char) != LENGTH_OF_TRIO:
+                            point = (frame_idx, row_idx, cur_line.index(individual_symbols[2]))
+                            coordinate_by_char[individual_symbols[2]] = point
+            if len(coordinate_by_char) != LENGTH_OF_TRIO:
                 print("This is unexpected")
             orig_indices = []
             for cur_char in individual_symbols:
-                orig_indices.append(indices_by_char[cur_char])
+                orig_indices.append(coordinate_by_char[cur_char])
             num_blocks = len(stepped_rotor)
             lines_per_block = len(stepped_rotor[0])
             symbols_per_line = len(stepped_rotor[0][0])
-            corners_for_this_iteration = list_of_corners_to_chose[rotor_number]
-            encrypted_indices = get_opposite_corners(
+            encrypted_coordinates = get_encrypted_coordinates(
                 orig_indices[0],
                 orig_indices[1],
                 orig_indices[2],
-                orig_indices[3],
                 num_blocks,
                 lines_per_block,
                 symbols_per_line,
                 key_phrase,
                 self._num_trios_encoded,
                 is_encrypting,
-                corners_for_this_iteration,
             )
-            self._num_trios_encoded += 1
-            encrypted_char_1 = get_chars_for_coordinates(encrypted_indices[0], stepped_rotor)
-            encrypted_char_2 = get_chars_for_coordinates(encrypted_indices[1], stepped_rotor)
-            encrypted_char_3 = get_chars_for_coordinates(encrypted_indices[2], stepped_rotor)
-            encrypted_char_4 = get_chars_for_coordinates(encrypted_indices[3], stepped_rotor)
-            list_of_encrypted_chars = [encrypted_char_1, encrypted_char_2, encrypted_char_3, encrypted_char_4]
+            if is_encrypting:
+                self._num_trios_encoded += 1
+            else:
+                self._num_trios_encoded -= 1
+            encrypted_char_1 = get_symbol_for_coordinates(encrypted_coordinates[0], stepped_rotor)
+            encrypted_char_2 = get_symbol_for_coordinates(encrypted_coordinates[1], stepped_rotor)
+            encrypted_char_3 = get_symbol_for_coordinates(encrypted_coordinates[2], stepped_rotor)
+            list_of_encrypted_chars = [encrypted_char_1, encrypted_char_2, encrypted_char_3]
             encrypted_trio = "".join(list_of_encrypted_chars)
             cur_trio = encrypted_trio
             # ToDo: Do we need to save stepped_rotor back into
