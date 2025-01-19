@@ -28,93 +28,168 @@ class TestGenerateCubeFromSymbols(unittest.TestCase):
         # Common test setup for symbols
         self.symbols = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
 
-    def test_generate_cube_valid_input(self):
+    @patch("cubigma.utils._user_perceived_length")
+    def test_generate_cube_valid_input(self, mock_length):
         """Test cube generation with valid input."""
+        # Arrange
         num_blocks = 2
         lines_per_block = 2
         symbols_per_line = 3
-
         expected_output = [[["a", "b", "c"], ["d", "e", "f"]], [["g", "h", "i"], ["j", "k", "l"]]]
+        mock_length.side_effect = [LENGTH_OF_TRIO, LENGTH_OF_TRIO, LENGTH_OF_TRIO, LENGTH_OF_TRIO]
 
+        # Act
         result = generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
-        self.assertEqual(result, expected_output)
 
-    def test_generate_cube_edge_case_single_block(self):
+        # Assert
+        self.assertEqual(result, expected_output)
+        assert mock_length.call_count == 4
+        mock_length.assert_any_call("abc")
+        mock_length.assert_any_call("def")
+        mock_length.assert_any_call("ghi")
+        mock_length.assert_any_call("jkl")
+
+    @patch("cubigma.utils._user_perceived_length")
+    def test_generate_cube_edge_case_single_block(self, mock_length):
         """Test cube generation with only one block."""
+        # Arrange
         num_blocks = 1
         lines_per_block = 2
         symbols_per_line = 3
-
         expected_output = [[["a", "b", "c"], ["d", "e", "f"]]]
+        mock_length.side_effect = [LENGTH_OF_TRIO, LENGTH_OF_TRIO]
 
+        # Act
         result = generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
-        self.assertEqual(result, expected_output)
 
-    def test_generate_cube_invalid_symbols_length(self):
+        # Assert
+        self.assertEqual(result, expected_output)
+        assert mock_length.call_count == 2
+        mock_length.assert_any_call("abc")
+        mock_length.assert_any_call("def")
+
+    @patch("cubigma.utils._user_perceived_length")
+    def test_generate_cube_invalid_symbols_length(self, mock_length):
         """Test failure when symbols length does not match required input dimensions."""
+        # Arrange
         num_blocks = 2
         lines_per_block = 2
         symbols_per_line = 4
+        mock_length.side_effect = [LENGTH_OF_TRIO, LENGTH_OF_TRIO]
 
+        # Act & Assert
         with self.assertRaises(ValueError) as context:
             generate_cube_from_symbols(self.symbols, num_blocks, lines_per_block, symbols_per_line)
-
         self.assertEqual(str(context.exception), "Something has failed")
+        mock_length.assert_called_once_with("abcd")
 
-    def test_generate_cube_escape_characters(self):
+    @patch("cubigma.utils._user_perceived_length")
+    def test_generate_cube_escape_characters(self, mock_length):
         """Test cube generation with escape characters in symbols."""
+        # Arrange
         symbols_with_escape = ["a", "\\", "\n", "b", "\t", "c", "d", "e", "f", "g", "h", "i"]
         num_blocks = 2
         lines_per_block = 2
         symbols_per_line = 3
-
         expected_output = [[["a", "\\", "\n"], ["b", "\t", "c"]], [["d", "e", "f"], ["g", "h", "i"]]]
+        mock_length.side_effect = [LENGTH_OF_TRIO, LENGTH_OF_TRIO, LENGTH_OF_TRIO, LENGTH_OF_TRIO]
 
+        # Act
         result = generate_cube_from_symbols(symbols_with_escape, num_blocks, lines_per_block, symbols_per_line)
-        self.assertEqual(expected_output, result)
 
-    def test_generate_cube_empty_symbols(self):
+        # Assert
+        self.assertEqual(expected_output, result)
+        assert mock_length.call_count == 4
+        mock_length.assert_any_call("a\\\n")
+        mock_length.assert_any_call("b\tc")
+        mock_length.assert_any_call("def")
+        mock_length.assert_any_call("ghi")
+
+    @patch("cubigma.utils._user_perceived_length")
+    def test_generate_cube_empty_symbols(self, mock_length):
         """Test cube generation with empty symbols list."""
+        # Arrange
         symbols = []
         num_blocks = 0
         lines_per_block = 0
         symbols_per_line = 0
-
         expected_output = []
 
+        # Act
         result = generate_cube_from_symbols(symbols, num_blocks, lines_per_block, symbols_per_line)
+
+        # Assert
         self.assertEqual(result, expected_output)
+        mock_length.assert_not_called()
 
 
 class TestGeneratePlugboard(unittest.TestCase):
 
-    def test_valid_plugboard_values(self):
+    @patch("cubigma.utils.split_to_human_readable_symbols")
+    def test_valid_plugboard_values(self, mock_split):
+        # Arrange
         plugboard_values = ["AB", "CD", "EF"]
         expected_output = {"A": "B", "B": "A", "C": "D", "D": "C", "E": "F", "F": "E"}
-        result = generate_plugboard(plugboard_values)
-        self.assertEqual(result, expected_output)
+        mock_split.side_effect = [["A", "B"], ["C", "D"], ["E", "F"]]
 
-    def test_empty_plugboard_values(self):
+        # Act
+        result = generate_plugboard(plugboard_values)
+
+        # Assert
+        self.assertEqual(result, expected_output)
+        assert mock_split.call_count == 3
+        mock_split.assert_any_call("AB", expected_number_of_graphemes=None)
+        mock_split.assert_any_call("CD", expected_number_of_graphemes=None)
+        mock_split.assert_any_call("EF", expected_number_of_graphemes=None)
+
+    @patch("cubigma.utils.split_to_human_readable_symbols")
+    def test_empty_plugboard_values(self, mock_split):
+        # Arrange
         plugboard_values = []
         expected_output = {}
-        result = generate_plugboard(plugboard_values)
-        self.assertEqual(result, expected_output)
 
-    def test_invalid_plugboard_value_length(self):
+        # Act
+        result = generate_plugboard(plugboard_values)
+
+        # Assert
+        self.assertEqual(result, expected_output)
+        mock_split.assert_not_called()
+
+    @patch("cubigma.utils.split_to_human_readable_symbols")
+    def test_invalid_plugboard_value_length(self, mock_split):
+        # Arrange
         plugboard_values = ["A", "BCD", "EF"]
+        mock_split.side_effect = [["A"], ["B", "C", "D"], ["E", "F"]]
+
+        # Act & Assert
         with self.assertRaises(ValueError) as context:
             generate_plugboard(plugboard_values)
         self.assertIn("Plugboard values are expected to all be pairs of symbols.", str(context.exception))
+        mock_split.assert_called_once_with("A", expected_number_of_graphemes=None)
 
-    def test_duplicate_symbols(self):
+    @patch("cubigma.utils.split_to_human_readable_symbols")
+    def test_duplicate_symbols(self, mock_split):
+        # Arrange
         plugboard_values = ["AB", "AC"]
+        mock_split.side_effect = [["A", "B"], ["A", "C"]]
+
+        # Act & Assert
         with self.assertRaises(ValueError):
             generate_plugboard(plugboard_values)
+        assert mock_split.call_count == 2
+        mock_split.assert_any_call("AB", expected_number_of_graphemes=None)
+        mock_split.assert_any_call("AC", expected_number_of_graphemes=None)
 
-    def test_non_string_symbols(self):
+    @patch("cubigma.utils.split_to_human_readable_symbols")
+    def test_non_string_symbols(self, mock_split):
+        # Arrange
         plugboard_values = [123, "AB"]
+        mock_split.side_effect = TypeError()
+
+        # Act & Assert
         with self.assertRaises(TypeError):
             generate_plugboard(plugboard_values)
+        mock_split.assert_called_once_with(123, expected_number_of_graphemes=None)
 
 
 class TestGenerateReflector(unittest.TestCase):
@@ -194,7 +269,8 @@ class TestGenerateRotors(unittest.TestCase):
         for rotor in result:
             self.assertEqual(rotor, self.valid_cube)
 
-    def test_missing_key_phrase(self):
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_missing_key_phrase(self, mock_shuffle):
         """Test function raises error on missing or invalid key phrase."""
         with self.assertRaises(ValueError):
             generate_rotors(
@@ -205,7 +281,8 @@ class TestGenerateRotors(unittest.TestCase):
                 orig_key_length=42,
             )
 
-    def test_invalid_num_rotors_to_make(self):
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_invalid_num_rotors_to_make(self, mock_shuffle):
         """Test function raises error on invalid num_rotors_to_make."""
         with self.assertRaises(ValueError):
             generate_rotors(
@@ -216,7 +293,8 @@ class TestGenerateRotors(unittest.TestCase):
                 orig_key_length=42,
             )
 
-    def test_invalid_rotors_to_use_values(self):
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_invalid_rotors_to_use_values(self, mock_shuffle):
         """Test function raises error on invalid rotors_to_use."""
         invalid_rotors = [0, 5, 1, 1]  # Duplicate and out-of-range values
         with self.assertRaises(ValueError):
@@ -228,7 +306,8 @@ class TestGenerateRotors(unittest.TestCase):
                 orig_key_length=42,
             )
 
-    def test_invalid_rotors_to_use_not_list(self):
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_invalid_rotors_to_use_not_list(self, mock_shuffle):
         """Test function raises error on invalid rotors_to_use."""
         invalid_rotors = "[0, 5, 1, 1]"
         with self.assertRaises(ValueError):
@@ -240,7 +319,8 @@ class TestGenerateRotors(unittest.TestCase):
                 orig_key_length=42,
             )
 
-    def test_invalid_cube(self):
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_invalid_cube(self, mock_shuffle):
         """Test function raises error on invalid rotors_to_use."""
         invalid_cube = [["AB", "CD"], ["EF", "GH"]]
         with self.assertRaises(ValueError):
@@ -252,7 +332,8 @@ class TestGenerateRotors(unittest.TestCase):
                 orig_key_length=42,
             )
 
-    def test_invalid_key_length(self):
+    @patch("cubigma.utils._shuffle_cube_with_key_phrase")
+    def test_invalid_key_length(self, mock_shuffle):
         """Test function raises error on invalid rotors_to_use."""
         with self.assertRaises(ValueError):
             generate_rotors(
@@ -716,12 +797,25 @@ class TestRotateSliceOfCube(unittest.TestCase):
             [["W", "K", "M"], ["W", "K", "M"], ["W", "K", "M"]],
         ]
 
-    @patch("random.choice")
-    @patch("random.randint")
-    def test_rotate_x_axis_clockwise(self, mock_randint, mock_choice):
+    @patch("cubigma.utils.get_independently_deterministic_random_rotor_info")
+    @patch("cubigma.utils._rotate_2d_array")
+    def test_rotate_x_axis_clockwise(self, mock_rotate, mock_random_rotor_info):
         # Arrange
-        mock_choice.side_effect = ["X", 1]  # Choose X-axis, clockwise rotation
-        mock_randint.return_value = 1  # Rotate slice index 1
+        expected_axis = "X"
+        expected_rotate_dir = 1  # Clockwise
+        slice_idx_to_rotate = 1
+        test_seed = "test_seed"
+        mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
+        expected_frame = [
+            ['Y', 'O', 'P'],
+            ['Y', 'O', 'P'],
+            ['Y', 'O', 'P']
+        ]
+        mock_rotate.return_value = [
+            ["Y", "Y", "Y"],
+            ["O", "O", "O"],
+            ["P", "P", "P"],
+        ]
         expected_cube = [
             [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
             [["Y", "Y", "Y"], ["O", "O", "O"], ["P", "P", "P"]],
@@ -729,17 +823,32 @@ class TestRotateSliceOfCube(unittest.TestCase):
         ]
 
         # Act
-        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+        result_cube = rotate_slice_of_cube(self.cube, test_seed)
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+        mock_random_rotor_info.assert_called_once_with(test_seed, ["X", "Y", "Z"], [-1, 1], len(self.cube) - 1)
+        mock_rotate.assert_called_once_with(expected_frame, expected_rotate_dir)
 
-    @patch("random.choice")
-    @patch("random.randint")
-    def test_rotate_x_axis_counter_clockwise(self, mock_randint, mock_choice):
+    @patch("cubigma.utils.get_independently_deterministic_random_rotor_info")
+    @patch("cubigma.utils._rotate_2d_array")
+    def test_rotate_x_axis_counter_clockwise(self, mock_rotate, mock_random_rotor_info):
         # Arrange
-        mock_choice.side_effect = ["X", -1]  # Choose X-axis, clockwise rotation
-        mock_randint.return_value = 1  # Rotate slice index 1
+        expected_axis = "X"
+        expected_rotate_dir = -1  # Counter-clockwise
+        slice_idx_to_rotate = 1
+        test_seed = "test_seed"
+        mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
+        expected_frame = [
+            ['Y', 'O', 'P'],
+            ['Y', 'O', 'P'],
+            ['Y', 'O', 'P']
+        ]
+        mock_rotate.return_value = [
+            ["P", "P", "P"],
+            ["O", "O", "O"],
+            ["Y", "Y", "Y"],
+        ]
         expected_cube = [
             [["R", "G", "B"], ["R", "G", "B"], ["R", "G", "B"]],
             [["P", "P", "P"], ["O", "O", "O"], ["Y", "Y", "Y"]],
@@ -747,18 +856,32 @@ class TestRotateSliceOfCube(unittest.TestCase):
         ]
 
         # Act
-        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+        result_cube = rotate_slice_of_cube(self.cube, test_seed)
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+        mock_random_rotor_info.assert_called_once_with(test_seed, ["X", "Y", "Z"], [-1, 1], len(self.cube) - 1)
+        mock_rotate.assert_called_once_with(expected_frame, expected_rotate_dir)
 
-    @patch("random.choice")
-    @patch("random.randint")
-    def test_rotate_y_axis_clockwise(self, mock_randint, mock_choice):
+    @patch("cubigma.utils.get_independently_deterministic_random_rotor_info")
+    @patch("cubigma.utils._rotate_2d_array")
+    def test_rotate_y_axis_clockwise(self, mock_rotate, mock_random_rotor_info):
         # Arrange
-        mock_choice.side_effect = ["Y", 1]  # Choose Y-axis, counterclockwise rotation
-        test_slice_idx = 0
-        mock_randint.return_value = test_slice_idx  # Rotate slice index 0
+        expected_axis = "Y"
+        expected_rotate_dir = 1  # Clockwise
+        slice_idx_to_rotate = 0
+        test_seed = "test_seed"
+        mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
+        expected_frame = [
+            ['R', 'G', 'B'],
+            ['Y', 'O', 'P'],
+            ['W', 'K', 'M']
+        ]
+        mock_rotate.return_value = [
+            ["W", "Y", "R"],
+            ["K", "O", "G"],
+            ["M", "P", "B"],
+        ]
         expected_cube = [
             [["W", "Y", "R"], ["R", "G", "B"], ["R", "G", "B"]],
             [["K", "O", "G"], ["Y", "O", "P"], ["Y", "O", "P"]],
@@ -766,18 +889,32 @@ class TestRotateSliceOfCube(unittest.TestCase):
         ]
 
         # Act
-        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+        result_cube = rotate_slice_of_cube(self.cube, test_seed)
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+        mock_random_rotor_info.assert_called_once_with(test_seed, ["X", "Y", "Z"], [-1, 1], len(self.cube) - 1)
+        mock_rotate.assert_called_once_with(expected_frame, expected_rotate_dir)
 
-    @patch("random.choice")
-    @patch("random.randint")
-    def test_rotate_y_axis_counter_clockwise(self, mock_randint, mock_choice):
+    @patch("cubigma.utils.get_independently_deterministic_random_rotor_info")
+    @patch("cubigma.utils._rotate_2d_array")
+    def test_rotate_y_axis_counter_clockwise(self, mock_rotate, mock_random_rotor_info):
         # Arrange
-        mock_choice.side_effect = ["Y", -1]  # Choose Y-axis, counterclockwise rotation
-        test_slice_idx = 0
-        mock_randint.return_value = test_slice_idx  # Rotate slice index 0
+        expected_axis = "Y"
+        expected_rotate_dir = -1  # Counter-clockwise
+        slice_idx_to_rotate = 0
+        test_seed = "test_seed"
+        mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
+        expected_frame = [
+            ['R', 'G', 'B'],
+            ['Y', 'O', 'P'],
+            ['W', 'K', 'M']
+        ]
+        mock_rotate.return_value = [
+            ["B", "P", "M"],
+            ["G", "O", "K"],
+            ["R", "Y", "W"],
+        ]
         expected_cube = [
             [["B", "P", "M"], ["R", "G", "B"], ["R", "G", "B"]],
             [["G", "O", "K"], ["Y", "O", "P"], ["Y", "O", "P"]],
@@ -785,17 +922,32 @@ class TestRotateSliceOfCube(unittest.TestCase):
         ]
 
         # Act
-        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+        result_cube = rotate_slice_of_cube(self.cube, test_seed)
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+        mock_random_rotor_info.assert_called_once_with(test_seed, ["X", "Y", "Z"], [-1, 1], len(self.cube) - 1)
+        mock_rotate.assert_called_once_with(expected_frame, expected_rotate_dir)
 
-    @patch("random.choice")
-    @patch("random.randint")
-    def test_rotate_z_axis_clockwise(self, mock_randint, mock_choice):
+    @patch("cubigma.utils.get_independently_deterministic_random_rotor_info")
+    @patch("cubigma.utils._rotate_2d_array")
+    def test_rotate_z_axis_clockwise(self, mock_rotate, mock_random_rotor_info):
         # Arrange
-        mock_choice.side_effect = ["Z", 1]  # Choose Z-axis, clockwise rotation
-        mock_randint.return_value = 2  # Rotate slice index 2
+        expected_axis = "Z"
+        expected_rotate_dir = 1  # Clockwise
+        slice_idx_to_rotate = 2
+        test_seed = "test_seed"
+        mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
+        expected_frame = [
+            ['B', 'B', 'B'],
+            ['P', 'P', 'P'],
+            ['M', 'M', 'M']
+        ]
+        mock_rotate.return_value = [
+            ["M", "P", "B"],
+            ["M", "P", "B"],
+            ["M", "P", "B"],
+        ]
         expected_cube = [
             [["R", "G", "B"], ["R", "G", "P"], ["R", "G", "M"]],
             [["Y", "O", "B"], ["Y", "O", "P"], ["Y", "O", "M"]],
@@ -803,17 +955,32 @@ class TestRotateSliceOfCube(unittest.TestCase):
         ]
 
         # Act
-        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+        result_cube = rotate_slice_of_cube(self.cube, test_seed)
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+        mock_random_rotor_info.assert_called_once_with(test_seed, ["X", "Y", "Z"], [-1, 1], len(self.cube) - 1)
+        mock_rotate.assert_called_once_with(expected_frame, expected_rotate_dir)
 
-    @patch("random.choice")
-    @patch("random.randint")
-    def test_rotate_z_axis_counter_clockwise(self, mock_randint, mock_choice):
+    @patch("cubigma.utils.get_independently_deterministic_random_rotor_info")
+    @patch("cubigma.utils._rotate_2d_array")
+    def test_rotate_z_axis_counter_clockwise(self, mock_rotate, mock_random_rotor_info):
         # Arrange
-        mock_choice.side_effect = ["Z", -1]  # Choose Z-axis, clockwise rotation
-        mock_randint.return_value = 2  # Rotate slice index 2
+        expected_axis = "Z"
+        expected_rotate_dir = -1  # Counter-clockwise
+        slice_idx_to_rotate = 2
+        test_seed = "test_seed"
+        mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
+        expected_frame = [
+            ['B', 'B', 'B'],
+            ['P', 'P', 'P'],
+            ['M', 'M', 'M']
+        ]
+        mock_rotate.return_value = [
+            ["B", "P", "M"],
+            ["B", "P", "M"],
+            ["B", "P", "M"],
+        ]
         expected_cube = [
             [["R", "G", "M"], ["R", "G", "P"], ["R", "G", "B"]],
             [["Y", "O", "M"], ["Y", "O", "P"], ["Y", "O", "B"]],
@@ -821,10 +988,12 @@ class TestRotateSliceOfCube(unittest.TestCase):
         ]
 
         # Act
-        result_cube = rotate_slice_of_cube(self.cube, "test_seed")
+        result_cube = rotate_slice_of_cube(self.cube, test_seed)
 
         # Assert
         self.assertEqual(result_cube, expected_cube)
+        mock_random_rotor_info.assert_called_once_with(test_seed, ["X", "Y", "Z"], [-1, 1], len(self.cube) - 1)
+        mock_rotate.assert_called_once_with(expected_frame, expected_rotate_dir)
 
 
 class TestSanitizeFunction(unittest.TestCase):
