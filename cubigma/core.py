@@ -84,8 +84,10 @@ def get_non_deterministically_random_int(min_num: int, max_num: int) -> int:
     return result
 
 
-def non_deterministically_random_shuffle_in_place(input_to_shuffle: list) -> None:
-    random.shuffle(input_to_shuffle)
+def get_non_deterministically_random_shuffled(input_to_shuffle: list) -> list:
+    shuffled_copy = input_to_shuffle.copy()
+    random.shuffle(shuffled_copy)
+    return shuffled_copy
 
 
 def shuffle_for_input(strengthened_key_phrase: str, sequence: Sequence[T]) -> list[T]:

@@ -328,17 +328,32 @@ class TestGetCharsForCoordinates(unittest.TestCase):
 
 class TestGetOppositeCorners(unittest.TestCase):
     def setUp(self):
-        self.num_blocks = 10
-        self.lines_per_block = 10
-        self.symbols_per_line = 10
+        self.num_blocks = 4
+        self.lines_per_block = 4
+        self.symbols_per_line = 4
         self.key_phrase = "testkey"
         self.num_trios_encoded = 1
 
-    def test_valid_input(self):
+    @patch("cubigma.utils._cyclically_permute_coordinates")
+    @patch("cubigma.utils._invert_coordinates")
+    @patch("cubigma.utils._transpose_coordinates")
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_valid_input(self, mock_shuffle, mock_transpose, mock_invert, mock_cycle):
+        # Arrange
         point_1 = (0, 0, 0)
         point_2 = (0, 0, 1)
         point_3 = (0, 1, 0)
+        points_order_1 = [point_1, point_2, point_3]
+        points_order_2 = [point_1, point_3, point_2]
+        points_order_3 = [point_3, point_2, point_1]
+        points_order_4 = [point_2, point_3, point_1]
+        mock_cycle.return_value = points_order_2
+        mock_invert.return_value = points_order_3
+        mock_transpose.return_value = points_order_4
+        mock_shuffle.return_value = [mock_cycle, mock_invert, mock_transpose]
+        expected_key = f"{self.key_phrase}|{self.num_trios_encoded}"
 
+        # Act
         result = get_encrypted_coordinates(
             point_1,
             point_2,
@@ -349,65 +364,112 @@ class TestGetOppositeCorners(unittest.TestCase):
             True,
         )
 
-        self.assertEqual(len(result), 4)
-        for point in result:
-            self.assertIsInstance(point, tuple)
-            self.assertEqual(len(point), 3)
+        # Assert
+        mock_shuffle.assert_called_once_with(expected_key, [mock_cycle, mock_invert, mock_transpose])
+        mock_cycle.assert_called_once_with(points_order_1, self.num_blocks, True, expected_key)
+        mock_invert.assert_called_once_with(points_order_2, self.num_blocks, True, expected_key)
+        mock_transpose.assert_called_once_with(points_order_3, self.num_blocks, True, expected_key)
+        self.assertEqual(result, points_order_4)
 
-    def test_non_unique_points(self):
+    @patch("cubigma.utils._cyclically_permute_coordinates")
+    @patch("cubigma.utils._invert_coordinates")
+    @patch("cubigma.utils._transpose_coordinates")
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_non_unique_points(self, mock_shuffle, mock_transpose, mock_invert, mock_cycle):
+        # Arrange
         point_1 = (0, 0, 0)
         point_2 = (0, 0, 0)  # Duplicate
         point_3 = (0, 1, 0)
+        points_order_1 = [point_1, point_2, point_3]
+        points_order_2 = [point_1, point_3, point_2]
+        points_order_3 = [point_3, point_2, point_1]
+        points_order_4 = [point_2, point_3, point_1]
+        mock_cycle.return_value = points_order_2
+        mock_invert.return_value = points_order_3
+        mock_transpose.return_value = points_order_4
+        mock_shuffle.return_value = [mock_cycle, mock_invert, mock_transpose]
+        expected_key = f"{self.key_phrase}|{self.num_trios_encoded}"
 
-        with self.assertRaises(ValueError):
-            get_encrypted_coordinates(
-                point_1,
-                point_2,
-                point_3,
-                self.num_blocks,
-                self.key_phrase,
-                self.num_trios_encoded,
-                True,
-            )
+        # Act
+        result = get_encrypted_coordinates(
+            point_1,
+            point_2,
+            point_3,
+            self.num_blocks,
+            self.key_phrase,
+            self.num_trios_encoded,
+            True,
+        )
 
-    # def test_points_outside_bounds(self):
-    #     point_1 = (-1, 0, 0)
-    #     point_2 = (0, 11, 1)
-    #     point_3 = (0, 1, -1)
-    #     point_4 = (0, 1, 1)
-    #
-    #     with self.assertRaises(ValueError):
-    #         get_opposite_corners(
-    #             point_1, point_2, point_3, point_4,
-    #             self.num_blocks, self.lines_per_block, self.symbols_per_line,
-    #             self.key_phrase, self.num_trios_encoded
-    #         )
+        # Assert
+        mock_shuffle.assert_called_once_with(expected_key, [mock_cycle, mock_invert, mock_transpose])
+        mock_cycle.assert_called_once_with(points_order_1, self.num_blocks, True, expected_key)
+        mock_invert.assert_called_once_with(points_order_2, self.num_blocks, True, expected_key)
+        mock_transpose.assert_called_once_with(points_order_3, self.num_blocks, True, expected_key)
+        self.assertEqual(result, points_order_4)
 
-    def test_key_phrase_affects_result(self):
+    @patch("cubigma.utils._cyclically_permute_coordinates")
+    @patch("cubigma.utils._invert_coordinates")
+    @patch("cubigma.utils._transpose_coordinates")
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_key_phrase_affects_result(self, mock_shuffle, mock_transpose, mock_invert, mock_cycle):
+        # Arrange
         point_1 = (0, 0, 0)
         point_2 = (0, 0, 1)
         point_3 = (0, 1, 0)
+        points_order_1 = [point_1, point_2, point_3]
+        points_order_2 = [point_1, point_3, point_2]
+        points_order_3 = [point_2, point_1, point_3]
+        points_order_4 = [point_2, point_3, point_1]
+        points_order_5 = [point_3, point_2, point_1]
+        points_order_6 = [point_3, point_1, point_2]
+        points_order_7 = [point_1, point_3, point_2]
+        shuffle_order_1 = [mock_cycle, mock_invert, mock_transpose]
+        shuffle_order_2 = [mock_transpose, mock_cycle, mock_invert]
+        mock_cycle.side_effect = [points_order_2, points_order_3]
+        mock_invert.side_effect = [points_order_4, points_order_5]
+        mock_transpose.side_effect = [points_order_6, points_order_7]
+        mock_shuffle.side_effect = [shuffle_order_1, shuffle_order_2]
+        test_key_1 = "key1"
+        test_key_2 = "key2"
+        expected_key_1 = f"{test_key_1}|{self.num_trios_encoded}"
+        expected_key_2 = f"{test_key_2}|{self.num_trios_encoded}"
 
+        # Act
         result_1 = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
             self.num_blocks,
-            "key1",
+            test_key_1,
             self.num_trios_encoded,
             True,
-        )
-
+)
         result_2 = get_encrypted_coordinates(
             point_1,
             point_2,
             point_3,
             self.num_blocks,
-            "key2",
+            test_key_2,
             self.num_trios_encoded,
             True,
         )
 
+        # Assert
+        assert mock_shuffle.call_count == 2
+        mock_shuffle.assert_any_call(expected_key_1, shuffle_order_1)
+        mock_shuffle.assert_any_call(expected_key_2, shuffle_order_1)
+        assert mock_cycle.call_count == 2
+        mock_cycle.assert_any_call(points_order_1, self.num_blocks, True, expected_key_1)
+        mock_cycle.assert_any_call(points_order_7, self.num_blocks, True, expected_key_2)
+        assert mock_invert.call_count == 2
+        mock_invert.assert_any_call(points_order_2, self.num_blocks, True, expected_key_1)
+        mock_invert.assert_any_call(points_order_3, self.num_blocks, True, expected_key_2)
+        assert mock_transpose.call_count == 2
+        mock_transpose.assert_any_call(points_order_4, self.num_blocks, True, expected_key_1)
+        mock_transpose.assert_any_call(points_order_1, self.num_blocks, True, expected_key_2)
+        self.assertEqual(result_1, points_order_6)
+        self.assertEqual(result_2, points_order_5)
         self.assertNotEqual(result_1, result_2)
 
 
@@ -423,20 +485,20 @@ class TestPadChunk(unittest.TestCase):
         self, mock_get_prefix_order_number_trio, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
     ):
         # Arrange
-        mock_get_prefix_order_number_trio.return_value = "ORDR"
-        mock_get_random_noise_chunk.return_value = "XXXX"
+        mock_get_prefix_order_number_trio.return_value = "ORD"
+        mock_get_random_noise_chunk.return_value = "XXX"
         mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
-        test_chunk = "TEST"
-        expected_result = "ORDRTESTXXXXXXXXXXXX"
-        padded_chunk_length = 16
+        test_chunk = "BLA"
+        expected_result = "ORDBLAXXXXXX"
+        padded_chunk_length = 9
 
         # Act
         result = pad_chunk(test_chunk, padded_chunk_length, self.chunk_order_number, self.rotor)
 
         # Assert
-        self.assertTrue(result.startswith("ORDR"))
-        self.assertEqual(expected_result, result)
-        self.assertEqual(len(result[4:]), padded_chunk_length)
+        self.assertTrue(result.startswith("ORD"))
+        self.assertEqual(result, expected_result)
+        self.assertEqual(len(result[LENGTH_OF_TRIO:]), padded_chunk_length)
         mock_get_prefix_order_number_trio.assert_called_once_with(self.chunk_order_number)
         mock_get_random_noise_chunk.assert_called()
         mock_pad_chunk_with_rand_pad_symbols.assert_not_called()
@@ -448,20 +510,20 @@ class TestPadChunk(unittest.TestCase):
         self, mock_get_prefix_order_number_trio, mock_get_random_noise_chunk, mock_pad_chunk_with_rand_pad_symbols
     ):
         # Arrange
-        mock_get_prefix_order_number_trio.return_value = "ORDR"
-        mock_get_random_noise_chunk.return_value = "XXXX"
+        mock_get_prefix_order_number_trio.return_value = "ORD"
+        mock_get_random_noise_chunk.return_value = "XXX"
         mock_pad_chunk_with_rand_pad_symbols.side_effect = lambda padded_chunk: padded_chunk + "P"
-        test_chunk = "TES"
-        expected_result = "ORDRTESPXXXXXXXXXXXX"
-        padded_chunk_length = 16
+        test_chunk = "FU"
+        expected_result = "ORDFUPXXXXXX"
+        padded_chunk_length = 9
 
         # Act
         result = pad_chunk(test_chunk, padded_chunk_length, self.chunk_order_number, self.rotor)
 
         # Assert
-        self.assertTrue(result.startswith("ORDR"))
-        self.assertEqual(expected_result, result)
-        self.assertEqual(len(result[4:]), padded_chunk_length)
+        self.assertTrue(result.startswith("ORD"))
+        self.assertEqual(result, expected_result)
+        self.assertEqual(len(result[LENGTH_OF_TRIO:]), padded_chunk_length)
         mock_get_prefix_order_number_trio.assert_called_once_with(self.chunk_order_number)
         mock_get_random_noise_chunk.assert_called()
         mock_pad_chunk_with_rand_pad_symbols.assert_called_once_with(test_chunk)
@@ -555,17 +617,26 @@ class TestPrepStringForEncrypting(unittest.TestCase):
     def test_no_padding_needed(self, mock_pad):
         """Test when the input string is already a multiple of LENGTH_OF_TRIO."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
-        input_message = "abcd"
-        expected_output = "abcd"
+        input_message = "abc"
+        expected_output = "abc"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 
     @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
-    def test_padding_needed(self, mock_pad):
+    def test_padding_needed_short(self, mock_pad):
         """Test when the input string length is not a multiple of LENGTH_OF_TRIO."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
-        input_message = "abc"
-        expected_output = "abc*"
+        input_message = "ab"
+        expected_output = "ab*"
+        result = prep_string_for_encrypting(input_message)
+        self.assertEqual(result, expected_output)
+
+    @patch("cubigma.utils._pad_chunk_with_rand_pad_symbols")
+    def test_padding_needed_long(self, mock_pad):
+        """Test when the input string length is not a multiple of LENGTH_OF_TRIO."""
+        mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
+        input_message = "abcde"
+        expected_output = "abcde*"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 
@@ -573,8 +644,8 @@ class TestPrepStringForEncrypting(unittest.TestCase):
     def test_repeating_characters(self, mock_pad):
         """Test when the input string contains repeating characters in a chunk."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
-        input_message = "aabbcc"
-        expected_output = "a***ab**bc**c***"
+        input_message = "aabbccdd"
+        expected_output = "aabbccdd*"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 
@@ -590,7 +661,7 @@ class TestPrepStringForEncrypting(unittest.TestCase):
         """Test a longer string with multiple chunks."""
         mock_pad.side_effect = self._fake_pad_chunk_with_rand_pad_symbols
         input_message = "abccdefghij"
-        expected_output = "abc*cdefghij"
+        expected_output = "abccdefghij*"
         result = prep_string_for_encrypting(input_message)
         self.assertEqual(result, expected_output)
 

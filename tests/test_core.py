@@ -8,7 +8,7 @@ from cubigma.core import strengthen_key
 
 
 class TestStrengthenKey(unittest.TestCase):
-
+    # ToDo: These unit tests should have mocks
     def test_key_generation_with_salt(self):
         """Test that strengthen_key generates a key when a salt is provided."""
         key_phrase = "test-key"

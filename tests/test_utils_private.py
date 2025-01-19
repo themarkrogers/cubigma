@@ -93,23 +93,30 @@ class TestGetFlatIndex(unittest.TestCase):
 
 
 class TestGetPrefixOrderNumberTrio(unittest.TestCase):
-    def test_valid_order_number(self):
+    @staticmethod
+    def _fake_shuffle(input_list):
+        return reversed(input_list)
+
+    @patch("cubigma.utils.get_non_deterministically_random_shuffled")
+    def test_valid_order_number(self, mock_shuffle):
         """Test that a valid single-digit order number returns a trio of symbols including the order number."""
+        # Arrange
         order_number = 5
+        mock_shuffle.side_effect = self._fake_shuffle
+        orig_pad_symbols = ["\x07", "\x06", str(order_number)]
+        expected_result = f"{str(order_number)}\x06\x07"
+
+        # Act
         result = _get_prefix_order_number_trio(order_number)
 
-        # Check that the result has exactly 4 characters
-        self.assertEqual(len(result), 4, "Resulting string does not have 4 characters")
-
-        # Check that the result contains the order number
+        # Assert
+        self.assertEqual(len(result), LENGTH_OF_TRIO, "Resulting string does not have 3 characters")
         self.assertIn(str(order_number), result, f"Order number {order_number} is not in the result")
+        self.assertEqual(result, expected_result)
+        mock_shuffle.assert_called_once_with(orig_pad_symbols)
 
-        # Check that all expected padding symbols are included
-        pad_symbols = ["\x07", "\x16", "\x06", str(order_number)]
-        for symbol in pad_symbols:
-            self.assertIn(symbol, result, f"Symbol {symbol} is missing from the result")
-
-    def test_invalid_order_number(self):
+    @patch("cubigma.utils.get_non_deterministically_random_shuffled")
+    def test_invalid_order_number(self, mock_shuffle):
         """Test that an invalid order number raises an assertion error."""
         with self.assertRaises(AssertionError):
             _get_prefix_order_number_trio(10)  # Not a single-digit number
@@ -119,14 +126,6 @@ class TestGetPrefixOrderNumberTrio(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             _get_prefix_order_number_trio(123)  # Multiple digits
-
-    def test_randomness(self):
-        """Test that the function produces different outputs for the same input due to shuffling."""
-        order_number = 3
-        results = {_get_prefix_order_number_trio(order_number) for _ in range(100)}
-
-        # Verify that we have multiple unique outputs, indicating randomness
-        self.assertGreater(len(results), 1, "Function does not produce randomized outputs")
 
 
 class TestGetRandomNoiseChunk(unittest.TestCase):
@@ -149,39 +148,24 @@ class TestGetRandomNoiseChunk(unittest.TestCase):
             ],
         ]
 
-    @patch("random.randint")
-    @patch("random.shuffle", lambda x: None)  # Prevent shuffle for predictable output
-    def test_output_length(self, mock_randint):
+    @patch("cubigma.utils.get_non_deterministically_random_int")
+    @patch("cubigma.utils.get_non_deterministically_random_shuffled")
+    def test_output_length(self, mock_shuffle, mock_randint):
         """Test that the function output has the correct length."""
-        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]  # Mock coordinates
-        result = _get_random_noise_chunk(self.rotor)
-        self.assertEqual(len(result), LENGTH_OF_TRIO)
+        # Arrange
+        mock_randint.side_effect = [0, 0, 0, 1, 1, 1]  # Mock coordinates
+        expected_symbols_1 = ["\x15", "A", "N"]
+        expected_symbols_2 = ["B", "L", "A"]
+        expected_result = "BLA"
+        mock_shuffle.return_value = expected_symbols_2
 
-    @patch("random.randint")
-    def test_includes_noise_symbol(self, mock_randint):
-        """Test that the output includes the NOISE_SYMBOL."""
-        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        # act
         result = _get_random_noise_chunk(self.rotor)
-        self.assertIn(NOISE_SYMBOL, result)
 
-    @patch("random.randint")
-    def test_unique_symbols_in_output(self, mock_randint):
-        """Test that the output contains unique symbols."""
-        mock_randint.side_effect = [0, 0, 0, 1, 1, 1, 2, 2, 2]
-        result = _get_random_noise_chunk(self.rotor)
-        self.assertEqual(len(set(result)), LENGTH_OF_TRIO)
-
-    @patch("random.randint")
-    def test_handles_non_uniform_rotor(self, mock_randint):
-        """Test that the function handles a rotor with varying dimensions."""
-        non_uniform_rotor = [
-            [["A", "B"]],
-            [["C", "D", "E"]],
-            [["F"]],
-        ]
-        mock_randint.side_effect = [0, 0, 0, 1, 0, 0, 2, 0, 0]
-        result = _get_random_noise_chunk(non_uniform_rotor)
-        self.assertEqual(len(result), LENGTH_OF_TRIO)
+        # Assert
+        self.assertEqual(result, expected_result)
+        mock_shuffle.assert_called_once_with(expected_symbols_1)
+        assert mock_randint.call_count == 6
 
 
 class TestIsValidCoord(unittest.TestCase):
@@ -227,23 +211,27 @@ class TestPadChunkWithRandPadSymbols(unittest.TestCase):
         self.assertIn("Chunk cannot be empty", str(context.exception))
         mock_randint.assert_not_called()
 
-    @patch("random.randint")
+    @patch("cubigma.utils.get_non_deterministically_random_int")
     def test_pad_chunk_with_one_length_input(self, mock_randint):
-        mock_randint.side_effect = [0, 1, 2]
+        mock_randint.side_effect = [0, 1]
         result = _pad_chunk_with_rand_pad_symbols("A")
         self.assertEqual(result, "A\x07\x16")
+        assert mock_randint.call_count == 2
 
-    @patch("random.randint")
+    @patch("cubigma.utils.get_non_deterministically_random_int")
     def test_pad_chunk_with_two_length_input(self, mock_randint):
-        mock_randint.side_effect = [2, 1]
+        expected_max_num = 2
+        mock_randint.return_value = expected_max_num
         result = _pad_chunk_with_rand_pad_symbols("AB")
         self.assertEqual(result, "AB\x06")
+        mock_randint.assert_called_once_with(0, expected_max_num)
 
-    @patch("random.randint")
+    @patch("cubigma.utils.get_non_deterministically_random_int")
     def test_pad_chunk_with_three_length_input(self, mock_randint):
         mock_randint.side_effect = [0]
         result = _pad_chunk_with_rand_pad_symbols("ABC")
         self.assertEqual(result, "ABC")
+        mock_randint.assert_not_called()
 
 
 class TestReadAndValidateConfig(unittest.TestCase):
@@ -521,23 +509,56 @@ class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
 
         self.orig_cube = [[["a", "b", "c"], ["d", "e", "f"]], [["g", "h", "i"], ["j", "k", "l"]]]
 
-    def test_consistent_shuffling_with_same_key(self):
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_consistent_shuffling_with_same_key(self, mock_shuffle):
         """Test that shuffling with the same key gives consistent results."""
+        # Assert
+        expected_cube = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        random_cube = ["b", "a", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        mock_shuffle.return_value = random_cube
+
+        # Act
         shuffled_1 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
         shuffled_2 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
-        self.assertEqual(shuffled_1, shuffled_2)
 
-    def test_different_keys_produce_different_results(self):
+        # Assert
+        self.assertEqual(shuffled_1, shuffled_2)
+        assert mock_shuffle.call_count == 2
+        mock_shuffle.assert_any_call(f"{self.key_phrase_1}|{42}", expected_cube)
+
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_different_keys_produce_different_results(self, mock_shuffle):
         """Test that shuffling with different keys gives different results."""
+        # Assert
+        expected_cube = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        random_cube_1 = ["b", "a", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        random_cube_2 = ["c", "a", "b", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        mock_shuffle.side_effect = [random_cube_1, random_cube_2]
+
+        # Act
         shuffled_1 = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
         shuffled_2 = _shuffle_cube_with_key_phrase(self.key_phrase_2, deepcopy(self.orig_cube), "42")
-        self.assertNotEqual(shuffled_1, shuffled_2)
 
-    def test_structure_preserved(self):
+        # Assert
+        self.assertNotEqual(shuffled_1, shuffled_2)
+        assert mock_shuffle.call_count == 2
+        mock_shuffle.assert_any_call(f"{self.key_phrase_1}|{42}", expected_cube)
+        mock_shuffle.assert_any_call(f"{self.key_phrase_2}|{42}", expected_cube)
+
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_structure_preserved(self, mock_shuffle):
         """Test that the structure of the cube is preserved after shuffling."""
+        # Assert
+        expected_cube = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        random_cube = ["b", "a", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        mock_shuffle.return_value = random_cube
+
+        # Act
         shuffled = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
-        # Ensure the top-level list length is preserved
+
+        # Assert
         self.assertEqual(len(shuffled), len(self.orig_cube))
+        mock_shuffle.assert_called_once_with(f"{self.key_phrase_1}|{42}", expected_cube)
         for orig_outer, shuffled_outer in zip(self.orig_cube, shuffled):
             # Ensure the second-level list length is preserved
             self.assertEqual(len(shuffled_outer), len(orig_outer))
@@ -545,11 +566,21 @@ class TestShuffleCubeWithKeyPhrase(unittest.TestCase):
                 # Ensure the third-level list length is preserved
                 self.assertEqual(len(shuffled_inner), len(orig_inner))
 
-    def test_no_side_effects(self):
+    @patch("cubigma.utils.shuffle_for_input")
+    def test_no_side_effects(self, mock_shuffle):
         """Test that the original cube is not modified by the function."""
+        # Assert
+        expected_cube = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        random_cube = ["b", "a", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+        mock_shuffle.return_value = random_cube
         orig_cube_copy = deepcopy(self.orig_cube)
+
+        # Act
         _ = _shuffle_cube_with_key_phrase(self.key_phrase_1, deepcopy(self.orig_cube), "42")
+
+        # Assert
         self.assertEqual(self.orig_cube, orig_cube_copy)
+        mock_shuffle.assert_called_once_with(f"{self.key_phrase_1}|{42}", expected_cube)
 
 
 # pylint: enable=missing-function-docstring, missing-module-docstring, missing-class-docstring

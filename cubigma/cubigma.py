@@ -6,10 +6,11 @@ This code implements the Cubigma encryption algorithm.
 from base64 import b64decode
 
 from cubigma.core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
+
 # from core import get_hash_of_string_in_bytes, strengthen_key, DeterministicRandomCore
 
 from cubigma.utils import (  # Used in packaging & unit testing
-# from utils import (  # Used in local debugging
+    # from utils import (  # Used in local debugging
     LENGTH_OF_TRIO,
     NOISE_SYMBOL,
     generate_cube_from_symbols,

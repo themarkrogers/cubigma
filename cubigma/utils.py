@@ -11,10 +11,10 @@ import json
 import regex
 
 from cubigma.core import (
-# from core import (
+    # from core import (
     get_independently_deterministic_random_rotor_info,
     get_non_deterministically_random_int,
-    non_deterministically_random_shuffle_in_place,
+    get_non_deterministically_random_shuffled,
     random_int_for_input,
     shuffle_for_input,
     DeterministicRandomCore,
@@ -43,9 +43,10 @@ def _get_flat_index(x, y, z, size_x, size_y):
 def _get_prefix_order_number_trio(order_number: int) -> str:
     order_number_str = str(order_number)
     assert len(order_number_str) == 1, "Invalid order number"
-    pad_symbols = ["", "", "", order_number_str]
-    non_deterministically_random_shuffle_in_place(pad_symbols)
-    return "".join(pad_symbols)
+    # pad_symbols = ["", "", "", order_number_str]
+    pad_symbols = ["", "", order_number_str]
+    shuffled_pad_symbols = get_non_deterministically_random_shuffled(pad_symbols)
+    return "".join(shuffled_pad_symbols)
 
 
 def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
@@ -63,8 +64,8 @@ def _get_random_noise_chunk(rotor: list[list[list[str]]]) -> str:
         found_symbol = rotor[x][y][z]
         if found_symbol not in noise_trio_symbols:
             noise_trio_symbols.append(found_symbol)
-    non_deterministically_random_shuffle_in_place(noise_trio_symbols)
-    return "".join(noise_trio_symbols)
+    shuffled_trio_symbols = get_non_deterministically_random_shuffled(noise_trio_symbols)
+    return "".join(shuffled_trio_symbols)
 
 
 def _is_valid_coord(coord: tuple[int, int, int], inner_grid: list[list[list]]) -> bool:
@@ -494,14 +495,14 @@ def get_encrypted_coordinates(
     shuffled_ops = shuffle_for_input(combined_key, operations)
     cur_points = [point_1, point_2, point_3]
     for coordinate_operation in shuffled_ops:
-        cur_points = coordinate_operation(cur_points, cube_length, is_encrypting, key_phrase)
+        cur_points = coordinate_operation(cur_points, cube_length, is_encrypting, combined_key)
     return cur_points
 
 
 def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:
     """
     Pad an encrypted message chunk
-
+ter
     Args:
         chunk (str): Encrypted message chunk to pad
         padded_chunk_length (int): Desired chunk length
@@ -578,7 +579,7 @@ def prep_string_for_encrypting(orig_message: str) -> str:
     if not orig_message:
         raise ValueError("Cannot encrypt an empty message")
     length_of_incomplete_chunk = len(orig_message) % LENGTH_OF_TRIO
-    incomplete_chunk = orig_message[length_of_incomplete_chunk:]
+    incomplete_chunk = orig_message[-length_of_incomplete_chunk:]
     message_without_incomplete_chunk = orig_message[0:-length_of_incomplete_chunk]
     complete_chunk = _pad_chunk_with_rand_pad_symbols(incomplete_chunk)
     sanitized_string = message_without_incomplete_chunk + complete_chunk

@@ -1,7 +1,17 @@
-# Cubigma
+![Logo](assets/scrambled_cube.jpg)
 
+<!--- BADGES: START --->
+
+[![GitHub license](https://img.shields.io/badge/License-AGPLv3-blue.svg)][#license-gh-package]
 [![Unit Tests](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml/badge.svg)](https://github.com/themarkrogers/cubigma/actions/workflows/python-app.yml)
 [![Project Status](http://opensource.box.com/badges/active.svg)](http://opensource.box.com/badges)
+<!-- [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/cubigma)][#pypi-package] -->
+<!-- [![PyPI](https://img.shields.io/pypi/v/cubigma)][#pypi-package] -->
+
+[#license-gh-package]: https://www.gnu.org/licenses/agpl-3.0.en.html#license-text
+<!-- [#pypi-package]: https://pypi.org/project/cubigma/ -->
+
+<!--- BADGES: END --->
 
 # Introduction
 
