@@ -4,11 +4,7 @@ from copy import deepcopy
 from unittest.mock import patch
 import unittest
 
-from cubigma.utils import (
-    NOISE_SYMBOL,
-    LENGTH_OF_TRIO,
-    # get_chars_for_coordinates,
-)
+from cubigma.utils import LENGTH_OF_TRIO
 from cubigma.utils import (
     _find_symbol,
     _get_flat_index,
@@ -120,12 +116,15 @@ class TestGetPrefixOrderNumberTrio(unittest.TestCase):
         """Test that an invalid order number raises an assertion error."""
         with self.assertRaises(AssertionError):
             _get_prefix_order_number_trio(10)  # Not a single-digit number
+        mock_shuffle.assert_not_called()
 
         with self.assertRaises(AssertionError):
             _get_prefix_order_number_trio(-1)  # Negative number
+        mock_shuffle.assert_not_called()
 
         with self.assertRaises(AssertionError):
             _get_prefix_order_number_trio(123)  # Multiple digits
+        mock_shuffle.assert_not_called()
 
 
 class TestGetRandomNoiseChunk(unittest.TestCase):

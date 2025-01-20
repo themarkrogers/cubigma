@@ -501,16 +501,16 @@ def get_encrypted_coordinates(
 
 def pad_chunk(chunk: str, padded_chunk_length: int, chunk_order_number: int, rotor: list[list[list[str]]]) -> str:
     """
-    Pad an encrypted message chunk
-ter
-    Args:
-        chunk (str): Encrypted message chunk to pad
-        padded_chunk_length (int): Desired chunk length
-        chunk_order_number (int): Which chunk is this (i.e. 1-5)?
-        rotor (list[list[list[str]]]): the playfair cube to use for padding
+        Pad an encrypted message chunk
+    ter
+        Args:
+            chunk (str): Encrypted message chunk to pad
+            padded_chunk_length (int): Desired chunk length
+            chunk_order_number (int): Which chunk is this (i.e. 1-5)?
+            rotor (list[list[list[str]]]): the playfair cube to use for padding
 
-    Returns:
-        str: Padded chunk
+        Returns:
+            str: Padded chunk
     """
     padded_chunk = chunk
     while len(padded_chunk) < padded_chunk_length:

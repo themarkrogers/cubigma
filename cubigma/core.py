@@ -132,6 +132,12 @@ def strengthen_key(
     """
     if salt is None:
         salt = os.urandom(16)  # Use a secure random salt if not provided
+    elif not isinstance(salt, bytes):
+        raise ValueError(f"salt is not of the expected type. Expecting: bytes|Nonte. Found: {type(salt)}")
+    if not iterations or iterations < 0:
+        raise ValueError("iterations must be a positive integer")
+    if not key_length or key_length < 0:
+        raise ValueError("key_length must be a positive integer")
     key_phrase_bytes = key_phrase.encode("utf-8")
     key = hashlib.pbkdf2_hmac("sha256", key_phrase_bytes, salt, iterations, dklen=key_length)  # Derived key length
     b64_key = base64.b64encode(key).decode("utf-8")  # always 44 chars long

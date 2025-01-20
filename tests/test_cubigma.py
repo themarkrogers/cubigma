@@ -40,10 +40,8 @@ class TestGetEncryptedLetterTrio(unittest.TestCase):
         self.assertEqual(expected_result, result)
         mock_run_trio_through_rotors.assert_any_call(test_char_trio, expected_rotors, test_key_phrase, True)
         mock_run_trio_through_rotors.assert_any_call(
-            expected_middle_str,
-            list(reversed(expected_rotors)),
-            test_key_phrase,
-            True)
+            expected_middle_str, list(reversed(expected_rotors)), test_key_phrase, True
+        )
         assert mock_run_trio_through_rotors.call_count == 2
         mock_run_trio_through_reflector.assert_called_once_with(expected_str_1, test_key_phrase, 42)
 
@@ -290,102 +288,97 @@ class TestRunTrioThroughReflector(unittest.TestCase):
         assert mock_split.call_count == 2
         mock_split.assert_any_call("abc")
         assert mock_get_hash.call_count == 2
-        mock_get_hash.assert_any_call(f'{expected_result}|{test_key}|{test_num_trios}')
+        mock_get_hash.assert_any_call(f"{expected_result}|{test_key}|{test_num_trios}")
 
-    @patch("cubigma.cubigma.split_to_human_readable_symbols")
-    @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
-    def test_different_inputs_produce_different_outputs(self, mock_get_hash, mock_split):
-        """Test that different inputs produce different outputs."""
-        # # Arrange
-        # char_trio = "abc"
-        # test_key = "securekey"
-        # test_num_trios_1 = 42
-        # test_num_trios_2 = 43
-        # cubigma = Cubigma()
-        # mock_reflector = {"a": "Z", "b": "Y", "c": "X"}
-        # cubigma.reflector = mock_reflector
-        # mock_split.side_effect = [["a", "b", "c"], ["a", "b", "c"]]
-        # mock_get_hash.side_effect = ["XYZ", "123"]
-        #
-        # # Act
-        # result1 = cubigma._run_trio_through_reflector(char_trio, test_key, test_num_trios_1)  # pylint:disable=W0212
-        # result2 = cubigma._run_trio_through_reflector(char_trio, test_key, test_num_trios_2)  # pylint:disable=W0212
-        #
-        # # Assert
-        # self.assertNotEqual(result1, result2, "Different inputs should produce different outputs.")
-        # assert mock_split.call_count == 2
-        # mock_split.assert_any_call("abc")
-        # assert mock_get_hash.call_count == 2
-        # mock_get_hash.assert_any_call(f'XYZ|{test_key}|{test_num_trios_1}')
-        # mock_get_hash.assert_any_call(f'WYZ|{test_key}|{test_num_trios_2}')
-        assert 42 == 42  # Skip this test for now
-
-    @patch("cubigma.cubigma.split_to_human_readable_symbols")
-    @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
-    def test_output_is_permutation_of_input(self, mock_get_has, mock_split):
-        """Test that the output is a permutation of the input trio."""
-        # char_trio = "abc"
-        # expected_result = "XYZ"
-        # strengthened_key_phrase = "securekey"
-        # num_of_encoded_trios = 42
-        # cubigma = Cubigma()
-        # mock_reflector = {"a": "Z", "b": "Y", "c": "X"}
-        # cubigma.reflector = mock_reflector
-        #
-        # result = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
-        #     char_trio, strengthened_key_phrase, num_of_encoded_trios
-        # )
-        # self.assertEqual(sorted(expected_result), sorted(result), "Output should be a permutation of the input trio.")
-        assert 42 == 42  # Skip this test for now
-
-    @patch("cubigma.cubigma.split_to_human_readable_symbols")
-    @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
-    def test_edge_case_empty_key_phrase(self, mock_get_has, mock_split):
-        """Test the function with an empty key phrase."""
-        # char_trio = "abcd"
-        # expected_result = "WXYZ"
-        # strengthened_key_phrase = ""
-        # num_of_encoded_trios = 42
-        # cubigma = Cubigma()
-        # mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
-        # cubigma.reflector = mock_reflector
-        #
-        # result = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
-        #     char_trio, strengthened_key_phrase, num_of_encoded_trios
-        # )
-        # self.assertEqual(
-        #     sorted(expected_result), sorted(result), "Output should still be a permutation of the input trio."
-        # )
-        assert 42 == 42  # Skip this test for now
-
-    @patch("cubigma.cubigma.split_to_human_readable_symbols")
-    @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
-    def test_invalid_input_length(self, mock_get_has, mock_split):
-        """Test the function with an invalid trio length."""
-        # cubigma = Cubigma()
-        # mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
-        # cubigma.reflector = mock_reflector
-        #
-        # with self.assertRaises(ValueError):
-        #     cubigma._run_trio_through_reflector("abc", "key", 42)  # pylint:disable=W0212
-        assert 42 == 42  # Skip this test for now
-
-    @patch("cubigma.cubigma.split_to_human_readable_symbols")
-    @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
-    def test_invalid_characters_in_trio(self, mock_get_has, mock_split):
-        """Test the function with invalid characters in the trio."""
-        # char_trio = "ab1$"
-        # strengthened_key_phrase = "securekey"
-        # num_of_encoded_trios = 42
-        # cubigma = Cubigma()
-        # mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
-        # cubigma.reflector = mock_reflector
-        #
-        # with self.assertRaises(KeyError):
-        #     cubigma._run_trio_through_reflector(  # pylint:disable=W0212
-        #         char_trio, strengthened_key_phrase, num_of_encoded_trios
-        #     )
-        assert 42 == 42  # Skip this test for now
+    # @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    # @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
+    # def test_different_inputs_produce_different_outputs(self, mock_get_hash, mock_split):
+    #     """Test that different inputs produce different outputs."""
+    #     # Arrange
+    #     char_trio = "abc"
+    #     test_key = "securekey"
+    #     test_num_trios_1 = 42
+    #     test_num_trios_2 = 43
+    #     cubigma = Cubigma()
+    #     mock_reflector = {"a": "Z", "b": "Y", "c": "X"}
+    #     cubigma.reflector = mock_reflector
+    #     mock_split.side_effect = [["a", "b", "c"], ["a", "b", "c"]]
+    #     mock_get_hash.side_effect = ["XYZ", "123"]
+    #
+    #     # Act
+    #     result1 = cubigma._run_trio_through_reflector(char_trio, test_key, test_num_trios_1)  # pylint:disable=W0212
+    #     result2 = cubigma._run_trio_through_reflector(char_trio, test_key, test_num_trios_2)  # pylint:disable=W0212
+    #
+    #     # Assert
+    #     self.assertNotEqual(result1, result2, "Different inputs should produce different outputs.")
+    #     assert mock_split.call_count == 2
+    #     mock_split.assert_any_call("abc")
+    #     assert mock_get_hash.call_count == 2
+    #     mock_get_hash.assert_any_call(f'XYZ|{test_key}|{test_num_trios_1}')
+    #     mock_get_hash.assert_any_call(f'WYZ|{test_key}|{test_num_trios_2}')
+    #
+    # @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    # @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
+    # def test_output_is_permutation_of_input(self, mock_get_has, mock_split):
+    #     """Test that the output is a permutation of the input trio."""
+    #     char_trio = "abc"
+    #     expected_result = "XYZ"
+    #     strengthened_key_phrase = "securekey"
+    #     num_of_encoded_trios = 42
+    #     cubigma = Cubigma()
+    #     mock_reflector = {"a": "Z", "b": "Y", "c": "X"}
+    #     cubigma.reflector = mock_reflector
+    #
+    #     result = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+    #         char_trio, strengthened_key_phrase, num_of_encoded_trios
+    #     )
+    #     self.assertEqual(sorted(expected_result), sorted(result), "Output should be a permutation of the input trio.")
+    #
+    # @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    # @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
+    # def test_edge_case_empty_key_phrase(self, mock_get_has, mock_split):
+    #     """Test the function with an empty key phrase."""
+    #     char_trio = "abcd"
+    #     expected_result = "WXYZ"
+    #     strengthened_key_phrase = ""
+    #     num_of_encoded_trios = 42
+    #     cubigma = Cubigma()
+    #     mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+    #     cubigma.reflector = mock_reflector
+    #
+    #     result = cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+    #         char_trio, strengthened_key_phrase, num_of_encoded_trios
+    #     )
+    #     self.assertEqual(
+    #         sorted(expected_result), sorted(result), "Output should still be a permutation of the input trio."
+    #     )
+    #
+    # @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    # @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
+    # def test_invalid_input_length(self, mock_get_has, mock_split):
+    #     """Test the function with an invalid trio length."""
+    #     cubigma = Cubigma()
+    #     mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+    #     cubigma.reflector = mock_reflector
+    #
+    #     with self.assertRaises(ValueError):
+    #         cubigma._run_trio_through_reflector("abc", "key", 42)  # pylint:disable=W0212
+    #
+    # @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    # @patch("cubigma.cubigma.get_hash_of_string_in_bytes")
+    # def test_invalid_characters_in_trio(self, mock_get_has, mock_split):
+    #     """Test the function with invalid characters in the trio."""
+    #     char_trio = "ab1$"
+    #     strengthened_key_phrase = "securekey"
+    #     num_of_encoded_trios = 42
+    #     cubigma = Cubigma()
+    #     mock_reflector = {"a": "Z", "b": "Y", "c": "X", "d": "W"}
+    #     cubigma.reflector = mock_reflector
+    #
+    #     with self.assertRaises(KeyError):
+    #         cubigma._run_trio_through_reflector(  # pylint:disable=W0212
+    #             char_trio, strengthened_key_phrase, num_of_encoded_trios
+    #         )
 
 
 class TestRunTrioThroughRotors(unittest.TestCase):
@@ -427,12 +420,7 @@ class TestRunTrioThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_trio_through_rotors(  # pylint:disable=W0212
-            char_trio,
-            rotors,
-            key_phrase,
-            True
-        )
+        result = cubigma_instance._run_trio_through_rotors(char_trio, rotors, key_phrase, True)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -481,9 +469,7 @@ class TestRunTrioThroughRotors(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(KeyError):
-            cubigma_instance._run_trio_through_rotors(  # pylint:disable=W0212
-                char_trio, rotors, key_phrase, True
-            )
+            cubigma_instance._run_trio_through_rotors(char_trio, rotors, key_phrase, True)  # pylint:disable=W0212
         assert mock_step_rotor.call_count == 1
         mock_step_rotor.assert_any_call(rotors[0], 0, key_phrase)
         assert mock_split.call_count == 1
@@ -516,9 +502,7 @@ class TestRunTrioThroughRotors(unittest.TestCase):
         key_phrase = "testkey"
 
         # Act
-        result = cubigma_instance._run_trio_through_rotors(  # pylint:disable=W0212
-            char_trio, rotors, key_phrase, True
-        )
+        result = cubigma_instance._run_trio_through_rotors(char_trio, rotors, key_phrase, True)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -621,21 +605,35 @@ class TestDecryptMessage(unittest.TestCase):
         # Arrange
         key_phrase = "testkey"
         encrypted_message_valid = (
-            "ENC"
-            + f"1{NOISE_SYMBOL}3"
-            + "RYP"
-            + f"12{NOISE_SYMBOL}"
-            + "TED"
-            + f"{NOISE_SYMBOL}23"
+            "ENC" + f"1{NOISE_SYMBOL}3" + "RYP" + f"12{NOISE_SYMBOL}" + "TED" + f"{NOISE_SYMBOL}23"
         )
-        mock_data = ["DEC", "foo1"+NOISE_SYMBOL, "RYP", "foo2"+NOISE_SYMBOL, "TED", "foo3"+NOISE_SYMBOL]
+        mock_data = ["DEC", "foo1" + NOISE_SYMBOL, "RYP", "foo2" + NOISE_SYMBOL, "TED", "foo3" + NOISE_SYMBOL]
         expected_output = "DECRYPTED"
         cubigma = Cubigma()
         cubigma._is_machine_prepared = True  # pylint:disable=W0212
         mock_decode = MagicMock()
         mock_decode.side_effect = mock_data
         cubigma.decode_string = mock_decode
-        mock_split.return_value = ["E", "N", "C", "1", NOISE_SYMBOL, "3", "R", "Y", "P", "1", "2", NOISE_SYMBOL, "T", "E", "D", NOISE_SYMBOL, "2", "3"]
+        mock_split.return_value = [
+            "E",
+            "N",
+            "C",
+            "1",
+            NOISE_SYMBOL,
+            "3",
+            "R",
+            "Y",
+            "P",
+            "1",
+            "2",
+            NOISE_SYMBOL,
+            "T",
+            "E",
+            "D",
+            NOISE_SYMBOL,
+            "2",
+            "3",
+        ]
 
         # Act
         result = cubigma.decrypt_message(encrypted_message_valid, key_phrase)
@@ -726,7 +724,7 @@ class TestEncryptMessage(unittest.TestCase):
     def test_encrypt_message_valid(self, mock_prep_string_for_encrypting):
         # Arrange
         test_input = "abc"
-        rotated_string_1 = 'def'
+        rotated_string_1 = "def"
         prepped_string = "ghi"
         encoded_string = "jkl"
         rotated_string_2 = "mno"
@@ -838,7 +836,15 @@ class TestPrepareMachine(unittest.TestCase):
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
     def test_prepare_machine_valid_inputs(
-        self, mock_strengthen_key, mock_split, mock_gen_rotors, mock_gen_reflector, mock_gen_cube, mock_gen_plugboard, mock_b64_encode, mock_random_core,
+        self,
+        mock_strengthen_key,
+        mock_split,
+        mock_gen_rotors,
+        mock_gen_reflector,
+        mock_gen_cube,
+        mock_gen_plugboard,
+        mock_b64_encode,
+        mock_random_core,
     ):
         # Arrange
         (
@@ -886,8 +892,8 @@ class TestPrepareMachine(unittest.TestCase):
             mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
         mock_b64_encode.assert_not_called()
-        mock_gen_reflector.assert_called_once_with(['a', 'b'], mock_core_instance)
-        mock_random_core.assert_called_once_with('1')
+        mock_gen_reflector.assert_called_once_with(["a", "b"], mock_core_instance)
+        mock_random_core.assert_called_once_with("1")
         mock_core_instance.assert_not_called()
 
     @patch("cubigma.cubigma.DeterministicRandomCore")
@@ -899,7 +905,15 @@ class TestPrepareMachine(unittest.TestCase):
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
     def test_prepare_machine_valid_inputs_and_salt(
-        self, mock_strengthen_key, mock_split, mock_gen_rotors, mock_gen_reflector, mock_gen_cube, mock_gen_plugboard, mock_b64_encode, mock_random_core,
+        self,
+        mock_strengthen_key,
+        mock_split,
+        mock_gen_rotors,
+        mock_gen_reflector,
+        mock_gen_cube,
+        mock_gen_plugboard,
+        mock_b64_encode,
+        mock_random_core,
     ):
         # Arrange
         (
@@ -954,8 +968,8 @@ class TestPrepareMachine(unittest.TestCase):
             mock_symbols, num_blocks=cube_length, lines_per_block=cube_length, symbols_per_line=cube_length
         )
         mock_b64_encode.assert_called_once_with("2")
-        mock_gen_reflector.assert_called_once_with(['a', 'b'], mock_core_instance)
-        mock_random_core.assert_called_once_with('1')
+        mock_gen_reflector.assert_called_once_with(["a", "b"], mock_core_instance)
+        mock_random_core.assert_called_once_with("1")
         mock_core_instance.assert_not_called()
 
     @patch("cubigma.cubigma.b64decode")
@@ -965,7 +979,16 @@ class TestPrepareMachine(unittest.TestCase):
     @patch("cubigma.cubigma.generate_rotors")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
     @patch("cubigma.cubigma.strengthen_key")
-    def test_prepare_machine_invalid_key_character(self, mock_strengthen_key, mock_split, mock_gen_rotors, mock_gen_reflector, mock_gen_cube, mock_gen_plugboard, mock_b64_encode):
+    def test_prepare_machine_invalid_key_character(
+        self,
+        mock_strengthen_key,
+        mock_split,
+        mock_gen_rotors,
+        mock_gen_reflector,
+        mock_gen_cube,
+        mock_gen_plugboard,
+        mock_b64_encode,
+    ):
         cubigma = Cubigma()
         mock_read_characters_file = MagicMock()
         mock_symbols = ["a", "b"]

@@ -280,6 +280,7 @@ class TestGenerateRotors(unittest.TestCase):
                 rotors_to_use=self.rotors_to_use,
                 orig_key_length=42,
             )
+        mock_shuffle.assert_not_called()
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_invalid_num_rotors_to_make(self, mock_shuffle):
@@ -292,6 +293,7 @@ class TestGenerateRotors(unittest.TestCase):
                 rotors_to_use=self.rotors_to_use,
                 orig_key_length=42,
             )
+        mock_shuffle.assert_not_called()
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_invalid_rotors_to_use_values(self, mock_shuffle):
@@ -305,6 +307,7 @@ class TestGenerateRotors(unittest.TestCase):
                 rotors_to_use=invalid_rotors,
                 orig_key_length=42,
             )
+        mock_shuffle.assert_not_called()
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_invalid_rotors_to_use_not_list(self, mock_shuffle):
@@ -318,6 +321,7 @@ class TestGenerateRotors(unittest.TestCase):
                 rotors_to_use=invalid_rotors,
                 orig_key_length=42,
             )
+        mock_shuffle.assert_not_called()
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_invalid_cube(self, mock_shuffle):
@@ -331,6 +335,7 @@ class TestGenerateRotors(unittest.TestCase):
                 rotors_to_use=self.rotors_to_use,
                 orig_key_length=42,
             )
+        mock_shuffle.assert_not_called()
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_invalid_key_length(self, mock_shuffle):
@@ -343,6 +348,7 @@ class TestGenerateRotors(unittest.TestCase):
                 rotors_to_use=self.rotors_to_use,
                 orig_key_length="42",
             )
+        mock_shuffle.assert_not_called()
 
     @patch("cubigma.utils._shuffle_cube_with_key_phrase")
     def test_rotors_correct_count(self, mock_shuffle):
@@ -525,7 +531,7 @@ class TestGetOppositeCorners(unittest.TestCase):
             test_key_1,
             self.num_trios_encoded,
             True,
-)
+        )
         result_2 = get_encrypted_coordinates(
             point_1,
             point_2,
@@ -806,11 +812,7 @@ class TestRotateSliceOfCube(unittest.TestCase):
         slice_idx_to_rotate = 1
         test_seed = "test_seed"
         mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
-        expected_frame = [
-            ['Y', 'O', 'P'],
-            ['Y', 'O', 'P'],
-            ['Y', 'O', 'P']
-        ]
+        expected_frame = [["Y", "O", "P"], ["Y", "O", "P"], ["Y", "O", "P"]]
         mock_rotate.return_value = [
             ["Y", "Y", "Y"],
             ["O", "O", "O"],
@@ -839,11 +841,7 @@ class TestRotateSliceOfCube(unittest.TestCase):
         slice_idx_to_rotate = 1
         test_seed = "test_seed"
         mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
-        expected_frame = [
-            ['Y', 'O', 'P'],
-            ['Y', 'O', 'P'],
-            ['Y', 'O', 'P']
-        ]
+        expected_frame = [["Y", "O", "P"], ["Y", "O", "P"], ["Y", "O", "P"]]
         mock_rotate.return_value = [
             ["P", "P", "P"],
             ["O", "O", "O"],
@@ -872,11 +870,7 @@ class TestRotateSliceOfCube(unittest.TestCase):
         slice_idx_to_rotate = 0
         test_seed = "test_seed"
         mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
-        expected_frame = [
-            ['R', 'G', 'B'],
-            ['Y', 'O', 'P'],
-            ['W', 'K', 'M']
-        ]
+        expected_frame = [["R", "G", "B"], ["Y", "O", "P"], ["W", "K", "M"]]
         mock_rotate.return_value = [
             ["W", "Y", "R"],
             ["K", "O", "G"],
@@ -905,11 +899,7 @@ class TestRotateSliceOfCube(unittest.TestCase):
         slice_idx_to_rotate = 0
         test_seed = "test_seed"
         mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
-        expected_frame = [
-            ['R', 'G', 'B'],
-            ['Y', 'O', 'P'],
-            ['W', 'K', 'M']
-        ]
+        expected_frame = [["R", "G", "B"], ["Y", "O", "P"], ["W", "K", "M"]]
         mock_rotate.return_value = [
             ["B", "P", "M"],
             ["G", "O", "K"],
@@ -938,11 +928,7 @@ class TestRotateSliceOfCube(unittest.TestCase):
         slice_idx_to_rotate = 2
         test_seed = "test_seed"
         mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
-        expected_frame = [
-            ['B', 'B', 'B'],
-            ['P', 'P', 'P'],
-            ['M', 'M', 'M']
-        ]
+        expected_frame = [["B", "B", "B"], ["P", "P", "P"], ["M", "M", "M"]]
         mock_rotate.return_value = [
             ["M", "P", "B"],
             ["M", "P", "B"],
@@ -971,11 +957,7 @@ class TestRotateSliceOfCube(unittest.TestCase):
         slice_idx_to_rotate = 2
         test_seed = "test_seed"
         mock_random_rotor_info.return_value = expected_axis, expected_rotate_dir, slice_idx_to_rotate
-        expected_frame = [
-            ['B', 'B', 'B'],
-            ['P', 'P', 'P'],
-            ['M', 'M', 'M']
-        ]
+        expected_frame = [["B", "B", "B"], ["P", "P", "P"], ["M", "M", "M"]]
         mock_rotate.return_value = [
             ["B", "P", "M"],
             ["B", "P", "M"],
