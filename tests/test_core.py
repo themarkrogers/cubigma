@@ -1,11 +1,158 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import base64
 import os
 import unittest
 
-from cubigma.core import strengthen_key
+from cubigma.core import (
+    get_independently_deterministic_random_rotor_info,
+    get_hash_of_string_in_bytes,
+    get_non_deterministically_random_int,
+    get_non_deterministically_random_shuffled,
+    random_int_for_input,
+    shuffle_for_input,
+    strengthen_key,
+)
+
+
+class TestGetIndependentlyDeterministicRandomRotorInfo(unittest.TestCase):
+
+    @patch("random.randint")
+    @patch("random.choice")
+    @patch("random.seed")
+    def test_valid_case(self, mock_seed, mock_choice, mock_randint):
+        # Arrange
+        mock_choice.side_effect = ["X", 1]
+        mock_randint.return_value = 3
+        test_key = "keyphrase1"
+        test_axis_choices = ["X", "Y", "Z"]
+        test_direction_choices = [-1, 1]
+        test_max_num = 5
+        expected_results = ("X", 1, 3)
+
+        # Act
+        results = get_independently_deterministic_random_rotor_info(
+            test_key, test_axis_choices, test_direction_choices, test_max_num
+        )
+
+        # Assert
+        self.assertEqual(expected_results, results)
+        mock_seed.assert_called_once_with(test_key)
+        assert mock_choice.call_count == 2
+        mock_choice.assert_any_call(test_axis_choices)
+        mock_choice.assert_any_call(test_direction_choices)
+        mock_randint.assert_called_once_with(0, test_max_num)
+
+
+class TestGetHashOfStringInBytes(unittest.TestCase):
+
+    @patch("hashlib.sha256")
+    def test_valid_case(self, mock_sha256):
+        # Arrange
+        expected_result = 42
+        mock_digest = MagicMock()
+        mock_digest.digest.return_value = expected_result
+        mock_sha256.return_value = mock_digest
+        test_input = "rawr"
+
+        # Act
+        result = get_hash_of_string_in_bytes(test_input)
+
+        # Assert
+        self.assertEqual(expected_result, result)
+        mock_sha256.assert_called_once_with(test_input.encode())
+        mock_digest.digest.assert_called_once_with()
+
+
+class TestGetNonDeterministicallyRandomInt(unittest.TestCase):
+
+    @patch("random.randint")
+    def test_valid_case(self, mock_randint):
+        # Arrange
+        expected_result = 42
+        mock_randint.return_value = expected_result
+
+        # Act
+        result = get_non_deterministically_random_int(11, 17)
+
+        # Assert
+        self.assertEqual(expected_result, result)
+        mock_randint.assert_called_once_with(11, 17)
+
+
+class TestGetNonDeterministicallyRandomShuffled(unittest.TestCase):
+
+    @patch("random.shuffle")
+    def test_valid_case(self, mock_shuffle):
+        # Arrange
+        expected_results = [3, 1, 2, 4]
+        mock_shuffle.side_effect = lambda x: x.clear() or x.extend(expected_results)
+        test_list = [1, 2, 3, 4]
+
+        # Act
+        results = get_non_deterministically_random_shuffled(test_list)
+
+        # Assert
+        self.assertEqual(expected_results, results)
+        # mock_shuffle.assert_called_once_with(test_list)
+
+
+class TestShuffleForInput(unittest.TestCase):
+
+    @patch("hashlib.sha256")
+    @patch("random.Random")
+    def test_valid_case(self, mock_random, mock_sha256):
+        # Arrange
+        test_shuffle_responses = [3, 1, 0, 2]
+        expected_results = [3, 1, 2, 4]
+        mock_randint = MagicMock()
+        mock_randint.randint.side_effect = test_shuffle_responses
+        mock_random.return_value = mock_randint
+        mock_result = MagicMock()
+        mock_result.hexdigest.return_value = "2A"
+        mock_sha256.return_value = mock_result
+        test_key = "testkey1"
+        test_list = [1, 2, 3, 4]
+
+        # Act
+        results = shuffle_for_input(test_key, test_list)
+
+        # Assert
+        self.assertEqual(expected_results, results)
+        mock_sha256.assert_called_once_with(test_key.encode())
+        mock_result.hexdigest.assert_called_once_with()
+        mock_random.assert_called_once_with(42)
+        assert mock_randint.randint.call_count == 3
+        mock_randint.randint.assert_any_call(0, 3)
+        mock_randint.randint.assert_any_call(0, 2)
+        mock_randint.randint.assert_any_call(0, 1)
+
+
+class TestRandomIntForInput(unittest.TestCase):
+
+    @patch("hashlib.sha256")
+    @patch("random.Random")
+    def test_valid_case(self, mock_random, mock_sha256):
+        # Arrange
+        expected_result = 420
+        mock_randint = MagicMock()
+        mock_randint.randint.return_value = expected_result
+        mock_random.return_value = mock_randint
+        mock_result = MagicMock()
+        mock_result.hexdigest.return_value = "2A"
+        mock_sha256.return_value = mock_result
+        test_key = "testkey1"
+
+        # Act
+        result = random_int_for_input(test_key, 11, 29)
+
+        # Assert
+        self.assertEqual(expected_result, result)
+        mock_sha256.assert_called_once_with(test_key.encode())
+        mock_result.hexdigest.assert_called_once_with()
+        mock_random.assert_called_once_with(42)
+        mock_randint.randint.assert_called_once_with(11, 29)
 
 
 class TestStrengthenKey(unittest.TestCase):

@@ -1,5 +1,5 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
-from termios import CIGNORE
+
 from unittest.mock import patch, mock_open, MagicMock
 import unittest
 
@@ -264,12 +264,12 @@ class TestReadCharactersFile(unittest.TestCase):
 class TestRunMessageThroughPlugboard(unittest.TestCase):
     def setUp(self):
         self.test_plugboard = {
-            'A': 'B',
-            'B': 'A',
-            'C': 'D',
-            'D': 'C',
-            'X': 'Y',
-            'Y': 'X',
+            "A": "B",
+            "B": "A",
+            "C": "D",
+            "D": "C",
+            "X": "Y",
+            "Y": "X",
         }
 
     def test_plugboard_mapping(self):
@@ -279,8 +279,8 @@ class TestRunMessageThroughPlugboard(unittest.TestCase):
         cubigma = Cubigma()
         cubigma.plugboard = self.test_plugboard
 
-        #Act
-        result = cubigma._run_message_through_plugboard(message)
+        # Act
+        result = cubigma._run_message_through_plugboard(message)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -293,7 +293,7 @@ class TestRunMessageThroughPlugboard(unittest.TestCase):
         cubigma.plugboard = self.test_plugboard
 
         # Act
-        result = cubigma._run_message_through_plugboard(message)
+        result = cubigma._run_message_through_plugboard(message)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -306,7 +306,7 @@ class TestRunMessageThroughPlugboard(unittest.TestCase):
         cubigma.plugboard = self.test_plugboard
 
         # Act
-        result = cubigma._run_message_through_plugboard(message)
+        result = cubigma._run_message_through_plugboard(message)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -319,7 +319,7 @@ class TestRunMessageThroughPlugboard(unittest.TestCase):
         cubigma.plugboard = self.test_plugboard
 
         # Act
-        result = cubigma._run_message_through_plugboard(message)
+        result = cubigma._run_message_through_plugboard(message)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
@@ -332,7 +332,7 @@ class TestRunMessageThroughPlugboard(unittest.TestCase):
         cubigma.plugboard = self.test_plugboard
 
         # Act
-        result = cubigma._run_message_through_plugboard(message)
+        result = cubigma._run_message_through_plugboard(message)  # pylint:disable=W0212
 
         # Assert
         self.assertEqual(result, expected_result)
