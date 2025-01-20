@@ -1,5 +1,5 @@
 # pylint: disable=missing-function-docstring, missing-module-docstring, missing-class-docstring
-
+from termios import CIGNORE
 from unittest.mock import patch, mock_open, MagicMock
 import unittest
 
@@ -261,6 +261,83 @@ class TestReadCharactersFile(unittest.TestCase):
         assert mock_split.call_count == len(mock_data_array) + 4
 
 
+class TestRunMessageThroughPlugboard(unittest.TestCase):
+    def setUp(self):
+        self.test_plugboard = {
+            'A': 'B',
+            'B': 'A',
+            'C': 'D',
+            'D': 'C',
+            'X': 'Y',
+            'Y': 'X',
+        }
+
+    def test_plugboard_mapping(self):
+        # Arrange
+        message = "ABX"
+        expected_result = "BAY"
+        cubigma = Cubigma()
+        cubigma.plugboard = self.test_plugboard
+
+        #Act
+        result = cubigma._run_message_through_plugboard(message)
+
+        # Assert
+        self.assertEqual(result, expected_result)
+
+    def test_no_mapping(self):
+        # Arrange
+        message = "EFG"
+        expected_result = "EFG"  # No changes as these symbols are not mapped
+        cubigma = Cubigma()
+        cubigma.plugboard = self.test_plugboard
+
+        # Act
+        result = cubigma._run_message_through_plugboard(message)
+
+        # Assert
+        self.assertEqual(result, expected_result)
+
+    def test_partial_mapping(self):
+        # Arrange
+        message = "AXES"
+        expected_result = "BYES"  # 'A' -> 'B', 'X' -> 'Y', 'E' and 'S' remain unchanged
+        cubigma = Cubigma()
+        cubigma.plugboard = self.test_plugboard
+
+        # Act
+        result = cubigma._run_message_through_plugboard(message)
+
+        # Assert
+        self.assertEqual(result, expected_result)
+
+    def test_empty_message(self):
+        # Arrange
+        message = ""
+        expected_result = ""  # Empty input should return empty output
+        cubigma = Cubigma()
+        cubigma.plugboard = self.test_plugboard
+
+        # Act
+        result = cubigma._run_message_through_plugboard(message)
+
+        # Assert
+        self.assertEqual(result, expected_result)
+
+    def test_special_characters(self):
+        # Arrange
+        message = "A!D@X#"
+        expected_result = "B!C@Y#"  # Only mapped symbols are replaced; others remain unchanged
+        cubigma = Cubigma()
+        cubigma.plugboard = self.test_plugboard
+
+        # Act
+        result = cubigma._run_message_through_plugboard(message)
+
+        # Assert
+        self.assertEqual(result, expected_result)
+
+
 class TestRunTrioThroughReflector(unittest.TestCase):
 
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
@@ -450,6 +527,71 @@ class TestRunTrioThroughRotors(unittest.TestCase):
     @patch("cubigma.cubigma.get_symbol_for_coordinates")
     @patch("cubigma.cubigma.get_encrypted_coordinates")
     @patch("cubigma.cubigma.split_to_human_readable_symbols")
+    def test_basic_case_decrypting(self, mock_split, mock_encrypt, mock_get_symbol):
+        # Arrange
+        cubigma_instance = Cubigma()
+        char_trio = "XYZ"
+        mock_step_rotor = MagicMock()
+        mock_step_rotor.side_effect = lambda x, y, z: x
+        cubigma_instance._step_rotor = mock_step_rotor
+        cubigma_instance._num_trios_encoded = 2
+        mock_split.side_effect = [["G", "H", "I"], ["D", "E", "F"], ["A", "B", "C"]]
+        points_1 = [(1, 1, 1), (2, 2, 2), (0, 0, 0)]
+        points_2 = [(1, 1, 1), (0, 0, 0), (2, 2, 2)]
+        points_3 = [(0, 0, 0), (1, 1, 1), (2, 2, 2)]
+        mock_encrypt.side_effect = [points_1, points_2, points_3]
+        mock_get_symbol.side_effect = ["R", "S", "T", "U", "V", "W", "A", "B", "C"]
+        expected_result = "ABC"
+        rotors = [
+            [
+                [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+                [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+                [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
+            ],
+            [
+                [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+                [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
+                [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            ],
+            [
+                [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
+                [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+                [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            ],
+        ]
+        key_phrase = "testkey"
+
+        # Act
+        result = cubigma_instance._run_trio_through_rotors(char_trio, rotors, key_phrase, False)  # pylint:disable=W0212
+
+        # Assert
+        self.assertEqual(result, expected_result)
+        assert mock_step_rotor.call_count == 3
+        mock_step_rotor.assert_any_call(rotors[0], 0, key_phrase)
+        mock_step_rotor.assert_any_call(rotors[1], 1, key_phrase)
+        mock_step_rotor.assert_any_call(rotors[2], 2, key_phrase)
+        assert mock_split.call_count == 3
+        mock_split.assert_any_call(char_trio)
+        mock_split.assert_any_call("RST")
+        mock_split.assert_any_call("UVW")
+        assert mock_encrypt.call_count == 3
+        mock_encrypt.assert_any_call((0, 2, 0), (0, 2, 1), (0, 2, 2), 3, key_phrase, 2, False)
+        mock_encrypt.assert_any_call((2, 1, 0), (2, 1, 1), (2, 1, 2), 3, key_phrase, 1, False)
+        mock_encrypt.assert_any_call((1, 0, 0), (1, 0, 1), (1, 0, 2), 3, key_phrase, 0, False)
+        assert mock_get_symbol.call_count == 9
+        mock_get_symbol.assert_any_call((0, 0, 0), rotors[0])
+        mock_get_symbol.assert_any_call((1, 1, 1), rotors[0])
+        mock_get_symbol.assert_any_call((2, 2, 2), rotors[0])
+        mock_get_symbol.assert_any_call((0, 0, 0), rotors[1])
+        mock_get_symbol.assert_any_call((1, 1, 1), rotors[1])
+        mock_get_symbol.assert_any_call((2, 2, 2), rotors[1])
+        mock_get_symbol.assert_any_call((0, 0, 0), rotors[2])
+        mock_get_symbol.assert_any_call((1, 1, 1), rotors[2])
+        mock_get_symbol.assert_any_call((2, 2, 2), rotors[2])
+
+    @patch("cubigma.cubigma.get_symbol_for_coordinates")
+    @patch("cubigma.cubigma.get_encrypted_coordinates")
+    @patch("cubigma.cubigma.split_to_human_readable_symbols")
     def test_no_matching_characters(self, mock_split, mock_encrypt, mock_get_symbol):
         # Arrange
         cubigma_instance = Cubigma()
@@ -513,6 +655,35 @@ class TestRunTrioThroughRotors(unittest.TestCase):
         mock_get_symbol.assert_any_call((0, 0, 0), rotors[0])
         mock_get_symbol.assert_any_call((1, 1, 1), rotors[0])
         mock_get_symbol.assert_any_call((2, 2, 2), rotors[0])
+
+
+class TestStepRotor(unittest.TestCase):
+
+    @patch("cubigma.cubigma.rotate_slice_of_cube")
+    def test_step_rotor(self, mock_rotate):
+        # Arrange
+        test_rotor = [
+            [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
+        ]
+        test_rotor_num = 42
+        test_key_phrase = "key_phrase_23"
+        cubigma = Cubigma()
+        cubigma._num_trios_encoded = 101
+        expected_result = [
+            [["G", "D", "A"], ["H", "E", "B"], ["I", "F", "C"]],
+            [["J", "K", "L"], ["M", "N", "O"], ["P", "Q", "R"]],
+            [["S", "T", "U"], ["V", "W", "X"], ["Y", "Z", "0"]],
+        ]
+        mock_rotate.return_value = expected_result
+
+        # Act
+        result = cubigma._step_rotor(test_rotor, test_rotor_num, test_key_phrase)
+
+        # Assert
+        self.assertEqual(expected_result, result)
+        mock_rotate.assert_called_once_with(test_rotor, f"{test_key_phrase}|{test_rotor_num}|101")
 
 
 # Testing Public Cubigma Functions
