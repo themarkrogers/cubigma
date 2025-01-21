@@ -17,6 +17,13 @@ Do this:
 Consider:
 * Allow the rotors to be cubes of different sizes
 
+Consider:
+* (aQ + b) % N
+  * Q = trio being encrypted
+  * N = index number of current trio
+  * a & b = constants derived from the key
+
+
 ## Later
 
 Logo (a pun: q-big-ma == cubigma):
